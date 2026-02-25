@@ -1,0 +1,115 @@
+.
+├── LICENSE
+├── README.md
+├── a.png
+├── anomaly.png
+├── anomaly_2026.png
+├── anomaly_interval.png
+├── b.png
+├── deltat.png
+├── deltat_cache.png
+├── deltat_diff.png
+├── drift.png
+├── drift_m.png
+├── drift_trads.png
+├── equinox.png
+├── final_drift.png
+├── final_sigma.png
+├── leap2.png
+├── leapmonth.png
+├── leapmonth_barcode.png
+├── losar2400.png
+├── offsets_raw.csv
+├── offsets_raw_hist.png
+├── offsets_raw_hist_b.png
+├── offsets_raw_hist_k.png
+├── offsets_raw_hist_m.png
+├── offsets_raw_hist_p.png
+├── offsets_raw_hist_t.png
+├── project_structure.txt
+├── pyproject.toml
+├── src
+│   └── caltib
+│       ├── __init__.py
+│       ├── _bootstrap.py
+│       ├── api.py
+│       ├── api_init.py
+│       ├── attributes
+│       │   ├── __init__.py
+│       │   ├── registry.py
+│       │   └── standard.py
+│       ├── cli.py
+│       ├── core
+│       │   ├── __init__.py
+│       │   ├── engine.py
+│       │   ├── errors.py
+│       │   ├── time.py
+│       │   └── types.py
+│       ├── design
+│       │   ├── __init__.py
+│       │   └── ephem
+│       │       └── __init__.py
+│       ├── diagnostics
+│       │   ├── __init__.py
+│       │   ├── compare_to_l5.py
+│       │   ├── ephem
+│       │   │   ├── __init__.py
+│       │   │   ├── analysis_trads.py
+│       │   │   ├── anomaly_trads.py
+│       │   │   ├── drift_quad_fit.py
+│       │   │   ├── drift_trads.py
+│       │   │   └── offsets_trads.py
+│       │   ├── equinox_trads.py
+│       │   ├── leap_months.py
+│       │   ├── losar_scatter.py
+│       │   ├── new_years_table.py
+│       │   ├── pretty_month.py
+│       │   └── round_trip.py
+│       ├── engines
+│       │   ├── __init__.py
+│       │   ├── _deltat.py
+│       │   ├── _fp.py
+│       │   ├── _fundamental.py
+│       │   ├── _rational.py
+│       │   ├── _series.py
+│       │   ├── _solver.py
+│       │   ├── _sunrise.py
+│       │   ├── _trans.py
+│       │   ├── affine_series.py
+│       │   ├── l6
+│       │   │   ├── __init__.py
+│       │   │   └── engine.py
+│       │   ├── menu.py
+│       │   ├── rational_day.py
+│       │   ├── rational_month.py
+│       │   ├── reform.py
+│       │   ├── sin_tables.py
+│       │   ├── specs.py
+│       │   └── trad.py
+│       ├── ephemeris
+│       │   ├── __init__.py
+│       │   ├── de422.py
+│       │   └── update_deltat_table.py
+│       └── reference
+│           ├── __init__.py
+│           ├── astro_args.py
+│           ├── data
+│           │   ├── __init__.py
+│           │   └── deltat_iers_monthly.csv
+│           ├── deltat.py
+│           └── time_scales.py
+└── tests
+    ├── analysis_trads.py
+    ├── anomaly_trads.py
+    ├── drift_quad_fit.py
+    ├── drift_trads.py
+    ├── equinox_trads.py
+    ├── losar_list.py
+    ├── plot_deltat.py
+    ├── pretty_month.py
+    ├── raw_offsets_hist.py
+    ├── round_trip.py
+    ├── test_astro_args.py
+    └── test_time_scales.py
+
+15 directories, 98 files
