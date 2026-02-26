@@ -1,34 +1,19 @@
-# caltib (skeleton)
+# caltib
 
-A Tibetan calendar toolkit designed to host:
-- Traditional engines (Phugpa, Tsurphu, Bhutan, Mongol, Karana, …)
-- Reform engines L1–L5 (and optional L6 via ephemeris)
-- Engine-agnostic **attributes** (weekday, sexagenary labels, etc.)
-- Optional diagnostics (core, plus ephemeris/DE-based validation)
+A high-precision Python library implementing traditional Tibetan lunisolar calendars, complete with analytical design tools for structural validation and calendar reform.
 
-This repository is a **starter scaffold**: the public API and internal architecture are in place,
-while the detailed calendrical math is left for implementation.
+This package provides a rigorous framework for evaluating historical algorithms, testing N-body ephemeris models, and generating optimal fixed-point parameters for modern calendrical computation.
 
-## Install (development)
+## Core Capabilities
+
+* **Traditional Engines:** Exact implementations of historical Tibetan and regional calendars (Phugpa, Tsurphu, Bhutan, Mongol, Karana).
+* **Reform Engines:** Modernized lunisolar algorithms (L1–L5) and continuous floating-point implementations (L6) backed by JPL N-body ephemerides.
+* **Astronomical Reference Models:** High-precision continuous solar and lunar series grounded in modern theory (ELP2000/82, IAU coordinate frames) optimized for calendar-grade accuracy.
+* **Design & Approximation Tools:** A suite of analytical tools to generate mathematically optimal calendar constants (rational convergents, dyadic fractions, minimax polynomials, and Padé approximants).
+* **Engine-Agnostic Attributes:** Universal evaluation of weekdays, sexagenary cycles, and leap month mechanics.
+
+## Installation
+
+Install the base package in development mode:
 ```bash
 pip install -e .
-```
-
-## Optional extras
-- Ephemeris-backed diagnostics + optional L6:
-  ```bash
-  pip install -e ".[ephemeris]"
-  ```
-- Diagnostics reporting helpers:
-  ```bash
-  pip install -e ".[diagnostics]"
-  ```
-
-## Quick test
-```python
-from datetime import date
-import caltib
-
-print(caltib.list_engines())
-print(caltib.day_info(date(2026,2,21), engine="phugpa", attributes=("weekday",), debug=True))
-```

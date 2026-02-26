@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>caltib - High-Precision Tibetan Calendar Library</title>
+    <link rel="stylesheet" href="style.css">
+    <meta name="description" content="A Python package for precise astronomical computation, reference modeling, and mathematical reform of the Tibetan lunisolar calendar.">
+</head>
+<body>
+    <header>
+        <div class="container nav-bar">
+            <div class="logo">caltib</div>
+            <nav>
+                <a href="https://github.com/gantemur/caltib">GitHub Repository</a>
+                <a href="#installation">Installation</a>
+                <a href="#api">Documentation</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <h1>High-Precision Tibetan Calendrical Math</h1>
+                <p class="subtitle">
+                    A rigorous Python library implementing traditional historical algorithms, continuous N-body astronomical reference models, and analytical tools for modern calendar reform.
+                </p>
+                <div class="cta-group">
+                    <a href="https://github.com/gantemur/caltib" class="btn btn-outline">View Source on GitHub</a>
+                    <a href="app.html" class="btn btn-primary">Launch Live Web Calendar &rarr;</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="features container">
+            <div class="feature-card">
+                <h3>Historical Accuracy</h3>
+                <p>Exact, faithful implementations of regional Tibetan algorithms, including Phugpa, Tsurphu, Bhutan, Mongol, and Karana traditions.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Astronomical Rigor</h3>
+                <p>Continuous L6 engines backed by truncated ELP2000/82 lunar series and JPL DE422 N-body numerical integration.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Design & Analysis Tools</h3>
+                <p>Built-in CLI tools to generate optimal rational convergents, dyadic approximants, and minimax polynomials for structural reform.</p>
+            </div>
+        </section>
+
+        <section id="installation" class="content-section container">
+            <h2>Installation</h2>
+            <p>Install the base package via pip. For advanced diagnostics and continuous ephemeris validation, install the optional dependencies.</p>
+            <div class="code-block">
+                <pre><code># Base installation
+pip install caltib
+
+# Include ephemeris data and diagnostic plotting tools
+pip install "caltib[ephemeris,diagnostics]"</code></pre>
+            </div>
+        </section>
+
+        <section id="api" class="content-section container">
+            <h2>Quickstart API</h2>
+            <p>The library provides a clean, unified interface to query both discrete traditional engines and continuous astronomical models.</p>
+            <div class="code-block">
+                <pre><code>from datetime import date
+import caltib
+
+# Evaluate the traditional Phugpa calendar
+day_data = caltib.day_info(
+    date(2026, 2, 21), 
+    engine="phugpa", 
+    attributes=("weekday", "sexagenary"),
+    debug=True
+)
+
+print(day_data)</code></pre>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Tsogtgerel Gantumur. Released under the MIT License.</p>
+        </div>
+    </footer>
+</body>
+</html>

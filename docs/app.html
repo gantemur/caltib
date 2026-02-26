@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>caltib - Live Web Calendar</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="stylesheet" href="https://pyscript.net/releases/2023.11.1/core.css" />
+    <script type="module" src="https://pyscript.net/releases/2023.11.1/core.js"></script>
+
+    <py-config>
+        # Update this filename to match the exact wheel file in your docs folder!
+        packages = ["./caltib-0.1.0-py3-none-any.whl"]
+    </py-config>
+</head>
+<body>
+    <header>
+        <div class="container nav-bar">
+            <div class="logo">caltib</div>
+            <nav>
+                <a href="index.html">&larr; Back to Documentation</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container" style="padding-top: 40px; padding-bottom: 60px;">
+        <div class="content-section">
+            <h2>Live Calendar Evaluation</h2>
+            <p>This calendar engine is running completely client-side in your browser using WebAssembly and the <code>caltib</code> Python package.</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label for="year">Year:</label><br>
+                        <input type="number" id="year" value="2026" style="padding: 8px; width: 100px;">
+                    </div>
+                    <div>
+                        <label for="month">Month:</label><br>
+                        <input type="number" id="month" value="2" style="padding: 8px; width: 80px;">
+                    </div>
+                    <div>
+                        <label for="day">Day:</label><br>
+                        <input type="number" id="day" value="21" style="padding: 8px; width: 80px;">
+                    </div>
+                    <div>
+                        <label for="engine">Engine:</label><br>
+                        <select id="engine" style="padding: 8px;">
+                            <option value="phugpa">Phugpa</option>
+                            <option value="tsurphu">Tsurphu</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button id="calc-btn" class="btn btn-primary" py-click="run_calendar">Calculate Date</button>
+            </div>
+
+            <div id="calendar-output" class="code-block">
+                Initializing Python environment... Please wait.
+            </div>
+        </div>
+    </main>
+
+    <script type="py">
+        import js
+        from datetime import date
+        import caltib
+
+        # Tell the user the environment is ready
+        display_div = js.document.getElementById("calendar-output")
+        display_div.innerText = "Python environment loaded. Ready to calculate."
+
+        def run_calendar(event):
+            try:
+                # Grab values from the HTML inputs
+                y = int(js.document.getElementById("year").value)
+                m = int(js.document.getElementById("month").value)
+                d = int(js.document.getElementById("day").value)
+                engine = js.document.getElementById("engine").value
+
+                # Call your library
+                target_date = date(y, m, d)
+                day_data = caltib.day_info(target_date, engine=engine, attributes=("weekday", "sexagenary"), debug=True)
+
+                # Format and display the result
+                display_div.innerText = str(day_data)
+                
+            except Exception as e:
+                display_div.innerText = f"Error evaluating date: {str(e)}"
+    </script>
+</body>
+</html>
