@@ -22,9 +22,21 @@ class ConstantSunrise(SunriseModel):
     def sunrise_day_fraction(self, d: date, loc: Location) -> float:
         return self.day_fraction
 
-# Placeholder L3 spherical sunrise (no EOT):
-# Implement later using only sin_turn/acos_turn and solar declination.
+
 @dataclass(frozen=True)
-class SphericalSunriseL3(SunriseModel):
-    def sunrise_day_fraction(self, d: date, loc: Location) -> float:
-        raise NotImplementedError("Spherical sunrise model not implemented in skeleton.")
+class LocationRational:
+    lat_turn: Fraction    # latitude as turns (lat_deg/360)
+    lon_turn: Fraction    # longitude as turns (positive East)
+    elev_m: Fraction = Fraction(0, 1)
+
+class SunriseRationalModel(Protocol):
+    def sunrise_utc_fraction(self, jd_utc_midnight: int, loc: LocationRational) -> Fraction: ...
+
+@dataclass(frozen=True)
+class ConstantSunriseRational(SunriseRationalModel):
+    """L1-L2: Fixed dawn in Local Mean Time (LMT), shifted by longitude to UTC."""
+    day_fraction: Fraction = Fraction(1, 4)  # Default 6:00 AM LMT
+    
+    def sunrise_utc_fraction(self, jd_utc_midnight: int, loc: LocationRational) -> Fraction:
+        # dawn_UTC = dawn_LMT - longitude_offset
+        return self.day_fraction - loc.lon_turn

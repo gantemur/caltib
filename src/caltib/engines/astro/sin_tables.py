@@ -85,3 +85,35 @@ class OddPeriodicTable:
         # reduce x mod 1
         x = _frac_part(x_turn)
         return self.eval_u(x * self.N)
+
+    def asin_turn(self, y: Fraction) -> Fraction:
+        """
+        Inverse lookup: given table-unit y, return the phase in turns [-1/4, 1/4].
+        Assumes the quarter table represents monotonically increasing values.
+        """
+        if y < 0:
+            return -self.asin_turn(-y)
+            
+        v_max = Fraction(self.quarter[-1], 1)
+        if y >= v_max:
+            return Fraction(1, 4)
+            
+        # Locate the interval
+        lo, hi = 0, len(self.quarter) - 1
+        while lo + 1 < hi:
+            mid = (lo + hi) // 2
+            if Fraction(self.quarter[mid], 1) <= y:
+                lo = mid
+            else:
+                hi = mid
+                
+        y0 = Fraction(self.quarter[lo], 1)
+        y1 = Fraction(self.quarter[lo + 1], 1)
+        t = (y - y0) / (y1 - y0)
+        
+        # Grid index is lo + t. Turn fraction is (lo + t) / N.
+        return (Fraction(lo, 1) + t) / Fraction(self.N, 1)
+
+    def acos_turn(self, y: Fraction) -> Fraction:
+        """arccos(y) in turns [0, 1/2]."""
+        return Fraction(1, 4) - self.asin_turn(y)

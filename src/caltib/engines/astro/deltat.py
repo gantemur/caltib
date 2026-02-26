@@ -134,20 +134,20 @@ class TableDeltaT(DeltaTModel):
 # ============================================================
 
 class DeltaTRationalModel(Protocol):
-    def delta_t_seconds(self, year_decimal: Fraction) -> Fraction: ...
+    def delta_t_seconds(self, jd_tt: Fraction) -> Fraction: ...
     def info(self) -> Dict[str, object]: ...
 
 
 @dataclass(frozen=True)
 class ConstantDeltaTRational(DeltaTRationalModel):
     value: Fraction
-    def delta_t_seconds(self, year_decimal: Fraction) -> Fraction:
+    def delta_t_seconds(self, jd_tt: Fraction) -> Fraction:
         return self.value
     def info(self) -> Dict[str, object]:
         return {"type": "constant-rational", "value": str(self.value)}
 
 
-@dataclass(frozen=True)
+# Example implementation shifting the year calculation inside the model
 class QuadraticDeltaTRational(DeltaTRationalModel):
     """
     ΔT(year) = a + b*u + c*u^2, u=(year-y0)/100, all Fractions.
@@ -155,11 +155,14 @@ class QuadraticDeltaTRational(DeltaTRationalModel):
     a: Fraction
     b: Fraction
     c: Fraction
-    y0: Fraction = Fraction(2000, 1)
-
-    def delta_t_seconds(self, year_decimal: Fraction) -> Fraction:
-        u = (year_decimal - self.y0) / Fraction(100, 1)
-        return self.a + self.b*u + self.c*u*u
+    y0: Fraction = Fraction(1820, 1)
+    
+    def delta_t_seconds(self, jd_tt: Fraction) -> Fraction:
+        # yd = (jd_tt - J2000) / 365.25 + 2000
+        yd = (jd_tt - Fraction(2451545, 1)) / Fraction(1461, 4) + Fraction(2000, 1)
+        u = (yd - self.y0) / Fraction(100, 1)
+        return self.a + self.b * u + self.c * u * u
 
     def info(self) -> Dict[str, object]:
         return {"type": "quadratic-rational", "a": str(self.a), "b": str(self.b), "c": str(self.c), "y0": str(self.y0)}
+

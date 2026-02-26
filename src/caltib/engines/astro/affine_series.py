@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Callable, Sequence, Tuple
+from typing import Callable, Dict, Tuple
 
 
 def frac_turn(x: Fraction) -> Fraction:
@@ -59,68 +59,90 @@ class AffineTabSeriesDN:
 
 
 # ============================================================
-# New-mode inverse: x(t) = A + B t + Σ amp*sin(phase(t))
+# New-mode inverse: x(t) = base(t) + Σ amp*table(phase(t))
 # ============================================================
 
 @dataclass(frozen=True)
 class PhaseT:
-    """θ(t) = c0 + c1*t + c2*t^2  (turns), reduced mod 1."""
+    """θ(t) = c0 + c1*t  (turns), reduced mod 1. Strictly linear for L1-L3."""
     c0: Fraction
     c1: Fraction
-    c2: Fraction = Fraction(0, 1)
 
     def eval(self, t: Fraction) -> Fraction:
-        return frac_turn(self.c0 + self.c1 * t + self.c2 * t * t)
+        return frac_turn(self.c0 + self.c1 * t)
 
 
 @dataclass(frozen=True)
-class SinTermT:
+class FundArg:
+    """Base fundamental argument: c0 + c1*t"""
+    c0: Fraction
+    c1: Fraction
+
+
+def build_phase(multipliers: Dict[str, int], funds: Dict[str, FundArg]) -> PhaseT:
+    """Collapses fundamental arguments safely at initialization time."""
+    c0 = sum((funds[k].c0 * Fraction(m, 1) for k, m in multipliers.items()), start=Fraction(0, 1))
+    c1 = sum((funds[k].c1 * Fraction(m, 1) for k, m in multipliers.items()), start=Fraction(0, 1))
+    return PhaseT(c0=c0, c1=c1)
+
+
+@dataclass(frozen=True)
+class TabTermT:
     """
-    amp * sin( phase(t) )
+    amp * table( phase(t) )
     amp is in turns (or same unit as x).
-    sin_eval_turn returns Fraction in [-1,1] (table/poly approximation decides).
+    table_eval_turn returns Fraction (table or poly approximation decides).
     """
     amp: Fraction
     phase: PhaseT
+    table_eval_turn: Callable[[Fraction], Fraction]
 
 
 @dataclass(frozen=True)
-class AffineSinSeriesT:
+class AffineTabSeriesT:
     """
-    x(t) = A + B*t + C(t),  C(t)=Σ amp_i * sin(phase_i(t)).
+    x(t) = base(t) + C(t),  C(t)=Σ amp_i * table_i(phase_i(t)).
     All arithmetic can be Fraction (L1–L3) or float (L4–L5), depending on the provider.
     """
     A: Fraction
     B: Fraction
-    terms: Tuple[SinTermT, ...]
+    terms: Tuple[TabTermT, ...]
 
-    def C(self, t: Fraction, sin_eval_turn: Callable[[Fraction], Fraction]) -> Fraction:
-        s = Fraction(0, 1)
+    def base(self, t: Fraction) -> Fraction:
+        return self.A + self.B * t
+
+    def eval(self, t: Fraction) -> Fraction:
+        s = self.base(t)
         for term in self.terms:
-            s += term.amp * sin_eval_turn(term.phase.eval(t))
+            s += term.amp * term.table_eval_turn(term.phase.eval(t))
         return s
-
-    def x(self, t: Fraction, sin_eval_turn: Callable[[Fraction], Fraction]) -> Fraction:
-        return self.A + self.B * t + self.C(t, sin_eval_turn)
 
     def picard_solve(
         self,
         x0: Fraction,
         *,
         iterations: int,
-        sin_eval_turn: Callable[[Fraction], Fraction],
         t_init: Fraction = None,
     ) -> Fraction:
         """
         Fixed iteration solver for x(t)=x0 in the contractive regime:
           t_{k+1} = t0 - C(t_k)/B,   t0=(x0-A)/B
-        This is the D.4.1 style iteration with fixed count for reproducibility.:contentReference[oaicite:7]{index=7}
+        This is the D.4.1 style iteration with fixed count for reproducibility.
         """
         if iterations <= 0:
             raise ValueError("iterations must be positive")
+            
         t0 = (x0 - self.A) / self.B
         t = t0 if t_init is None else t_init
         invB = Fraction(1, 1) / self.B
+        
         for _ in range(iterations):
-            t = t0 - self.C(t, sin_eval_turn) * invB
+            # Calculate the correction sum C(t)
+            corr = Fraction(0, 1)
+            for term in self.terms:
+                corr += term.amp * term.table_eval_turn(term.phase.eval(t))
+                
+            # Apply iteration step
+            t = t0 - corr * invB
+            
         return t

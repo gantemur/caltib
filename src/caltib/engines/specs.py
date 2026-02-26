@@ -9,6 +9,12 @@ from .rational_month import RationalMonthParams
 from .rational_day import RationalDayParams
 from .fp import FPSpec
 
+from .astro.deltat import ConstantDeltaTRational
+from .astro.sunrise import ConstantSunriseRational, LocationRational
+from .astro.affine_series import PhaseT, SinTermT, AffineSinSeriesT, FundArg, build_phase
+
+
+
 # Shared traditional tables (Appendix A style)
 MOON_TAB_QUARTER = (0, 5, 10, 15, 19, 22, 24, 25)   # length 8 = 28/4+1
 SUN_TAB_QUARTER  = (0, 6, 10, 11)                   # length 4 = 12/4+1
@@ -169,7 +175,103 @@ TRAD_SPECS = {
     "karana": KARANA,
 }
 
-# Reform engines unchanged (still stub)
+
+# ============================================================
+# REFORM FUNDAMENTAL ARGUMENTS (JD_TT -> turns)
+# Placeholders: c0 (epoch phase) and c1 (turns per day)
+# ============================================================
+FUNDS_REF = {
+    "D": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 295306)),  # ~ 1/29.53 turns/day
+    "M": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 365242)),  # ~ 1/365.24 turns/day
+    "Mp": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 275545)), # ~ 1/27.55 turns/day
+    "F": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 272122)),  # ~ 1/27.21 turns/day
+}
+
+# Standard observer location (e.g., Lhasa placeholder)
+LOC_LHASA = LocationRational(
+    lat_turn=Fraction(2965, 36000),  # ~ 29.65 deg
+    lon_turn=Fraction(9110, 36000),  # ~ 91.10 deg
+    elev_m=Fraction(3650, 1)
+)
+
+# Standard rational time conversions
+DT_CONSTANT = ConstantDeltaTRational(Fraction(70, 1))         # ~70 seconds Delta T
+DAWN_CONSTANT = ConstantSunriseRational(Fraction(1, 4))       # 6:00 AM LMT
+
+# ============================================================
+# L1 REFORM: Single Anomaly Model
+# ============================================================
+# B is the mean elongation rate (turns per day). Target x0 is in 1/30 turns.
+# In specs.py
+L1_SPEC = RationalSpec(
+    id=EngineId("reform", "l1", "0.1"),
+    month=trad_month(Y0=2026, M0=3, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    day=RationalDayParams(
+        mode="new",
+        new=RationalDayParamsNew(
+            A=Fraction(0, 1),
+            B=FUNDS_REF["D"].c1, 
+            terms=(
+                # Equation of Center proxy using the Sun table
+                TermDef(
+                    amp=Fraction(1, 60), 
+                    phase=build_phase({"M": 1}, FUNDS_REF), 
+                    table_id="sun"
+                ),
+            ),
+            iterations=3,
+            delta_t=DT_CONSTANT,
+            sunrise=DAWN_CONSTANT,
+            location=LOC_LHASA,
+            moon_tab_quarter=SINE_TAB_QUARTER,  # Plugs directly into p.moon_tab_quarter
+            sun_tab_quarter=SUN_TAB_QUARTER     # Plugs directly into p.sun_tab_quarter
+        )
+    ),
+    meta={"description": "L1 Reform: Pure declarative data"}
+)
+
+REFORM_L1 = EngineSpec(kind="rational", id=L1_SPEC.id, payload=L1_SPEC)
+
+
+# ============================================================
+# L2 REFORM: Evection and Variation Added
+# ============================================================
+L2_SERIES = AffineSinSeriesT(
+    A=Fraction(0, 1),
+    B=FUNDS_REF["D"].c1, 
+    terms=(
+        # Solar Anomaly
+        SinTermT(amp=Fraction(1, 60), phase=build_phase({"M": 1}, FUNDS_REF)),
+        # Lunar Evection: 2D - M'
+        SinTermT(amp=Fraction(15, 1000), phase=build_phase({"D": 2, "Mp": -1}, FUNDS_REF)),
+        # Lunar Variation: 2D
+        SinTermT(amp=Fraction(11, 1000), phase=build_phase({"D": 2}, FUNDS_REF)),
+    )
+)
+
+L2_SPEC = RationalSpec(
+    id=EngineId("reform", "l2", "0.1"),
+    month=trad_month(Y0=2026, M0=3, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    day=RationalDayParams(
+        mode="new",
+        new=RationalDayParamsNew(
+            series=L2_SERIES,
+            iterations=4,  # Extra iteration for stability with more terms
+            delta_t=DT_CONSTANT,
+            sunrise=DAWN_CONSTANT,
+            location=LOC_LHASA,
+            sine_tab_quarter=SINE_TAB_QUARTER
+        )
+    ),
+    meta={"description": "L2 Reform: Multi-term Picard inversion"}
+)
+
+REFORM_L2 = EngineSpec(kind="rational", id=L2_SPEC.id, payload=L2_SPEC)
+
+
+
+
+# (still stub)
 REFORM_L5 = EngineSpec(
     kind="fp",
     id=EngineId("reform", "l5", "0.1"),
@@ -179,6 +281,6 @@ REFORM_L5 = EngineSpec(
     ),
 )
 
-REFORM_SPECS = {"reform-l5": REFORM_L5}
+REFORM_SPECS = {"reform-l1": REFORM_L1, "reform-l2": REFORM_L2, "reform-l5": REFORM_L5}
 
 ALL_SPECS = {**TRAD_SPECS, **REFORM_SPECS}

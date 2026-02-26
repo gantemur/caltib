@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Tuple
 
 from .astro.sin_tables import OddPeriodicTable
 from .astro.affine_series import PhaseDN, TabTermDN, AffineTabSeriesDN, PhaseT, SinTermT, AffineSinSeriesT
+from .astro.deltat import DeltaTRationalModel
+from .astro.sunrise import SunriseRationalModel, LocationRational
 
 
 def frac_turn(x: Fraction) -> Fraction:
@@ -51,16 +53,24 @@ class RationalDayParamsTrad:
 # ------------------------------------------------------------
 
 @dataclass(frozen=True)
-class RationalDayParamsNew:
-    """
-    New-mode solver parameters for x(t)=x0 using fixed Picard iterations.
+class TermDef:
+    """Pure data representation of a series term."""
+    amp: Fraction
+    phase: PhaseT
+    table_id: str  # "moon" or "sun"
 
-    - series: x(t)=A+B*t+Σ amp*sin(phase(t)).
-    - iterations: fixed iteration count (reproducibility):contentReference[oaicite:10]{index=10}.
-    - sin_eval_turn: to be supplied by caller/engine (table or minimax poly).
-    """
-    series: AffineSinSeriesT
+@dataclass(frozen=True)
+class RationalDayParamsNew:
+    """Pure data parameters. No Callables here!"""
+    A: Fraction
+    B: Fraction
+    terms: Tuple[TermDef, ...]
     iterations: int
+    delta_t: DeltaTRationalModel
+    sunrise: SunriseRationalModel
+    location: LocationRational
+    moon_tab_quarter: Tuple[int, ...]
+    sun_tab_quarter: Tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -165,55 +175,6 @@ class RationalDayEngineTrad:
         t = self.true_date(d, n)
         return t.numerator // t.denominator
 
-    def month_bounds_jd(self, n: int) -> tuple[int, int]:
-        """(first_jd, last_jd) for lunation n in the civil-day numbering."""
-        first_jd = self.end_jd(30, n - 1) + 1
-        last_jd = self.end_jd(30, n)
-        return first_jd, last_jd
-
-    def _month_end_hits(self, n: int) -> Dict[int, List[int]]:
-        hits: Dict[int, List[int]] = {}
-        for d in range(1, 31):
-            j = self.end_jd(d, n)
-            hits.setdefault(j, []).append(d)
-        return hits
-
-    def civil_month(self, n: int) -> List[CivilDay]:
-        """
-        Civil-day labeling for lunation n over the *true* month interval:
-        jd in [ end_jd(30,n-1)+1 , end_jd(30,n) ].
-
-        If no tithi ends on a civil day, the day number repeats (repeated=True).
-        If >=2 tithis end on a civil day, earlier one(s) are skipped; we mark skipped=True
-        on the civil day whose label is the last-ended tithi.
-        """
-        hits = self._month_end_hits(n)
-        first_jd, last_jd = self.month_bounds_jd(n)
-
-        out: List[CivilDay] = []
-        prev_label: Optional[int] = None  # <- change from 1 to None
-
-        for jd in range(first_jd, last_jd + 1):
-            ended = hits.get(jd, [])
-            if not ended:
-                # month start: default label 1, but NOT repeated
-                if prev_label is None:
-                    out.append(CivilDay(jd, 1, repeated=False))
-                    prev_label = 1
-                else:
-                    out.append(CivilDay(jd, prev_label, repeated=True))
-            else:
-                label = ended[-1]
-                out.append(CivilDay(jd, label, skipped=(len(ended) >= 2)))
-                prev_label = label
-
-        return out
-
-    def lookup_civil_day(self, jd: int, n: int) -> Optional[CivilDay]:
-        for cd in self.civil_month(n):
-            if cd.jd == jd:
-                return cd
-        return None
 
 
 # ============================================================
@@ -222,12 +183,58 @@ class RationalDayEngineTrad:
 # ============================================================
 
 class RationalDayEngineNew:
-    def __init__(self, p: RationalDayParamsNew, *, sin_eval_turn):
+    def __init__(self, p: RationalDayParamsNew):
         self.p = p
-        self._sin = sin_eval_turn
+        
+        # 1. Instantiate the tables
+        moon_tab = OddPeriodicTable(N=28, quarter=p.moon_tab_quarter)
+        sun_tab = OddPeriodicTable(N=12, quarter=p.sun_tab_quarter)
+        
+        # 2. Create a lookup directory of their callables
+        eval_map = {
+            "moon": moon_tab.eval_turn,
+            "sun": sun_tab.eval_turn
+        }
+        
+        # 3. Construct the active series dynamically
+        active_terms = tuple(
+            TabTermT(
+                amp=t_def.amp, 
+                phase=t_def.phase, 
+                table_eval_turn=eval_map[t_def.table_id]
+            )
+            for t_def in p.terms
+        )
+        
+        self.series = AffineTabSeriesT(A=p.A, B=p.B, terms=active_terms)
 
-    def boundary_time(self, x0: Fraction) -> Fraction:
-        return self.p.series.picard_solve(x0, iterations=self.p.iterations, sin_eval_turn=self._sin)
+    def boundary_tt(self, x0: Fraction) -> Fraction:
+        return self.series.picard_solve(x0, iterations=self.p.iterations)
+
+    def boundary_utc(self, x0: Fraction) -> Fraction:
+        """Convert TT boundary to UTC using Rational Delta T."""
+        t_tt = self.boundary_tt(x0)
+        dt_sec = self.p.delta_t.delta_t_seconds(t_tt)
+        return t_tt - (dt_sec / Fraction(86400, 1))
+
+    def end_jd(self, x0: Fraction) -> int:
+        """
+        Determine the civil Julian Day Number on which this tithi ends.
+        
+        A tithi ends on civil day J if:  dawn_utc(J) <= t_utc < dawn_utc(J+1).
+        Standard JD shifts to the next integer at noon UTC, meaning midnight is J - 0.5.
+        Therefore, dawn_utc(J) = J - 0.5 + sunrise_utc_fraction.
+        
+        Solving for J yields: J = floor(t_utc + 0.5 - sunrise_utc_fraction).
+        """
+        t_utc = self.boundary_utc(x0)
+        
+        # Seed J to calculate the dawn fraction (crucial later for L3 variable dawn)
+        seed_j = int(t_utc) 
+        dawn_frac = self.p.sunrise.sunrise_utc_fraction(seed_j, self.p.location)
+        
+        j_exact = t_utc + Fraction(1, 2) - dawn_frac
+        return j_exact.numerator // j_exact.denominator
 
 
 # ============================================================
@@ -290,23 +297,49 @@ class RationalDayEngine:
         return self._trad.true_date(d, n)
 
     def end_jd(self, d: int, n: int) -> int:
-        if self.mode != "trad":
-            raise TypeError("end_jd(d,n) is only available in trad mode")
-        return self._trad.end_jd(d, n)
+        if self.mode == "trad":
+            return self._trad.end_jd(d, n)
+            
+        x0 = Fraction(n * 30 + d, 1)
+        return self._new.end_jd(x0)
+
+    def month_bounds_jd(self, n: int) -> tuple[int, int]:
+        """(first_jd, last_jd) for lunation n in the civil-day numbering."""
+        first_jd = self.end_jd(30, n - 1) + 1
+        last_jd = self.end_jd(30, n)
+        return first_jd, last_jd
+
+    def _month_end_hits(self, n: int) -> Dict[int, List[int]]:
+        hits: Dict[int, List[int]] = {}
+        for d in range(1, 31):
+            j = self.end_jd(d, n)
+            hits.setdefault(j, []).append(d)
+        return hits
 
     def civil_month(self, n: int) -> List[CivilDay]:
-        if self.mode != "trad":
-            raise TypeError("civil_month(n) is only available in trad mode")
-        return self._trad.civil_month(n)
+        hits = self._month_end_hits(n)
+        first_jd, last_jd = self.month_bounds_jd(n)
+
+        out: List[CivilDay] = []
+        prev_label: Optional[int] = None
+
+        for jd in range(first_jd, last_jd + 1):
+            ended = hits.get(jd, [])
+            if not ended:
+                if prev_label is None:
+                    out.append(CivilDay(jd, 1, repeated=False))
+                    prev_label = 1
+                else:
+                    out.append(CivilDay(jd, prev_label, repeated=True))
+            else:
+                label = ended[-1]
+                out.append(CivilDay(jd, label, skipped=(len(ended) >= 2)))
+                prev_label = label
+
+        return out
 
     def lookup_civil_day(self, jd: int, n: int) -> Optional[CivilDay]:
-        if self.mode != "trad":
-            raise TypeError("lookup_civil_day is only available in trad mode")
-        return self._trad.lookup_civil_day(jd, n)
-
-    # --- new-mode API ---
-    def boundary_time(self, x0: Fraction, *, sin_eval_turn) -> Fraction:
-        if self.mode != "new":
-            raise TypeError("boundary_time is only available in new mode")
-        eng = RationalDayEngineNew(self._new, sin_eval_turn=sin_eval_turn)
-        return eng.boundary_time(x0)
+        for cd in self.civil_month(n):
+            if cd.jd == jd:
+                return cd
+        return None
