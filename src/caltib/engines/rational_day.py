@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Dict, List, Optional, Tuple
 
-from .sin_tables import OddPeriodicTable
-from .affine_series import PhaseDN, TabTermDN, AffineTabSeriesDN, PhaseT, SinTermT, AffineSinSeriesT
+from .astro.sin_tables import OddPeriodicTable
+from .astro.affine_series import PhaseDN, TabTermDN, AffineTabSeriesDN, PhaseT, SinTermT, AffineSinSeriesT
 
 
 def frac_turn(x: Fraction) -> Fraction:
@@ -283,7 +283,7 @@ class RationalDayEngine:
         if self.mode != "trad":
             raise TypeError("true_sun(d,n) is only available in trad mode")
         return self._trad.true_sun(d, n)
-        
+
     def true_date(self, d: int, n: int) -> Fraction:
         if self.mode != "trad":
             raise TypeError("true_date(d,n) is only available in trad mode")

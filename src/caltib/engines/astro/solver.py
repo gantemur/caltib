@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import TypeVar
 
-from ._series import AffineSinSeries, eval_lincomb_turn
-from ._fundamental import Backend
-from ._trans import SinAcosTurnProvider
+from .series import AffineSinSeries, eval_lincomb_turn
+from .fundamental import Backend
+from .trans import SinAcosTurnProvider
 
 Num = TypeVar("Num")
 

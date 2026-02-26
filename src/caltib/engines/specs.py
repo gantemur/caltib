@@ -4,10 +4,10 @@ from fractions import Fraction
 
 from ..core.types import EngineId
 from .menu import EngineSpec
-from ._rational import RationalSpec
+from .rational import RationalSpec
 from .rational_month import RationalMonthParams
 from .rational_day import RationalDayParams
-from ._fp import FPSpec
+from .fp import FPSpec
 
 # Shared traditional tables (Appendix A style)
 MOON_TAB_QUARTER = (0, 5, 10, 15, 19, 22, 24, 25)   # length 8 = 28/4+1

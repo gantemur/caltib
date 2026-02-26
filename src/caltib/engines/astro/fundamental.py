@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Dict, Generic, Literal, Mapping, Optional, Protocol, TypeVar
 
-from ._deltat import DeltaTModel, DeltaTRationalModel
+from .deltat import DeltaTModel, DeltaTRationalModel
 
 Num = TypeVar("Num", Fraction, float)
 

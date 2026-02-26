@@ -4,8 +4,8 @@ from datetime import date
 from fractions import Fraction
 from typing import Protocol, Optional
 
-from ._trans import SinAcosTurnProvider
-from ._fundamental import FundamentalContext
+from .trans import SinAcosTurnProvider
+from .fundamental import FundamentalContext
 
 @dataclass(frozen=True)
 class Location:

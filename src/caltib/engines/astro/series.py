@@ -2,8 +2,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, Mapping, Tuple, TypeVar
 
-from ._fundamental import ArgName, FundamentalContext, Backend
-from ._trans import SinAcosTurnProvider
+from .fundamental import ArgName, FundamentalContext, Backend
+from .trans import SinAcosTurnProvider
 
 Num = TypeVar("Num")  # Fraction or float, typically
 
