@@ -67,9 +67,17 @@ class RationalEngine(CalendarEngine):
         Robust lunation finder using monotone bounds:
         first_jd(n)=end_jd(30,n-1)+1, last_jd(n)=end_jd(30,n).
         """
-        p = self.day.p
-        n = ((Fraction(jd, 1) - p.m0) / p.m1)
-        n = n.numerator // n.denominator  # floor seed
+        if self.day.mode == "trad":
+            # Traditional mode: jd ≈ m0 + n*m1  =>  n ≈ (jd - m0) / m1
+            p = self.day._trad.p
+            n_frac = (Fraction(jd, 1) - p.m0) / p.m1
+        else:
+            # New mode: n is the elongation in turns. E(t) = A + B*t
+            A = self.day._new.elong_series.A
+            B = self.day._new.elong_series.B
+            n_frac = A + B * Fraction(jd, 1)
+
+        n = n_frac.numerator // n_frac.denominator  # strict floor seed
 
         for _ in range(5000):
             first_jd = self.day.end_jd(30, n - 1) + 1

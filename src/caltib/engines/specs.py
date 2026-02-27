@@ -90,7 +90,7 @@ SINE_TAB_QUARTER = (0, 228, 444, 638, 801, 923, 998, 1024)
 # HELPER FUNCTIONS
 # ============================================================
 
-def trad_month(*, Y0: int, M0: int, beta_star: int, tau: int, leap_labeling: str) -> RationalMonthParams:
+def trad_month(*, Y0: int, M0: int = 3, beta_star: int, tau: int, leap_labeling: str) -> RationalMonthParams:
     return RationalMonthParams(
         Y0=Y0,
         M0=M0,
@@ -119,7 +119,7 @@ def trad_day(*, m0: Fraction, s0: Fraction, a0: Fraction, m1: Fraction, s1: Frac
         )
     )
 
-def reform_month(*, Y0: int, M0: int, P: int, Q: int, beta_star: int, tau: int, leap_labeling: str) -> RationalMonthParams:
+def reform_month(*, Y0: int, M0: int = 3, P: int = P_NEW, Q: int = Q_NEW, beta_star: int, tau: int = 0, leap_labeling: str = "first_is_leap") -> RationalMonthParams:
     """Fully parameterized month engine for L1-L3 reforms."""
     return RationalMonthParams(
         Y0=Y0, M0=M0, P=P, Q=Q, beta_star=beta_star, tau=tau, leap_labeling=leap_labeling
@@ -250,7 +250,7 @@ BHUTAN = EngineSpec(kind="rational", id=BHUTAN_SPEC.id, payload=BHUTAN_SPEC)
 # ------------------------------------------------------------
 KARANA_SPEC = RationalSpec(
     id=EngineId("trad", "karana", "0.1"),
-    month=trad_month(Y0=806, M0=3, beta_star=0, tau=63, leap_labeling="first_is_leap"),
+    month=trad_month(Y0=806, M0=3, beta_star=0, tau=63, leap_labeling="second_is_leap"),
     day=trad_day(
         m0=Fraction(4031063, 2),
         s0=Fraction(809, 810),
@@ -278,7 +278,7 @@ TRAD_SPECS = {
 # ============================================================
 L1_SPEC = RationalSpec(
     id=EngineId("reform", "l1", "0.1"),
-    month=reform_month(Y0=2026, M0=3, P=10000, Q=10368, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    month=reform_month(Y0=1987, M0=2, beta_star=3),
     day=reform_day(
         # Solar Series (Outputs True Sun)
         A_sun=Fraction(0, 1),
@@ -304,7 +304,7 @@ REFORM_L1 = EngineSpec(kind="rational", id=L1_SPEC.id, payload=L1_SPEC)
 # ============================================================
 L2_SPEC = RationalSpec(
     id=EngineId("reform", "l2", "0.1"),
-    month=reform_month(Y0=2026, M0=3, P=10000, Q=10368, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    month=reform_month(Y0=1987, M0=2, beta_star=3),
     day=reform_day(
         # Solar Series
         A_sun=Fraction(0, 1),
@@ -339,7 +339,7 @@ REFORM_L2 = EngineSpec(kind="rational", id=L2_SPEC.id, payload=L2_SPEC)
 # ============================================================
 L3_SPEC = RationalSpec(
     id=EngineId("reform", "l3", "0.1"),
-    month=reform_month(Y0=2026, M0=3, P=10000, Q=10368, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    month=reform_month(Y0=1987, M0=2, beta_star=3),
     day=reform_day(
         # Solar Series
         A_sun=Fraction(0, 1),

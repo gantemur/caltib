@@ -228,25 +228,43 @@ class RationalDayEngineNew:
         dt_sec = self.delta_t.delta_t_seconds(t_tt)
         return t_tt - (dt_sec / Fraction(86400, 1))
 
-    def end_jd(self, x0: Fraction) -> int:
+    def local_true_date(self, x0: Fraction) -> Fraction:
+        """
+        Calculates the exact ending time as a local Julian Date.
+        The integer part is the civil JDN. 
+        The fractional part is the elapsed time since that exact civil day's local sunrise.
+        """
         t_utc = self.boundary_utc(x0)
-        seed_j = int(t_utc) 
         
-        # Approximate dawn TT to evaluate the true sun
-        # Midnight UTC = seed_j - 0.5. 
-        # Default dawn ~ 6 AM LMT = Midnight UTC + 0.25 - longitude_offset
-        dawn_utc_approx = Fraction(seed_j, 1) - Fraction(1, 2) + Fraction(1, 4) - self.p.location.lon_turn
+        # 1. Directly find the target civil day (J) by shifting the epoch.
+        #    A standard day rolls over at 6:00 AM LMT.
+        #    t_lmt = t_utc + lon_turn
+        #    t_dawn_based = t_lmt + 0.5 (midnight to int) - 0.25 (dawn to int)
+        t_dawn_based = t_utc + self.p.location.lon_turn + Fraction(1, 4)
+        j_civil = t_dawn_based.numerator // t_dawn_based.denominator
         
-        # Shift to TT
+        # 2. Find approximate dawn TT for this specific civil day (to evaluate true sun)
+        #    Approx dawn UTC = (J - 0.5) + (0.25 - lon_turn) = J - 0.25 - lon_turn
+        dawn_utc_approx = Fraction(j_civil, 1) - Fraction(1, 4) - self.p.location.lon_turn
+        
         dt_sec = self.delta_t.delta_t_seconds(dawn_utc_approx)
         dawn_tt_approx = dawn_utc_approx + (dt_sec / Fraction(86400, 1))
         
-        # Evaluate true sun exactly at the dawn approximation
+        # 3. Evaluate exact True Sun and exact Spherical Sunrise
         lambda_sun = self.solar_series.eval(dawn_tt_approx)
+        dawn_frac_exact = self.sunrise.sunrise_utc_fraction(j_civil, self.p.location, lambda_sun)
         
-        dawn_frac = self.sunrise.sunrise_utc_fraction(seed_j, self.p.location, lambda_sun)
-        j_exact = t_utc + Fraction(1, 2) - dawn_frac
-        return j_exact.numerator // j_exact.denominator
+        # 4. Assemble the local true date
+        #    Exact UTC time of dawn = (Midnight UTC) + dawn_frac_exact
+        dawn_utc_exact = Fraction(j_civil, 1) - Fraction(1, 2) + dawn_frac_exact
+        
+        #    True date = Civil JDN + exact fraction of the day since that exact dawn
+        return Fraction(j_civil, 1) + (t_utc - dawn_utc_exact)
+
+    def end_jd(self, x0: Fraction) -> int:
+        """The civil Julian Day Number is simply the integer part of the local true date."""
+        td = self.local_true_date(x0)
+        return td.numerator // td.denominator
 
 
 # ============================================================
@@ -266,12 +284,31 @@ class RationalDayEngine:
         else:
             raise ValueError("mode must be 'trad' or 'new'")
 
-    # --- traditional API ---
+    def true_date(self, d: int, n: int) -> Fraction:
+        """Exact fractional Julian Day offset to local dawn."""
+        if self.mode == "trad":
+            return self._trad.true_date(d, n)
+            
+        x0 = Fraction(n * 30 + d, 1)
+        return self._new.local_true_date(x0)
+
     def true_sun(self, d: int, n: int) -> Fraction:
-        """Traditional evaluation of true sun by (d,n) coordinates."""
-        if self.mode != "trad":
-            raise TypeError("true_sun(d,n) is only available in trad mode. Use true_sun_tt(jd) for new mode.")
-        return self._trad.true_sun(d, n)
+        """True solar longitude (in turns) at the moment the tithi ends."""
+        if self.mode == "trad":
+            return self._trad.true_sun(d, n)
+            
+        x0 = Fraction(n * 30 + d, 1)
+        t_tt = self._new.boundary_tt(x0)
+        return frac_turn(self._new.solar_series.eval(t_tt))
+
+    def mean_sun(self, d: int, n: int) -> Fraction:
+        """Mean solar longitude (in turns) at the moment the tithi ends."""
+        if self.mode == "trad":
+            return self._trad.mean_sun(d, n)
+            
+        x0 = Fraction(n * 30 + d, 1)
+        t_tt = self._new.boundary_tt(x0)
+        return frac_turn(self._new.solar_series.base(t_tt))
 
     # --- new continuous API ---
     def true_sun_tt(self, jd_tt: Fraction) -> Fraction:

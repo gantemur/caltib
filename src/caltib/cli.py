@@ -255,6 +255,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("sine-table", help="Generate integer tables for a quarter-period sine function.")
     sub.add_parser("minimax", help="Compute minimax odd-polynomial approximations for sin and arctan.")
     sub.add_parser("pade-arctan", help="Compute minimax Padé approximant for arctan.")
+    sub.add_parser("month-constants", help="Design tool for rational month constants.")
 
     args, rest = p.parse_known_args(argv)
 
@@ -323,6 +324,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "pade-arctan":
         return _run_module_main("caltib.design.pade_arctan", rest)
+
+    if args.cmd == "month-constants":
+        return _run_module_main("caltib.design.month_constants", rest)
 
     raise RuntimeError("unreachable")
 
