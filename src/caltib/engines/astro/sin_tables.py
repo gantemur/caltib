@@ -5,10 +5,6 @@ from fractions import Fraction
 from typing import Tuple
 
 
-def _mod_int(x: int, m: int) -> int:
-    return x % m
-
-
 def _frac_part(x: Fraction) -> Fraction:
     q = x.numerator // x.denominator
     return x - Fraction(q, 1)
@@ -17,74 +13,54 @@ def _frac_part(x: Fraction) -> Fraction:
 @dataclass(frozen=True)
 class OddPeriodicTable:
     """
-    Odd periodic lookup table with sine-like symmetries, evaluated by linear interpolation
-    between integer arguments, exactly as described around Fig. 5 and (3.34).:contentReference[oaicite:6]{index=6}
-
-    The table is specified by its quarter-wave samples:
-      quarter[i] = f(i) for i=0..N/4 (inclusive),
-    where N is the full period in "grid units" (e.g. N=28 or 12).
-
-    Evaluation:
-      - reduce u mod N to [0,N)
-      - odd symmetry around N/2 gives sign
-      - mirror into [0,N/4]
-      - linearly interpolate between integers
+    Odd periodic lookup table evaluated by linear interpolation.
+    N (full period nodes) and amplitude are automatically deduced.
     """
-    N: int
-    quarter: Tuple[int, ...]  # length must be N/4 + 1
+    quarter: Tuple[int, ...]  # monotone 0..peak
 
     def __post_init__(self) -> None:
-        if self.N <= 0 or self.N % 4 != 0:
-            raise ValueError("N must be positive and divisible by 4")
-        if len(self.quarter) != self.N // 4 + 1:
-            raise ValueError("quarter must have length N/4 + 1")
+        if len(self.quarter) < 2:
+            raise ValueError("quarter table must have at least 2 elements")
+            
+        # Deduce N and amplitude directly from the table shape
+        object.__setattr__(self, "N", 4 * (len(self.quarter) - 1))
+        object.__setattr__(self, "amplitude", self.quarter[-1])
 
     def eval_u(self, u: Fraction) -> Fraction:
-        """
-        Evaluate at real argument u (in grid units), returning the table value (in table units).
-        """
-        # Reduce u mod N to [0, N)
-        u0 = u - Fraction(self.N, 1) * Fraction((u.numerator // u.denominator) // self.N, 1)
-        # The above uses floor(u) first; for safety do exact modulo via fractional part:
-        # u = k + r, r in [0,1); but here u is in grid units. Better:
-        # compute integer k=floor(u/N), then u0=u-kN.
+        """Evaluate at real argument u (in grid units). Returns raw table units."""
         k = (u.numerator // u.denominator) // self.N
         u0 = u - Fraction(self.N * k, 1)
 
-        # Map into [0, N)
         if u0 < 0:
-            # ensure positivity
             k2 = (-u0.numerator // u0.denominator) // self.N + 1
             u0 = u0 + Fraction(self.N * k2, 1)
 
-        # Odd symmetry about N/2: f(N - x) = -f(x)
         sign = 1
         if u0 > Fraction(self.N, 2):
             sign = -1
             u0 = Fraction(self.N, 1) - u0
 
-        # Mirror into [0, N/4]: f(N/2 - x) = f(x)
         if u0 > Fraction(self.N, 4):
             u0 = Fraction(self.N, 2) - u0
 
-        # Now u0 in [0, N/4]
-        i = int(u0)  # floor
+        i = int(u0)
         if i >= self.N // 4:
-            return Fraction(sign * self.quarter[self.N // 4], 1)
+            return Fraction(sign * self.amplitude, 1)
 
-        t = u0 - i
+        t = u0 - Fraction(i, 1)
         v0 = Fraction(self.quarter[i], 1)
         v1 = Fraction(self.quarter[i + 1], 1)
         v = v0 + t * (v1 - v0)
         return Fraction(sign, 1) * v
 
     def eval_turn(self, x_turn: Fraction) -> Fraction:
-        """
-        Evaluate at phase x in turns: u = N * x, then apply eval_u.
-        """
-        # reduce x mod 1
+        """Evaluate at phase x in turns. Returns raw table units."""
         x = _frac_part(x_turn)
-        return self.eval_u(x * self.N)
+        return self.eval_u(x * Fraction(self.N, 1))
+
+    def eval_normalized_turn(self, x_turn: Fraction) -> Fraction:
+        """Evaluate at phase x in turns. Returns scaled fraction in [-1, 1]."""
+        return self.eval_turn(x_turn) / Fraction(self.amplitude, 1)
 
     def asin_turn(self, y: Fraction) -> Fraction:
         """
@@ -94,7 +70,7 @@ class OddPeriodicTable:
         if y < 0:
             return -self.asin_turn(-y)
             
-        v_max = Fraction(self.quarter[-1], 1)
+        v_max = Fraction(self.amplitude, 1)
         if y >= v_max:
             return Fraction(1, 4)
             
@@ -109,11 +85,31 @@ class OddPeriodicTable:
                 
         y0 = Fraction(self.quarter[lo], 1)
         y1 = Fraction(self.quarter[lo + 1], 1)
-        t = (y - y0) / (y1 - y0)
+        
+        # Safeguard against flat spots in the table
+        diff = y1 - y0
+        if diff == 0:
+            t = Fraction(0, 1)
+        else:
+            t = (y - y0) / diff
         
         # Grid index is lo + t. Turn fraction is (lo + t) / N.
         return (Fraction(lo, 1) + t) / Fraction(self.N, 1)
 
     def acos_turn(self, y: Fraction) -> Fraction:
-        """arccos(y) in turns [0, 1/2]."""
+        """arccos(y) for raw table-units y. Returns phase in turns [0, 1/2]."""
         return Fraction(1, 4) - self.asin_turn(y)
+
+    def asin_normalized_turn(self, y_norm: Fraction) -> Fraction:
+        """
+        Inverse lookup for normalized input y in [-1, 1].
+        Returns phase in turns [-1/4, 1/4].
+        """
+        return self.asin_turn(y_norm * Fraction(self.amplitude, 1))
+
+    def acos_normalized_turn(self, y_norm: Fraction) -> Fraction:
+        """
+        arccos for normalized input y in [-1, 1].
+        Returns phase in turns [0, 1/2].
+        """
+        return Fraction(1, 4) - self.asin_normalized_turn(y_norm)

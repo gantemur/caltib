@@ -9,6 +9,8 @@ from .core.types import DayInfo, TibetanDate
 from .core.time import from_jdn
 from .attributes.registry import compute_attributes
 from .engines.menu import EngineSpec, make_engine as _make_engine
+from .engines.astro.sunrise import LocationRational
+
 
 _registry: Optional[EngineRegistry] = None
 
@@ -52,6 +54,28 @@ def to_gregorian(t: TibetanDate, *, engine: Optional[str] = None, policy: str = 
 
 def explain(d: date, *, engine: str = "phugpa") -> Dict[str, Any]:
     return _reg().get(engine).explain(d)
+
+
+def get_calendar(name: str, *, location: Optional[LocationRational] = None) -> CalendarEngine:
+    """
+    Public API to fetch and build a calendar engine by name.
+    
+    Args:
+        name: The string ID of the calendar (e.g., "phugpa", "reform-l2").
+        location: Optional observer location to override the default (for L1-L3 reforms).
+    """
+    spec = EngineSpec.like(name)
+    
+    if location is not None:
+        if spec.kind == "rational" and spec.payload.day.mode == "new":
+            new_params = replace(spec.payload.day.new, location=location)
+            day_params = replace(spec.payload.day, new=new_params)
+            spec = spec.tweak(day=day_params)
+        else:
+            raise ValueError(f"Calendar '{name}' does not support location overrides. Only continuous L1-L3 reforms do.")
+
+    # Use the internal _make_engine to avoid colliding with the power-user function below
+    return _make_engine(spec)
 
 
 # ---- power users ----
@@ -142,12 +166,8 @@ def days_in_month(
 
     n = eng.month.true_month(Y, M, is_leap_month=is_leap_month)
 
-    # reconstruct which tithis ended on each civil day (needed to explain skips)
-    ends = {}
-    for d in range(1, 31):
-        j = eng.day.end_jd(d, n)   # trad mode only
-        ends.setdefault(j, []).append(d)
-
+    # Use the wrapper's unified method! Works for both Trad and L1-L3 natively.
+    ends = eng.day._month_end_hits(n)
     cm = eng.day.civil_month(n)
 
     rows = []
@@ -163,6 +183,7 @@ def days_in_month(
             "skipped_labels": skipped_labels,
         })
     return rows
+
 
 def true_date_dn(d: int, n: int, *, engine: str = "phugpa"):
     """Trad-mode diagnostic: return true_date(d,n) as Fraction."""
@@ -308,7 +329,7 @@ def new_year_day(
         "n_last": n_last,
     }
     if as_date:
-        out["date"] = from_jdn(jdn)  # or from_jdn(jdn), depending on your api.py helper name
+        out["date"] = from_jdn(jdn)
 
     if debug:
         out["engine"] = eng.info()

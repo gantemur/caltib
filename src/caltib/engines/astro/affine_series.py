@@ -85,6 +85,11 @@ def build_phase(multipliers: Dict[str, int], funds: Dict[str, FundArg]) -> Phase
     c1 = sum((funds[k].c1 * Fraction(m, 1) for k, m in multipliers.items()), start=Fraction(0, 1))
     return PhaseT(c0=c0, c1=c1)
 
+@dataclass(frozen=True)
+class TermDef:
+    """Pure data representation of a continuous series term (for specs.py)."""
+    amp: Fraction
+    phase: PhaseT
 
 @dataclass(frozen=True)
 class TabTermT:

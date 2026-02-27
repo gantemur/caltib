@@ -1,26 +1,22 @@
 from __future__ import annotations
 
+from typing import Tuple
 from fractions import Fraction
 
 from ..core.types import EngineId
 from .menu import EngineSpec
 from .rational import RationalSpec
 from .rational_month import RationalMonthParams
-from .rational_day import RationalDayParams
+from .rational_day import RationalDayParams, RationalDayParamsNew, RationalDayParamsTrad
 from .fp import FPSpec
 
-from .astro.deltat import ConstantDeltaTRational
-from .astro.sunrise import ConstantSunriseRational, LocationRational
-from .astro.affine_series import PhaseT, SinTermT, AffineSinSeriesT, FundArg, build_phase
+from .astro.deltat import DeltaTRationalDef, ConstantDeltaTRationalDef, QuadraticDeltaTRationalDef
+from .astro.affine_series import TermDef, FundArg, build_phase
+from .astro.sunrise import LocationRational, ConstantSunriseRationalDef, SunriseRationalDef, SphericalSunriseRationalDef
 
-
-
-# Shared traditional tables (Appendix A style)
-MOON_TAB_QUARTER = (0, 5, 10, 15, 19, 22, 24, 25)   # length 8 = 28/4+1
-SUN_TAB_QUARTER  = (0, 6, 10, 11)                   # length 4 = 12/4+1
-
-# New tables
-SINE_TAB_QUARTER = (0, 228, 444, 638, 801, 923, 998, 1024)   # length 8 = 28/4+1
+# ============================================================
+# TRADITIONAL CONSTANTS
+# ============================================================
 
 # Shared “Tibetan” month ratio in paper convention p<q:
 #   P=65, Q=67, ell=2
@@ -39,6 +35,60 @@ A1_KAR = Fraction(253, 3528)
 
 A2_STD = Fraction(1, 28)
 
+# Shared traditional tables (Appendix A style)
+MOON_TAB_QUARTER = (0, 5, 10, 15, 19, 22, 24, 25)   # length 8 = 28/4+1
+SUN_TAB_QUARTER  = (0, 6, 10, 11)                   # length 4 = 12/4+1
+
+
+# ============================================================
+# REFORM CONSTANTS & LOCATIONS
+# ============================================================
+
+# Shared month ratio in paper convention p<q:
+#   P=1336, Q=1377, ell=123
+P_NEW = 1336
+Q_NEW = 1377
+
+# Fundamental arguments
+FUNDS_REF = {
+    "D": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 295306)),
+    "M": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 365242)),
+    "Mp": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 275545)),
+    "F": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 272122)),
+}
+
+# Standard locatinos
+LOC_LHASA = LocationRational(
+    lat_turn=Fraction(2965, 36000), 
+    lon_turn=Fraction(9110, 36000), 
+    elev_m=Fraction(3650, 1)  # Converted to Fraction
+)
+
+# Constant Delta T: 55.3s in 1987, 63.8s in 2000, 69.2s in early 2026
+DT_CONSTANT_DEF = ConstantDeltaTRationalDef(Fraction(69, 1))
+# Quadratic Delta T: -20 + 32 * ((year - 1820) / 100)^2
+DT_QUADRATIC_DEF = QuadraticDeltaTRationalDef(
+    a=Fraction(-20, 1), 
+    b=Fraction(0, 1), 
+    c=Fraction(32, 1), 
+    y0=Fraction(1820, 1)
+)
+
+# Constant sunrise (89/360 for 5:56am,  1/4 for 6:00am)
+DAWN_CONSTANT_DEF = ConstantSunriseRationalDef(Fraction(90, 360))
+# Spherical sunrise constants (h0 = -0.833 deg, eps = 23.44 deg)
+DAWN_SPHERICAL_DEF = SphericalSunriseRationalDef(
+    h0_turn=Fraction(-1, 432), 
+    eps_turn=Fraction(2344, 36000)
+)
+
+# New tables
+SINE_TAB_QUARTER = (0, 228, 444, 638, 801, 923, 998, 1024)
+
+
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
 
 def trad_month(*, Y0: int, M0: int, beta_star: int, tau: int, leap_labeling: str) -> RationalMonthParams:
     return RationalMonthParams(
@@ -51,22 +101,68 @@ def trad_month(*, Y0: int, M0: int, beta_star: int, tau: int, leap_labeling: str
         leap_labeling=leap_labeling,
     )
 
-
 def trad_day(*, m0: Fraction, s0: Fraction, a0: Fraction, m1: Fraction, s1: Fraction, a1: Fraction) -> RationalDayParams:
     return RationalDayParams(
         mode="trad",
-        m0=m0,
-        m1=m1,
-        m2=m1 / 30,
-        s0=s0,
-        s1=s1,
-        s2=s1 / 30,
-        a0=a0,
-        a1=a1,
-        a2=A2_STD,
-        moon_tab_quarter=MOON_TAB_QUARTER,
-        sun_tab_quarter=SUN_TAB_QUARTER,
+        trad=RationalDayParamsTrad(
+            m0=m0,
+            m1=m1,
+            m2=m1 / 30,
+            s0=s0,
+            s1=s1,
+            s2=s1 / 30,
+            a0=a0,
+            a1=a1,
+            a2=A2_STD,
+            moon_tab_quarter=MOON_TAB_QUARTER,
+            sun_tab_quarter=SUN_TAB_QUARTER,
+        )
     )
+
+def reform_month(*, Y0: int, M0: int, P: int, Q: int, beta_star: int, tau: int, leap_labeling: str) -> RationalMonthParams:
+    """Fully parameterized month engine for L1-L3 reforms."""
+    return RationalMonthParams(
+        Y0=Y0, M0=M0, P=P, Q=Q, beta_star=beta_star, tau=tau, leap_labeling=leap_labeling
+    )
+
+def reform_day(
+    *,
+    A_sun: Fraction,
+    B_sun: Fraction,
+    solar_terms: Tuple[TermDef, ...],
+    A_moon: Fraction,
+    B_moon: Fraction,
+    lunar_terms: Tuple[TermDef, ...],
+    iterations: int = 1,
+    delta_t: DeltaTRationalDef = DT_CONSTANT_DEF,
+    sunrise: SunriseRationalDef = DAWN_CONSTANT_DEF,
+    location: LocationRational = LOC_LHASA,
+    moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
+    sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
+) -> RationalDayParams:
+    """Helper to cleanly build L1-L3 continuous engine parameters with standard defaults."""
+    return RationalDayParams(
+        mode="new",
+        new=RationalDayParamsNew(
+            A_sun=A_sun,
+            B_sun=B_sun,
+            solar_terms=solar_terms,
+            A_moon=A_moon,
+            B_moon=B_moon,
+            lunar_terms=lunar_terms,
+            iterations=iterations,
+            delta_t=delta_t,
+            sunrise=sunrise,
+            location=location,
+            moon_tab_quarter=moon_tab_quarter,
+            sun_tab_quarter=sun_tab_quarter
+        )
+    )
+
+
+# ============================================================
+# ENGINE SPECIFICATIONS
+# ============================================================
 
 
 # ------------------------------------------------------------
@@ -176,59 +272,29 @@ TRAD_SPECS = {
 }
 
 
-# ============================================================
-# REFORM FUNDAMENTAL ARGUMENTS (JD_TT -> turns)
-# Placeholders: c0 (epoch phase) and c1 (turns per day)
-# ============================================================
-FUNDS_REF = {
-    "D": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 295306)),  # ~ 1/29.53 turns/day
-    "M": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 365242)),  # ~ 1/365.24 turns/day
-    "Mp": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 275545)), # ~ 1/27.55 turns/day
-    "F": FundArg(c0=Fraction(0, 1), c1=Fraction(10000, 272122)),  # ~ 1/27.21 turns/day
-}
-
-# Standard observer location (e.g., Lhasa placeholder)
-LOC_LHASA = LocationRational(
-    lat_turn=Fraction(2965, 36000),  # ~ 29.65 deg
-    lon_turn=Fraction(9110, 36000),  # ~ 91.10 deg
-    elev_m=Fraction(3650, 1)
-)
-
-# Standard rational time conversions
-DT_CONSTANT = ConstantDeltaTRational(Fraction(70, 1))         # ~70 seconds Delta T
-DAWN_CONSTANT = ConstantSunriseRational(Fraction(1, 4))       # 6:00 AM LMT
 
 # ============================================================
 # L1 REFORM: Single Anomaly Model
 # ============================================================
-# B is the mean elongation rate (turns per day). Target x0 is in 1/30 turns.
-# In specs.py
 L1_SPEC = RationalSpec(
     id=EngineId("reform", "l1", "0.1"),
-    month=trad_month(Y0=2026, M0=3, beta_star=0, tau=0, leap_labeling="first_is_leap"),
-    day=RationalDayParams(
-        mode="new",
-        new=RationalDayParamsNew(
-            A=Fraction(0, 1),
-            B=FUNDS_REF["D"].c1, 
-            terms=(
-                # Equation of Center proxy using the Sun table
-                TermDef(
-                    amp=Fraction(1, 60), 
-                    phase=build_phase({"M": 1}, FUNDS_REF), 
-                    table_id="sun"
-                ),
-            ),
-            iterations=3,
-            delta_t=DT_CONSTANT,
-            sunrise=DAWN_CONSTANT,
-            location=LOC_LHASA,
-            moon_tab_quarter=SINE_TAB_QUARTER,  # Plugs directly into p.moon_tab_quarter
-            sun_tab_quarter=SUN_TAB_QUARTER     # Plugs directly into p.sun_tab_quarter
-        )
+    month=reform_month(Y0=2026, M0=3, P=10000, Q=10368, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    day=reform_day(
+        # Solar Series (Outputs True Sun)
+        A_sun=Fraction(0, 1),
+        B_sun=FUNDS_REF["M"].c1, 
+        solar_terms=(
+            TermDef(amp=Fraction(1, 60), phase=build_phase({"M": 1}, FUNDS_REF)),
+        ),
+        
+        # Lunar Series (Outputs True Moon)
+        A_moon=Fraction(0, 1),
+        B_moon=FUNDS_REF["D"].c1 + FUNDS_REF["M"].c1, 
+        lunar_terms=(),
     ),
-    meta={"description": "L1 Reform: Pure declarative data"}
+    meta={"description": "L1 Reform: Single anomaly, split physical series"}
 )
+
 
 REFORM_L1 = EngineSpec(kind="rational", id=L1_SPEC.id, payload=L1_SPEC)
 
@@ -236,40 +302,75 @@ REFORM_L1 = EngineSpec(kind="rational", id=L1_SPEC.id, payload=L1_SPEC)
 # ============================================================
 # L2 REFORM: Evection and Variation Added
 # ============================================================
-L2_SERIES = AffineSinSeriesT(
-    A=Fraction(0, 1),
-    B=FUNDS_REF["D"].c1, 
-    terms=(
-        # Solar Anomaly
-        SinTermT(amp=Fraction(1, 60), phase=build_phase({"M": 1}, FUNDS_REF)),
-        # Lunar Evection: 2D - M'
-        SinTermT(amp=Fraction(15, 1000), phase=build_phase({"D": 2, "Mp": -1}, FUNDS_REF)),
-        # Lunar Variation: 2D
-        SinTermT(amp=Fraction(11, 1000), phase=build_phase({"D": 2}, FUNDS_REF)),
-    )
-)
-
 L2_SPEC = RationalSpec(
     id=EngineId("reform", "l2", "0.1"),
-    month=trad_month(Y0=2026, M0=3, beta_star=0, tau=0, leap_labeling="first_is_leap"),
-    day=RationalDayParams(
-        mode="new",
-        new=RationalDayParamsNew(
-            series=L2_SERIES,
-            iterations=4,  # Extra iteration for stability with more terms
-            delta_t=DT_CONSTANT,
-            sunrise=DAWN_CONSTANT,
-            location=LOC_LHASA,
-            sine_tab_quarter=SINE_TAB_QUARTER
-        )
+    month=reform_month(Y0=2026, M0=3, P=10000, Q=10368, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    day=reform_day(
+        # Solar Series
+        A_sun=Fraction(0, 1),
+        B_sun=FUNDS_REF["M"].c1, 
+        solar_terms=(
+            # Equation of Center
+            TermDef(amp=Fraction(1, 60), phase=build_phase({"M": 1}, FUNDS_REF)),
+        ),
+        
+        # Lunar Series (3 Terms)
+        A_moon=Fraction(0, 1),
+        B_moon=FUNDS_REF["D"].c1 + FUNDS_REF["M"].c1, 
+        lunar_terms=(
+            # Principal Anomaly (Placeholder amplitude)
+            TermDef(amp=Fraction(17, 1000), phase=build_phase({"Mp": 1}, FUNDS_REF)),
+            # Evection: 2D - M'
+            TermDef(amp=Fraction(15, 1000), phase=build_phase({"D": 2, "Mp": -1}, FUNDS_REF)),
+            # Variation: 2D
+            TermDef(amp=Fraction(11, 1000), phase=build_phase({"D": 2}, FUNDS_REF)),
+        ),
+        iterations=2,  # Extra iteration for stability with 3 lunar terms
+        sunrise=DAWN_CONSTANT_DEF,  # L2 still uses constant dawn
     ),
-    meta={"description": "L2 Reform: Multi-term Picard inversion"}
+    meta={"description": "L2 Reform: 3 lunar terms, constant sunrise"}
 )
 
 REFORM_L2 = EngineSpec(kind="rational", id=L2_SPEC.id, payload=L2_SPEC)
 
 
+# ============================================================
+# L3 REFORM: Full 5-Term Orbit, Spherical Dawn, Quadratic Delta T
+# ============================================================
+L3_SPEC = RationalSpec(
+    id=EngineId("reform", "l3", "0.1"),
+    month=reform_month(Y0=2026, M0=3, P=10000, Q=10368, beta_star=0, tau=0, leap_labeling="first_is_leap"),
+    day=reform_day(
+        # Solar Series
+        A_sun=Fraction(0, 1),
+        B_sun=FUNDS_REF["M"].c1, 
+        solar_terms=(
+            TermDef(amp=Fraction(1, 60), phase=build_phase({"M": 1}, FUNDS_REF)),
+        ),
+        
+        # Lunar Series (5 Terms)
+        A_moon=Fraction(0, 1),
+        B_moon=FUNDS_REF["D"].c1 + FUNDS_REF["M"].c1, 
+        lunar_terms=(
+            TermDef(amp=Fraction(17, 1000), phase=build_phase({"Mp": 1}, FUNDS_REF)),
+            TermDef(amp=Fraction(15, 1000), phase=build_phase({"D": 2, "Mp": -1}, FUNDS_REF)),
+            TermDef(amp=Fraction(11, 1000), phase=build_phase({"D": 2}, FUNDS_REF)),
+            TermDef(amp=Fraction(2, 1000), phase=build_phase({"M": 1}, FUNDS_REF)),
+            TermDef(amp=Fraction(-1, 1000), phase=build_phase({"F": 2}, FUNDS_REF)),
+        ),
+        iterations=2,
+        delta_t=DT_QUADRATIC_DEF,
+        sunrise=DAWN_SPHERICAL_DEF,  
+    ),
+    meta={"description": "L3 Reform: 5 lunar terms, spherical dawn, quadratic time correction"}
+)
 
+REFORM_L3 = EngineSpec(kind="rational", id=L3_SPEC.id, payload=L3_SPEC)
+
+
+# ============================================================
+# L5 REFORM: Float
+# ============================================================
 
 # (still stub)
 REFORM_L5 = EngineSpec(
@@ -281,6 +382,11 @@ REFORM_L5 = EngineSpec(
     ),
 )
 
-REFORM_SPECS = {"reform-l1": REFORM_L1, "reform-l2": REFORM_L2, "reform-l5": REFORM_L5}
+REFORM_SPECS = {
+    "reform-l1": REFORM_L1, 
+    "reform-l2": REFORM_L2, 
+    "reform-l3": REFORM_L3, 
+    "reform-l5": REFORM_L5
+}
 
 ALL_SPECS = {**TRAD_SPECS, **REFORM_SPECS}
