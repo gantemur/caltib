@@ -9,7 +9,7 @@ from .astro.affine_series import PhaseDN, TabTermDN, AffineTabSeriesDN, TermDef,
 from .astro.deltat import DeltaTRationalDef, ConstantDeltaTRationalDef, QuadraticDeltaTRationalDef, ConstantDeltaTRational, QuadraticDeltaTRational
 from .astro.sunrise import LocationRational, SunriseRationalDef, ConstantSunriseRationalDef, SphericalSunriseRationalDef, ConstantSunriseRational, SphericalSunriseRational
 
-
+JD_J2000 = Fraction(2451545, 1)
 
 def frac_turn(x: Fraction) -> Fraction:
     q = x.numerator // x.denominator
@@ -53,22 +53,20 @@ class RationalDayParamsTrad:
 
 @dataclass(frozen=True)
 class RationalDayParamsNew:
-    """Pure data parameters. Solar and Lunar definitions are explicitly separated."""
     A_sun: Fraction
     B_sun: Fraction
     solar_terms: Tuple[TermDef, ...]
-
-    A_moon: Fraction
-    B_moon: Fraction
+    
+    A_elong: Fraction
+    B_elong: Fraction
     lunar_terms: Tuple[TermDef, ...]
-
+    
     iterations: int
     delta_t: DeltaTRationalDef
     sunrise: SunriseRationalDef
     location: LocationRational
     moon_tab_quarter: Tuple[int, ...]
     sun_tab_quarter: Tuple[int, ...]
-
 
 @dataclass(frozen=True)
 class RationalDayParams:
@@ -177,29 +175,33 @@ class RationalDayEngineNew:
         moon_tab = OddPeriodicTable(quarter=p.moon_tab_quarter)
         sun_tab = OddPeriodicTable(quarter=p.sun_tab_quarter)
         
-        # 2. Build Solar Series
+        # 2. Build Solar Series (Outputs True Sun)
         active_solar = tuple(
             TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
             for t in p.solar_terms
         )
         self.solar_series = AffineTabSeriesT(A=p.A_sun, B=p.B_sun, terms=active_solar)
 
-        # 3. Build Lunar Series
+        # 3. Build Lunar Series (Outputs True Moon: L_moon = Elong + L_sun)
         active_lunar = tuple(
             TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=moon_tab.eval_normalized_turn)
             for t in p.lunar_terms
         )
-        self.lunar_series = AffineTabSeriesT(A=p.A_moon, B=p.B_moon, terms=active_lunar)
+        self.lunar_series = AffineTabSeriesT(
+            A=p.A_elong + p.A_sun, 
+            B=p.B_elong + p.B_sun, 
+            terms=active_lunar
+        )
 
-        # 4. Build Elongation Series: E(t) = L_moon(t) - L_sun(t)
-        # Solar amplitudes are negated in the combined series
+        # 4. Build Elongation Series: E(t) = D_mean(t) + C_moon(t) - C_sun(t)
+        # Solar perturbation amplitudes are negated because E = Moon - Sun
         active_elong_solar = tuple(
             TabTermT(amp=-t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
             for t in p.solar_terms
         )
         self.elong_series = AffineTabSeriesT(
-            A=p.A_moon - p.A_sun, 
-            B=p.B_moon - p.B_sun, 
+            A=p.A_elong, 
+            B=p.B_elong, 
             terms=active_lunar + active_elong_solar
         )
 
@@ -219,47 +221,39 @@ class RationalDayEngineNew:
             raise TypeError("Unknown SunriseDef")
 
     def boundary_tt(self, x0: Fraction) -> Fraction:
-        """Find TT boundary by targeting elongation = x0 / 30 turns."""
-        target_elongation = x0 / Fraction(30, 1)
-        return self.elong_series.picard_solve(target_elongation, iterations=self.p.iterations)
+        """Finds the lunar day boundary in t (Days since J2000.0 TT)."""
+        return self.elong_series.picard_solve(x0, iterations=self.p.iterations)
 
     def boundary_utc(self, x0: Fraction) -> Fraction:
         t_tt = self.boundary_tt(x0)
-        dt_sec = self.delta_t.delta_t_seconds(t_tt)
+        # Make sure input to delta_t_seconds is "Days since J2000.0"
+        dt_sec = self.delta_t.delta_t_seconds(t_tt)        
+        # Returns days since J2000.0 UTC
         return t_tt - (dt_sec / Fraction(86400, 1))
 
     def local_true_date(self, x0: Fraction) -> Fraction:
-        """
-        Calculates the exact ending time as a local Julian Date.
-        The integer part is the civil JDN. 
-        The fractional part is the elapsed time since that exact civil day's local sunrise.
-        """
         t_utc = self.boundary_utc(x0)
         
-        # 1. Directly find the target civil day (J) by shifting the epoch.
-        #    A standard day rolls over at 6:00 AM LMT.
-        #    t_lmt = t_utc + lon_turn
-        #    t_dawn_based = t_lmt + 0.5 (midnight to int) - 0.25 (dawn to int)
-        t_dawn_based = t_utc + self.p.location.lon_turn + Fraction(1, 4)
+        # Shift to absolute JD for civil calendar boundary logic
+        abs_t_utc = t_utc + JD_J2000
+        
+        t_dawn_based = abs_t_utc + self.p.location.lon_turn + Fraction(1, 4)
         j_civil = t_dawn_based.numerator // t_dawn_based.denominator
         
-        # 2. Find approximate dawn TT for this specific civil day (to evaluate true sun)
-        #    Approx dawn UTC = (J - 0.5) + (0.25 - lon_turn) = J - 0.25 - lon_turn
         dawn_utc_approx = Fraction(j_civil, 1) - Fraction(1, 4) - self.p.location.lon_turn
         
-        dt_sec = self.delta_t.delta_t_seconds(dawn_utc_approx)
+        y_dawn = Fraction(2000, 1) + (dawn_utc_approx - JD_J2000) / Fraction(1461, 4)
+        dt_sec = self.delta_t.delta_t_seconds(y_dawn)
         dawn_tt_approx = dawn_utc_approx + (dt_sec / Fraction(86400, 1))
         
-        # 3. Evaluate exact True Sun and exact Spherical Sunrise
-        lambda_sun = self.solar_series.eval(dawn_tt_approx)
-        dawn_frac_exact = self.sunrise.sunrise_utc_fraction(j_civil, self.p.location, lambda_sun)
+        # Convert Dawn TT back to J2000 days for the solar series evaluation
+        t_dawn_tt = dawn_tt_approx - JD_J2000
+        lambda_sun = self.solar_series.eval(t_dawn_tt)
         
-        # 4. Assemble the local true date
-        #    Exact UTC time of dawn = (Midnight UTC) + dawn_frac_exact
+        dawn_frac_exact = self.sunrise.sunrise_utc_fraction(j_civil, self.p.location, lambda_sun)
         dawn_utc_exact = Fraction(j_civil, 1) - Fraction(1, 2) + dawn_frac_exact
         
-        #    True date = Civil JDN + exact fraction of the day since that exact dawn
-        return Fraction(j_civil, 1) + (t_utc - dawn_utc_exact)
+        return Fraction(j_civil, 1) + (abs_t_utc - dawn_utc_exact)
 
     def end_jd(self, x0: Fraction) -> int:
         """The civil Julian Day Number is simply the integer part of the local true date."""
@@ -298,17 +292,19 @@ class RationalDayEngine:
             return self._trad.true_sun(d, n)
             
         x0 = Fraction(n * 30 + d, 1)
-        t_tt = self._new.boundary_tt(x0)
-        return frac_turn(self._new.solar_series.eval(t_tt))
+        jd_tt = self._new.boundary_tt(x0)
+        # Solar series natively evaluates JD!
+        return frac_turn(self._new.solar_series.eval(jd_tt))
 
     def mean_sun(self, d: int, n: int) -> Fraction:
         """Mean solar longitude (in turns) at the moment the tithi ends."""
         if self.mode == "trad":
             return self._trad.mean_sun(d, n)
-            
+
         x0 = Fraction(n * 30 + d, 1)
-        t_tt = self._new.boundary_tt(x0)
-        return frac_turn(self._new.solar_series.base(t_tt))
+        jd_tt = self._new.boundary_tt(x0)
+        # Solar series natively evaluates JD!
+        return frac_turn(self._new.solar_series.base(jd_tt))
 
     # --- new continuous API ---
     def true_sun_tt(self, jd_tt: Fraction) -> Fraction:

@@ -37,24 +37,28 @@ class Style:
     alpha: float = 0.95
 
 
-DEFAULT_STYLES: Dict[str, Style] = {
+# Pre-defined styles for known engines
+BASE_STYLES: Dict[str, Style] = {
     "phugpa": Style("Phugpa", "phugpa", marker="o", size=22, hollow=False),
-    "tsurphu": Style("Tsurphu/Mongol", "tsurphu", marker="o", size=95, hollow=True),
-    "mongol": Style("Tsurphu/Mongol", "mongol", marker="o", size=95, hollow=True),
+    "tsurphu": Style("Tsurphu", "tsurphu", marker="o", size=95, hollow=True),
+    "mongol": Style("Mongol", "mongol", marker="o", size=95, hollow=True),
     "bhutan": Style("Bhutan", "bhutan", marker="^", size=90, hollow=True),
     "karana": Style("Karana", "karana", marker="s", size=80, hollow=True),
+    "reform-l1": Style("L1 (Mean)", "reform-l1", marker="s", size=60, hollow=True, color="tab:green", lw=1.5),
+    "reform-l2": Style("L2 (Anom)", "reform-l2", marker="^", size=75, hollow=True, color="tab:orange", lw=1.5),
+    "reform-l3": Style("L3 (Exact)", "reform-l3", marker="D", size=55, hollow=True, color="tab:purple", lw=1.5),
 }
-
 
 def parse_engines(s: str) -> List[str]:
     out = [x.strip() for x in s.split(",") if x.strip()]
-    if not (1 <= len(out) <= 3):
-        raise SystemExit("--engines must contain 1 to 3 comma-separated engines")
+    if not out:
+        raise SystemExit("--engines must contain at least one comma-separated engine")
     return out
 
 
 def is_leap_label(engine: str, Y: int, M: int) -> bool:
     info = caltib.month_info(Y, M, engine=engine, debug=False)
+    # The dictionary key "trigger" correctly flags leap months for both trad and rational engines
     return bool(info.get("trigger", False))
 
 
@@ -78,8 +82,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--title", default="Leap month pattern across traditions")
     p.add_argument(
         "--engines",
-        default="phugpa,tsurphu,bhutan",
-        help="Comma list of 1-3 engines to plot (default: phugpa,tsurphu,bhutan).",
+        default="phugpa,tsurphu,l3",
+        help="Comma list of engines to plot (default: phugpa,tsurphu,l3).",
     )
 
     # labeling controls (no tick marks)
@@ -116,10 +120,16 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     engines = parse_engines(args.engines)
     styles: List[Style] = []
-    for e in engines:
-        if e not in DEFAULT_STYLES:
-            raise SystemExit(f"Unknown engine '{e}'. Known: {sorted(DEFAULT_STYLES.keys())}")
-        styles.append(DEFAULT_STYLES[e])
+    fallback_colors = ["tab:brown", "tab:pink", "tab:cyan", "tab:olive"]
+    
+    # Build active styles, generating fallbacks for unknown engines dynamically
+    for i, e in enumerate(engines):
+        if e in BASE_STYLES:
+            styles.append(BASE_STYLES[e])
+        else:
+            color = fallback_colors[i % len(fallback_colors)]
+            styles.append(Style(e.upper(), e, marker="p", size=60, hollow=False, color=color))
+
 
     fig, ax = plt.subplots(figsize=(16, 3.6))
 

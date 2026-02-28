@@ -45,8 +45,8 @@ class QuadraticDeltaT(DeltaTModel):
     y0: float = 1820.0
     
     def delta_t_seconds(self, jd_tt: float) -> float:
-        # Convert JD_TT to decimal year (J2000 epoch = 2451545.0)
-        year_decimal = (jd_tt - 2451545.0) / 365.25 + 2000.0
+        # Convert JD_TT to decimal year (jd_tt is already counted from J2000 epoch)
+        year_decimal = jd_tt / 365.25 + 2000.0
         u = (year_decimal - self.y0) / 100.0
         
         # Horner's method for strict reproducibility and minimal error
@@ -100,8 +100,8 @@ class QuadraticDeltaTRational(DeltaTRationalModel):
     y0: Fraction = Fraction(1820, 1)
     
     def delta_t_seconds(self, jd_tt: Fraction) -> Fraction:
-        # yd = (jd_tt - J2000) / 365.25 + 2000
-        yd = (jd_tt - Fraction(2451545, 1)) / Fraction(1461, 4) + Fraction(2000, 1)
+        # yd = jd_tt / 365.25 + 2000
+        yd = jd_tt / Fraction(1461, 4) + Fraction(2000, 1)
         u = (yd - self.y0) / Fraction(100, 1)
         return self.a + u * (self.b + u * self.c)
 

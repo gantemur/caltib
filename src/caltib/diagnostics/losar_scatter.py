@@ -6,9 +6,7 @@ from datetime import date
 from typing import Dict, Tuple, Optional, List
 
 import argparse
-
 import caltib
-
 
 def _need_numpy():
     try:
@@ -17,7 +15,6 @@ def _need_numpy():
     except ImportError as e:
         raise RuntimeError('Need numpy. Install: pip install "caltib[diagnostics]"') from e
 
-
 def _need_matplotlib():
     try:
         import matplotlib.pyplot as plt
@@ -25,10 +22,8 @@ def _need_matplotlib():
     except ImportError as e:
         raise RuntimeError('Need matplotlib. Install: pip install "caltib[diagnostics]"') from e
 
-
 def day_of_year(d: date) -> int:
     return (d - date(d.year, 1, 1)).days + 1
-
 
 def days_since_winter_solstice(d: date) -> int:
     """
@@ -37,7 +32,6 @@ def days_since_winter_solstice(d: date) -> int:
     """
     ws = date(d.year - 1, 12, 22)
     return (d - ws).days + 1
-
 
 def rolling_median(np, y, win: int = 11):
     """Centered rolling median with edge padding."""
@@ -52,7 +46,6 @@ def rolling_median(np, y, win: int = 11):
         out[i] = float(np.median(ypad[i : i + win]))
     return out
 
-
 @dataclass(frozen=True)
 class Style:
     label: str
@@ -63,7 +56,6 @@ class Style:
     size: float = 16.0
     hollow: bool = False
     jitter: float = 0.0
-
 
 def build_series(np, engine: str, start_year: int, end_year: int, *, metric: str) -> Tuple["np.ndarray", "np.ndarray"]:
     years = np.arange(start_year, end_year + 1, dtype=int)
@@ -81,31 +73,51 @@ def build_series(np, engine: str, start_year: int, end_year: int, *, metric: str
 
     return years, y
 
-
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Scatter plot of Losar/Tsagaan Sar dates across traditions.")
+    p.add_argument("--start-year", type=int, default=None, help="Global start year (overrides style defaults)")
     p.add_argument("--end-year", type=int, default=2100)
     p.add_argument("--show-trend", action="store_true")
     p.add_argument("--trend-win", type=int, default=11, help="Rolling median window (odd recommended).")
-    p.add_argument("--outbase", default="new_year_scatter", help="Output base name (writes .png and .pdf)")
+    p.add_argument("--outbase", default="new_year_scatter", help="Output base name (writes .png)")
     p.add_argument(
         "--metric",
         choices=("since-solstice", "doy"),
         default="since-solstice",
         help="Y-axis metric (default: days since Dec 22).",
     )
+    p.add_argument(
+        "--engines", 
+        nargs="+", 
+        default=["phugpa", "mongol", "tsurphu", "bhutan", "l1", "l2", "l3"],
+        help="List of engines to plot."
+    )
     args = p.parse_args(argv)
 
     np = _need_numpy()
     plt = _need_matplotlib()
 
-    styles: Dict[str, Style] = {
+    # Pre-defined styles for known engines
+    base_styles: Dict[str, Style] = {
         "phugpa":  Style("Phugpa", 1447, "tab:blue",   "o", linewidths=0.0, size=12, hollow=False, jitter=0.0),
         "mongol":  Style("Mongol", 1747, "0.45",       "o", linewidths=1.2, size=18, hollow=True,  jitter=0.0),
         "tsurphu": Style("Tsurphu",1447, "tab:red",    "_", linewidths=1.0, size=18, hollow=False, jitter=0.0),
         "bhutan":  Style("Bhutan", 1754, "tab:red",    "|", linewidths=1.0, size=18, hollow=False, jitter=0.0),
-        # "karana": Style("Karana", 1027, "tab:purple", "o", linewidths=0.0, size=10, hollow=False, jitter=0.0),
+        "l1":      Style("L1 (Mean)", 1987, "tab:green", "s", linewidths=0.0, size=14, hollow=False, jitter=0.0),
+        "l2":      Style("L2 (Anom)", 1987, "tab:orange", "^", linewidths=0.0, size=15, hollow=False, jitter=0.0),
+        "l3":      Style("L3 (Exact)", 1987, "tab:purple", "D", linewidths=0.0, size=13, hollow=False, jitter=0.0),
     }
+
+    # Build active styles, generating fallbacks for unknown engines
+    styles: Dict[str, Style] = {}
+    fallback_colors = ["tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
+    
+    for i, eng in enumerate(args.engines):
+        if eng in base_styles:
+            styles[eng] = base_styles[eng]
+        else:
+            color = fallback_colors[i % len(fallback_colors)]
+            styles[eng] = Style(eng.upper(), 1987, color, "X", size=14)
 
     plt.rcParams.update({
         "font.size": 10,
@@ -117,7 +129,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "ytick.major.width": 0.8,
     })
 
-    fig, ax = plt.subplots(figsize=(9.2, 4.8), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(10.2, 4.8), constrained_layout=True)
     ax.set_axisbelow(True)
     ax.grid(True, which="major", color="0.88", linewidth=0.7)
     ax.minorticks_off()
@@ -129,9 +141,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         ax.set_ylabel("Days since winter solstice (Dec 22 = 1)")
     ax.set_title("Losar / Tsagaan Sar days across traditions")
 
-    # plot each tradition
+    # Plot each requested tradition
     for eng, st in styles.items():
-        x, y = build_series(np, eng, st.start_year, args.end_year, metric=args.metric)
+        sy = args.start_year if args.start_year is not None else st.start_year
+        if sy > args.end_year:
+            continue
+            
+        x, y = build_series(np, eng, sy, args.end_year, metric=args.metric)
         xj = x.astype(float) + st.jitter
 
         if st.hollow:
@@ -168,11 +184,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False)
 
     outbase = args.outbase
-#    fig.savefig(outbase + ".pdf")
     fig.savefig(outbase + ".png", dpi=300)
     print(f"Saved: {outbase}.png")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
