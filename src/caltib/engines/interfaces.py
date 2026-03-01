@@ -17,11 +17,14 @@ from typing import Any, Dict, List, Protocol, Union
 # A generic numeric type to support both exact Rational engines and Float engines
 NumT = Union[int, float, Fraction]
 
+from typing import Protocol, List, Dict, Any, Union
+
+NumT = Union[int, float, Fraction]
+
 class MonthEngineProtocol(Protocol):
     """
-    Strictly handles discrete arithmetic. Maps absolute lunation indices (n)
+    Handles discrete arithmetic. Maps absolute lunation indices (n)
     to human calendar labels (Year, Month, Leap status) and vice versa.
-    Knows nothing about physical time or J2000.
     """
     @property
     def epoch_k(self) -> int:
@@ -29,18 +32,20 @@ class MonthEngineProtocol(Protocol):
         ...
 
     @property
-    def sgang1(self) -> NumT:
+    def sgang_base(self) -> NumT:
         """The principal solar term (longitude anchor) for the epoch."""
         ...
 
+    # ---------------------------------------------------------
+    # 1. Civil/Human Labels (The Orchestrator's Interface)
+    # ---------------------------------------------------------
     def first_lunation(self, year: int) -> int:
         """
-        Returns the absolute lunation index (n) for the first month 
-        of the given Tibetan/Gregorian year.
+        Returns the absolute lunation index of the first lunation in the given year.
         """
         ...
 
-    def get_lunations(self, year: int, month: int) -> List[int]:
+    def get_lunations(self, tib_year: int, month_no: int) -> List[int]:
         """
         Returns the absolute lunation indices for a given Year and Month number.
         Returns:
@@ -58,6 +63,29 @@ class MonthEngineProtocol(Protocol):
         'leap_state': int (0=regular, 1=first of two, 2=second of two)
         'linear_month': int
         """
+        ...
+
+    # ---------------------------------------------------------
+    # 2. Continuous Physics (The Diagnostic Interface)
+    # ---------------------------------------------------------
+    def mean_date(self, l: NumT) -> NumT:
+        """Physical time t when Mean Elongation equals l turns."""
+        ...
+        
+    def true_date(self, l: NumT) -> NumT:
+        """Physical time t when True Elongation equals l turns."""
+        ...
+
+    def get_l_from_t2000(self, t2000: NumT) -> NumT:
+        """Inverse kinematic lookup: true elongation (in turns) at physical time t."""
+        ...
+        
+    def mean_sun(self, l: NumT) -> NumT:
+        """Mean solar longitude (turns) at the moment true_date(l)."""
+        ...
+        
+    def true_sun(self, l: NumT) -> NumT:
+        """True solar longitude (turns) at the moment true_date(l)."""
         ...
     
 
@@ -79,6 +107,13 @@ class DayEngineProtocol(Protocol):
 
     def true_date(self, x: NumT) -> NumT:
         """Returns the true physical time (Days since J2000.0) for absolute tithi x."""
+        ...
+
+    def local_civil_date(self, x: NumT) -> Fraction:
+        """
+        Civil-aligned time. Shifted such that floor(local_civil_date + J2000) 
+        accurately bounds the human day (e.g., local dawn).
+        """
         ...
 
     def true_sun(self, x: NumT) -> NumT:

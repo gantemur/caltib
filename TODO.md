@@ -56,3 +56,21 @@ This document tracks the 5-step migration to the fully modular `CalendarEngine` 
 - [ ] Build `FloatDayEngine` (L4-L5) in `fp_day.py`.
 - [ ] Build `AttributeEngine` (Elements, Animals, Weekdays).
 - [ ] Build `PlanetsEngine` (JPL / Siddhantic ephemerides).
+
+
+## Phase 1: Post-Refactor Verification & Diagnostics
+- [ ] **Run Core Ephemeris Plots:** Execute `caltib ephem raw-offsets`, `caltib ephem anomaly-trads`, and `caltib ephem drift-trads` to guarantee the J2000.0 TT coordinate shifts generate the exact same visual data as the pre-refactor monolith.
+- [ ] **Verify Civil Boundaries:** Test the skipped/repeated day logic inside `CalendarEngine._build_civil_month` against a known tricky traditional month (e.g., a month with consecutive skipped days or boundary edge cases).
+- [ ] **Audit Diagnostics API:** Ensure all diagnostic scripts in `src/caltib/diagnostics/` are fully updated to consume the new `api.py` outputs and do not rely on legacy properties.
+
+## Phase 2: The Continuous Month Engine (`RationalMonthEngine`)
+- [ ] **Draft the Math Layer:** Port the rational lunisolar model to handle continuous month boundaries. This engine will replace the discrete arithmetic table lookups with pure kinematic intersections.
+- [ ] **Implement `MonthEngineProtocol`:** Create `RationalMonthEngine` in `src/caltib/engines/rational_month.py` ensuring it exposes `get_lunations()`, `get_month_info()`, etc.
+- [ ] **Update Factory:** Add the `isinstance(spec.month_params, RationalMonthParams)` hook into `factory.py`.
+- [ ] **Draft Spec:** Create an `L4` calendar spec in `specs.py` that utilizes the new `RationalMonthEngine`.
+
+## Phase 3: High-Precision Floating-Point & Ephemeris (L4-L6)
+- [ ] **L5 Floating-Point Day Engine:** Implement `FloatDayEngine` in `fp_day.py` using minimax polynomial approximations and full-precision hex-floats to break free of rational fractional limits.
+- [ ] **L6 JPL Ephemeris Integration:** Implement `EphDayEngine` and `EphMonthEngine` in `eph_day.py`. This tier will directly query the DE422 ephemeris (or a Siddhantic equivalent) to serve as the ultimate truth layer for the calendar protocols.
+- [ ] **Update Factory for Eph/FP:** Wire the new day models into `factory.py` and update the `EngineSpec(kind="...")` literal types as necessary.
+

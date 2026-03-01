@@ -1,15 +1,9 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from datetime import date
-from typing import Any, Dict, List, Protocol
+from typing import Dict, List
 
-from .types import DayInfo, TibetanDate
-
-class CalendarEngine(Protocol):
-    def info(self) -> Dict[str, Any]: ...
-    def day_info(self, d: date, *, debug: bool = False) -> DayInfo: ...
-    def to_gregorian(self, t: TibetanDate, *, policy: str = "all") -> List[date]: ...
-    def explain(self, d: date) -> Dict[str, Any]: ...
+# Import our concrete orchestrator directly
+from caltib.engines.calendar import CalendarEngine
 
 @dataclass
 class EngineRegistry:

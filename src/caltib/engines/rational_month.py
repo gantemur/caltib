@@ -1,288 +1,237 @@
-#engines/rational_month.py
+"""
+caltib.engines.rational_month
+-----------------------------
+High-precision rational month engine.
+Maps absolute lunations (l) to physical time (t2000) using continuous 
+fractional affine series and the Picard fixed-point iteration.
+
+Assigns human calendar labels (Year, Month, Leap) dynamically using 
+true astronomical solar transits (sgang) rather than fixed arithmetic cycles.
+"""
+
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from fractions import Fraction
+from typing import Tuple, List, Dict, Any
 
+from caltib.engines.interfaces import MonthEngineProtocol, NumT
+from caltib.engines.astro.sin_tables import OddPeriodicTable
+from caltib.engines.astro.affine_series import TermDef, TabTermT, AffineTabSeriesT
 
-def _floor_div(a: int, b: int) -> int:
-    return a // b
-
-
-def amod12(x: int) -> int:
-    """Arithmetic mod giving 1..12."""
-    return ((x - 1) % 12) + 1
+def frac_turn(x: Fraction) -> Fraction:
+    """Wraps a fractional turn to [0, 1)."""
+    return x % 1
 
 
 @dataclass(frozen=True)
 class RationalMonthParams:
-    """
-    Paper convention: P=p < Q=q, ell=Q-P.
-
-    TriggerSet is a contiguous block of length ell in Z/PZ starting at tau.
-
-    We implement the "internal index" idea:
-      beta_int := beta_star + gamma_shift
-    so that trigger test becomes I_int < ell, where
-      I_int ≡ ell*M* + beta_int (mod P).
-    """
+    epoch_k: int  # Required by Protocol
+    
+    A_sun: Fraction
+    B_sun: Fraction
+    solar_terms: Tuple[TermDef, ...]
+    
+    A_elong: Fraction
+    B_elong: Fraction
+    lunar_terms: Tuple[TermDef, ...]
+    
+    iterations: int
+    moon_tab_quarter: Tuple[int, ...]
+    sun_tab_quarter: Tuple[int, ...]
+    
+    # Human Labeling Anchors
     Y0: int
     M0: int
-
-    P: int
-    Q: int
-
-    beta_star: int
-    tau: int
-
-    leap_labeling: str = "first_is_leap"
-
-    def __post_init__(self) -> None:
-        if self.P <= 0 or self.Q <= 0:
-            raise ValueError("P,Q must be positive")
-        if not (self.P < self.Q):
-            raise ValueError("Require P < Q")
-        if not (1 <= self.M0 <= 12):
-            raise ValueError("M0 must be in 1..12")
-        if not (0 <= self.tau < self.P):
-            raise ValueError("tau must be in 0..P-1")
-        if self.leap_labeling not in ("first_is_leap", "second_is_leap"):
-            raise ValueError("leap_labeling must be 'first_is_leap' or 'second_is_leap'")
+    sgang1_deg: Fraction = Fraction(0, 1)  # Input in exact degrees (e.g., 0 for Vernal Equinox)
 
     @property
-    def ell(self) -> int:
-        return self.Q - self.P
+    def sgang_base(self) -> Fraction:
+        """Converts degrees to a normalized continuous zodiac offset in turns [0, 1)."""
+        return (self.sgang1_deg / Fraction(360, 1)) % 1
+
+
+class RationalMonthEngine(MonthEngineProtocol):
+    """
+    Evaluates high-precision month kinematics via Picard iteration.
+    Assigns leap months astronomically based on solar transits.
+    Fully implements MonthEngineProtocol.
+    """
+    def __init__(self, p: RationalMonthParams):
+        self.p = p
+        
+        # 1. Instantiate the tables
+        moon_tab = OddPeriodicTable(quarter=p.moon_tab_quarter)
+        sun_tab = OddPeriodicTable(quarter=p.sun_tab_quarter)
+        
+        # 2. Build Solar Series (Outputs True Sun)
+        active_solar = tuple(
+            TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
+            for t in p.solar_terms
+        )
+        self.solar_series = AffineTabSeriesT(A=p.A_sun, B=p.B_sun, terms=active_solar)
+
+        # 3. Build Lunar Series (Outputs True Moon)
+        active_lunar = tuple(
+            TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=moon_tab.eval_normalized_turn)
+            for t in p.lunar_terms
+        )
+
+        # 4. Build Elongation Series: E(t) = D_mean(t) + C_moon(t) - C_sun(t)
+        active_elong_solar = tuple(
+            TabTermT(amp=-t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
+            for t in p.solar_terms
+        )
+        self.elong_series = AffineTabSeriesT(
+            A=p.A_elong, 
+            B=p.B_elong, 
+            terms=active_lunar + active_elong_solar
+        )
+
+    # ---------------------------------------------------------
+    # Protocol Properties
+    # ---------------------------------------------------------
+    @property
+    def epoch_k(self) -> int:
+        return self.p.epoch_k
 
     @property
-    def trigger_set(self) -> Tuple[int, ...]:
-        return tuple(((self.tau + k) % self.P) for k in range(self.ell))
+    def sgang_base(self) -> Fraction:
+        """Converts degrees to a normalized continuous zodiac offset in turns [0, 1)."""
+        return (self.p.sgang1_deg / Fraction(360, 1)) % 1
 
-    @property
-    def gamma_shift(self) -> int:
+    # ---------------------------------------------------------
+    # Continuous Physics (The Diagnostic Interface)
+    # ---------------------------------------------------------
+    def mean_date(self, l: NumT) -> Fraction:
         """
-        Shift sending TriggerSet to {0,...,ell-1}:
-          gamma_shift ≡ -tau (mod P), in {0,...,P-1}.
+        Returns the mean physical time (Days since J2000.0 TT) for absolute lunation l.
+        Inverts the linear mean elongation system: E_mean(t) = A + B*t = l
         """
-        return (self.P - self.tau) % self.P
+        return (Fraction(l) - self.p.A_elong) / self.p.B_elong
 
-    @property
-    def beta_int(self) -> int:
+    def true_date(self, l: NumT) -> Fraction:
         """
-        Combined constant used in internal index and n_+:
-          beta_int := beta_star + gamma_shift.
+        Returns the true physical time (Days since J2000.0 TT) for absolute lunation l.
+        Uses Picard iteration to solve: E_true(t) = l.
         """
-        return self.beta_star + self.gamma_shift
+        return self.elong_series.picard_solve(Fraction(l), iterations=self.p.iterations)
 
+    def get_l_from_t2000(self, t2000: NumT) -> Fraction:
+        """Inverse kinematic lookup: Returns true elongation (in turns) at physical time t."""
+        return self.elong_series.eval(Fraction(t2000))
 
-class RationalMonthEngine:
-    def __init__(self, params: RationalMonthParams):
-        self.p = params
+    def mean_sun(self, l: NumT) -> Fraction:
+        """Mean solar longitude (turns) at the physical moment of lunation l."""
+        t_tt = self.true_date(l)
+        return frac_turn(self.solar_series.base(t_tt))
 
-    # -------------------------
-    # forward
-    # -------------------------
+    def true_sun(self, l: NumT) -> Fraction:
+        """True solar longitude (turns) at the physical moment of lunation l."""
+        t_tt = self.true_date(l)
+        return frac_turn(self.solar_series.eval(t_tt))
 
-    def mstar(self, Y: int, M: int) -> int:
-        return 12 * (Y - self.p.Y0) + (M - self.p.M0)
+    def first_lunation(self, year: int) -> int:
+        for m in range(1, 13):
+            lunations = self.get_lunations(year, m)
+            if lunations:
+                return lunations[0]
+        raise ValueError(f"No lunations found for year {year}")
 
-    def intercalation_index(self, Y: int, M: int) -> int:
-        """The intercalation index (external)"""
-        """I ≡ ell*M* + beta_star  (mod P)."""
-        return (self.p.ell * self.mstar(Y, M) + self.p.beta_star) % self.p.P
-
-    def intercalation_index_internal(self, Y: int, M: int) -> int:
-        """I_int ≡ ell*M* + beta_int  (mod P). Trigger iff I_int < ell."""
-        return (self.p.ell * self.mstar(Y, M) + self.p.beta_int) % self.p.P
-
-    def is_trigger_label(self, Y: int, M: int) -> bool:
-        return self.intercalation_index_internal(Y, M) < self.p.ell
-
-    def intercalation_index_traditional(self, Y: int, M: int, *, wrap: str = "extended") -> int:
-        """
-        Traditional/almanac-style intercalation index.
-        Rule:
-            cutoff = tau + ell - 1
-            if I > cutoff: I_trad = I + ell
-            else:          I_trad = I
-
-        wrap:
-        - "extended": return I_trad as an integer in {0,...,P-1} ∪ {P,...,P+ell-1}.
-                        (So 65/66 can appear when P=65, ell=2.)
-        - "mod":      return I_trad mod P in {0,...,P-1}.
-                        (So 0/1 instead of 65/66.)
-
-        Notes:
-        * This matches the Phugpa-style statement “index increases by 2 once >49”.
-        * For tau near the end (e.g. tau=P-ell), the shift may be rare/none in this
-            linear convention; this mirrors the “gap / wrap” discussion in the remark.
-        """
-        I = self.intercalation_index(Y, M)
-
-        cutoff = self.p.tau + self.p.ell - 1
-        I_trad = I + self.p.ell if I > cutoff else I
-
-        if wrap == "extended":
-            return I_trad
-        if wrap == "mod":
-            return I_trad % self.p.P
-        raise ValueError("wrap must be 'extended' or 'mod'")
-    
-    def n_plus(self, Y: int, M: int) -> int:
-        """
-        Right-end lunation index attached to label (Y,M):
-          n_+(M*) = floor((Q*M* + beta_int)/P).
-        """
-        Mst = self.mstar(Y, M)
-        return _floor_div(self.p.Q * Mst + self.p.beta_int, self.p.P)
-
-    def true_month(self, Y: int, M: int, *, is_leap_month: bool) -> int:
-        nplus = self.n_plus(Y, M)
-
-        if not self.is_trigger_label(Y, M):
-            if is_leap_month:
-                raise ValueError(f"({Y},{M}) is not trigger, cannot be leap")
-            return nplus
-
-        nminus = nplus - 1
-        if self.p.leap_labeling == "first_is_leap":
-            return nminus if is_leap_month else nplus
-        return nplus if is_leap_month else nminus
-
-    # -------------------------
-    # inverse (closed form, right-end convention)
-    # -------------------------
-
-    def mstar_from_true_month(self, n: int) -> int:
-        """
-        Right-end inverse (your Prop 3.12 / Janson §5.3 style):
-
-          M*(n) = floor((P*n - beta_int - 1)/Q) + 1.
-
-        This fixes the off-by-one you observed (n=480 -> M*=466 for Phugpa:E1987).
-        """
-        return _floor_div(self.p.P * n - self.p.beta_int - 1, self.p.Q) + 1
-
-    def x_from_true_month(self, n: int) -> int:
-        """x = M* + M0 = 12(Y-Y0)+M."""
-        return self.mstar_from_true_month(n) + self.p.M0
-
-    def label_from_true_month(self, n: int) -> Tuple[int, int, bool]:
-        """
-        1) x = M*(n) + M0 with the right-end M*(n)
-        2) decode M=amod12(x), Y=Y0 + (x-M)/12
-        3) leap test by repetition of x(n):
-             x(n)==x(n+1) => first in repeated pair
-             x(n)==x(n-1) => second in repeated pair
-           then apply leap_labeling.
-        """
-        x = self.x_from_true_month(n)
-        M = amod12(x)
-        Y = self.p.Y0 + _floor_div(x - M, 12)
-
-        x_next = self.x_from_true_month(n + 1)
-        x_prev = self.x_from_true_month(n - 1)
-
-        if x == x_next:
-            is_leap = (self.p.leap_labeling == "first_is_leap")
-        elif x == x_prev:
-            is_leap = (self.p.leap_labeling == "second_is_leap")
+    def get_month_info(self, n: int) -> Dict[str, Any]:
+        Z_n = self.sgang_index(n)
+        Z_prev = self.sgang_index(n - 1)
+        Z_0 = self.sgang_index(0)
+        M_linear = self.p.M0 + (Z_n - Z_0)
+        M = ((M_linear - 1) % 12) + 1
+        Y = self.p.Y0 + (M_linear - M) // 12
+        if Z_n == Z_prev:
+            leap_state = 2
         else:
-            is_leap = False
-
-        return Y, M, is_leap
-
-    # -------------------------
-    # debug helpers
-    # -------------------------
-
-    def debug_label(self, Y: int, M: int) -> Dict[str, object]:
-        Mst = self.mstar(Y, M)
-        I_ext = self.intercalation_index(Y, M)
-        I_int = self.intercalation_index_internal(Y, M)
-        trig = self.is_trigger_label(Y, M)
-        # Traditional/almanac intercalation index (see Henning/Janson remark):
-        I_trad_ext = self.intercalation_index_traditional(Y, M, wrap="extended")
-        I_trad_mod = self.intercalation_index_traditional(Y, M, wrap="mod")
-
-        nplus = self.n_plus(Y, M)
-        out: Dict[str, object] = {
-            "label": {"Y": Y, "M": M},
-            "Mstar": Mst,
-            "P": self.p.P,
-            "Q": self.p.Q,
-            "ell": self.p.ell,
-            "beta_star": self.p.beta_star,
-            "tau": self.p.tau,
-            "gamma_shift": self.p.gamma_shift,
-            "beta_int": self.p.beta_int,
-            "I_ext": I_ext,
-            "I_int": I_int,
-            "I_trad_extended": I_trad_ext,
-            "I_trad_mod": I_trad_mod,
-            "trigger": trig,
-            "n_plus": nplus,
-            "check": {
-                "formula": "n_plus = floor((Q*M* + beta_int)/P)",
-                "numerator": self.p.Q * Mst + self.p.beta_int,
-            },
-        }
-
-        if trig:
-            out["n_minus"] = nplus - 1
-            out["instances"] = {
-                "leap": self.true_month(Y, M, is_leap_month=True),
-                "regular": self.true_month(Y, M, is_leap_month=False),
-                "leap_labeling": self.p.leap_labeling,
-            }
-        else:
-            out["instances"] = {"regular": nplus}
-
-        return out
-
-    def debug_true_month(self, n: int) -> Dict[str, object]:
-        x = self.x_from_true_month(n)
-        M = amod12(x)
-        Y = self.p.Y0 + _floor_div(x - M, 12)
-
-        x_prev = self.x_from_true_month(n - 1)
-        x_next = self.x_from_true_month(n + 1)
-
-        Y2, M2, is_leap = self.label_from_true_month(n)
-
-        # decode label, then compute intercalation indices for that label
-        I_ext = self.intercalation_index(Y2, M2)
-        I_int = self.intercalation_index_internal(Y2, M2)
-        I_trad_ext = self.intercalation_index_traditional(Y2, M2, wrap="extended")
-        I_trad_mod = self.intercalation_index_traditional(Y2, M2, wrap="mod")
-
+            Z_next = self.sgang_index(n + 1)
+            if Z_n == Z_next:
+                leap_state = 1
+            else:
+                leap_state = 0
+        linear = n - self.first_lunation(Y)
         return {
-            "n": n,
-            "P": self.p.P,
-            "Q": self.p.Q,
-            "ell": self.p.ell,
-            "beta_star": self.p.beta_star,
-            "tau": self.p.tau,
-            "gamma_shift": self.p.gamma_shift,
-            "beta_int": self.p.beta_int,
-            "Mstar_rightend": self.mstar_from_true_month(n),
-            "x": x,
-            "x_prev": x_prev,
-            "x_next": x_next,
-            "decoded": {"Y": Y, "M": M},
-            "label_from_true_month": {"Y": Y2, "M": M2, "is_leap": is_leap},
-            "repeat_test": {
-                "x==x_next": (x == x_next),
-                "x==x_prev": (x == x_prev),
-                "leap_labeling": self.p.leap_labeling,
-            },
-            "check": {
-                "formula_Mstar": "M* = floor((P*n - beta_int - 1)/Q) + 1",
-                "numerator": self.p.P * n - self.p.beta_int - 1,
-            },
-            "intercalation_for_label": {
-                "I_ext": I_ext,
-                "I_int": I_int,
-                "I_trad_extended": I_trad_ext,
-                "I_trad_mod": I_trad_mod,
-            },
+            "year": Y,
+            "month": M,
+            "leap_state": leap_state,
+            "linear_month": linear,
+            "sgang_index": Z_n
         }
+
+    # ---------------------------------------------------------
+    # Astronomical Transit Labeling (The Civil Interface)
+    # ---------------------------------------------------------
+    def sgang_index(self, n: int) -> int:
+        """
+        Returns the absolute zodiac/sgang transit index for a given lunation n.
+        The sun advances through one sgang every 1/12 of a turn.
+        """
+        t_tt = self.true_date(n)
+        
+        # Use absolute unrolled solar longitude to prevent wrap-around bugs across years
+        abs_sun = self.solar_series.eval(t_tt) - self.p.sgang_base
+        
+        # Floor it to find which 1/12th slice the sun is in at the moment of New Moon
+        return math.floor(float(abs_sun * 12))
+
+    def get_month_info(self, n: int) -> Dict[str, Any]:
+        """Assigns civil month labels based on true astronomical transits."""
+        Z_n = self.sgang_index(n)
+        Z_prev = self.sgang_index(n - 1)
+        Z_0 = self.sgang_index(0)
+        
+        # The human calendar month advances every time the sgang index advances
+        M_linear = self.p.M0 + (Z_n - Z_0)
+        
+        # Adjust to 1-12 bounds
+        M = ((M_linear - 1) % 12) + 1
+        Y = self.p.Y0 + (M_linear - M) // 12
+        
+        # Astronomical leap logic: If no transit occurred, it is a leap month!
+        if Z_n == Z_prev:
+            leap_state = 2  # Second occurrence of this month label
+        else:
+            Z_next = self.sgang_index(n + 1)
+            if Z_n == Z_next:
+                leap_state = 1  # First occurrence (regular month, but leap follows)
+            else:
+                leap_state = 0  # Regular month (no leap follows)
+                
+        return {
+            "year": Y,
+            "month": M,
+            "leap_state": leap_state,
+            "sgang_index": Z_n
+        }
+
+    def get_lunations(self, year: int, month: int) -> List[int]:
+        """
+        Returns the absolute lunation indices for a given Year and Month number.
+        Uses a local search against the sgang transit boundaries.
+        """
+        M_linear_target = 12 * (year - self.p.Y0) + month
+        Z_0 = self.sgang_index(0)
+        Z_target = (M_linear_target - self.p.M0) + Z_0
+        
+        # 1. Estimate n (1 lunation ≈ 1 transit)
+        n_guess = Z_target - Z_0
+        n = n_guess
+        
+        # 2. Seek backward/forward to find the exact boundary
+        while self.sgang_index(n) > Z_target:
+            n -= 1
+        while self.sgang_index(n) < Z_target:
+            n += 1
+            
+        # 3. Collect all n's that share this transit target
+        results = []
+        while self.sgang_index(n) == Z_target:
+            results.append(n)
+            n += 1
+            
+        return results

@@ -41,3 +41,11 @@ def year_decimal_fraction(d: date) -> Fraction:
     doy = (d - start).days
     span = (end - start).days
     return Fraction(d.year, 1) + Fraction(doy, span)
+
+def k_from_epoch_jd(m0: float | Fraction) -> int:
+    """
+    Derives the absolute Meeus lunation index k from an epoch's Mean New Moon JD.
+    """
+    # 2451550.09766 is the exact JD of the Meeus k=0 mean new moon.
+    # 29.530588861 is the mean synodic month length.
+    return round((float(m0) - 2451550.09766) / 29.530588861)

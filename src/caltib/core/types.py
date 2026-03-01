@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Dict, Literal, Optional, Tuple
 
@@ -27,3 +27,19 @@ class DayInfo:
     festival_tags: Tuple[str, ...] = ()
     attributes: Optional[Dict[str, Any]] = None
     debug: Optional[Dict[str, Any]] = None
+
+@dataclass(frozen=True)
+class CalendarSpec:
+    """Pure data payload for constructing a full modular calendar."""
+    id: EngineId
+    month_params: Any  # ArithmeticMonthParams
+    day_params: Any    # TraditionalDayParams | RationalDayParams
+    leap_labeling: str
+    meta: dict
+
+@dataclass(frozen=True)
+class EngineSpec:
+    """Top-level wrapper for all engine specifications."""
+    kind: Literal["traditional", "rational", "float", "ephemeris"]
+    id: EngineId
+    payload: CalendarSpec

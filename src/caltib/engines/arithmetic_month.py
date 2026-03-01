@@ -11,7 +11,7 @@ from fractions import Fraction
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 
-from .interfaces import MonthEngineProtocol
+from .interfaces import MonthEngineProtocol, NumT
 
 
 def _floor_div(a: int, b: int) -> int:
@@ -25,21 +25,18 @@ def amod12(x: int) -> int:
 
 @dataclass(frozen=True)
 class ArithmeticMonthParams:
-    """
-    Paper convention: P=p < Q=q, ell=Q-P.
-    """
-    epoch_k: int           # The absolute Meeus lunation index of the epoch
-    sgang1: Fraction           # The solar longitude anchor (denoted by d1 in [Gantumur], and by p1 in [Janson])
+    epoch_k: int       # The absolute Meeus lunation index of the epoch
+    sgang1_deg: Fraction   # The solar longitude anchor (denoted by d1 in [Gantumur], and by p1 in [Janson])
+    Y0: int            # Human epoch year
+    M0: int            # Human epoch month
+    P: int             # Intercalation cycle length (lunations)
+    Q: int             # Intercalation cycle length (solar months)
+    beta_star: int     # Base intercalation shift
+    tau: int           # Leap month placement marker
+    m0: Fraction       # Absolute JDN of epoch mean new moon
+    m1: Fraction       # Mean synodic month (days)
+    s0: Fraction       # Epoch mean sun (turns)
     
-    Y0: int
-    M0: int
-
-    P: int
-    Q: int
-
-    beta_star: int
-    tau: int
-
     def __post_init__(self) -> None:
         if self.P <= 0 or self.Q <= 0:
             raise ValueError("P,Q must be positive")
@@ -49,8 +46,11 @@ class ArithmeticMonthParams:
             raise ValueError("M0 must be in 1..12")
         if not (0 <= self.tau < self.P):
             raise ValueError("tau must be in 0..P-1")
-        if self.leap_labeling not in ("first_is_leap", "second_is_leap"):
-            raise ValueError("leap_labeling must be 'first_is_leap' or 'second_is_leap'")
+    
+    @property
+    def s1(self) -> Fraction:
+        """Deduced mean solar motion per lunation (turns)."""
+        return Fraction(self.P, 12 * self.Q)
 
     @property
     def ell(self) -> int:
@@ -77,30 +77,31 @@ class ArithmeticMonthParams:
         return self.beta_star + self.gamma_shift
 
 
-class ArithmeticMonthEngine:
+class ArithmeticMonthEngine(MonthEngineProtocol):
     """
     Strictly handles discrete arithmetic for the calendar.
     Fully implements MonthEngineProtocol.
     """
-    def __init__(self, params: ArithmeticMonthParams):
-        self.p = params
+    def __init__(self, p: ArithmeticMonthParams):
+        self.p = p
+        # Cache the shifted physical anchor immediately
+        self._m0_t2000 = p.m0 - Fraction(2451545, 1)
 
     # ---------------------------------------------------------
     # Protocol Properties
     # ---------------------------------------------------------
-
     @property
     def epoch_k(self) -> int:
         return self.p.epoch_k
 
     @property
-    def sgang1(self) -> NumT:
-        return self.p.sgang1
+    def sgang_base(self) -> Fraction:
+        """Converts degrees to a normalized continuous zodiac offset in turns [0, 1)."""
+        return (self.p.sgang1_deg / Fraction(360, 1)) % 1
 
     # ---------------------------------------------------------
-    # Protocol Methods
+    # Civil / Human Labels (The Orchestrator's Interface)
     # ---------------------------------------------------------
-
     def get_lunations(self, year: int, month: int) -> List[int]:
         """
         Returns the absolute lunation indices for a given Year and Month number.
@@ -136,9 +137,32 @@ class ArithmeticMonthEngine:
         }
 
     # ---------------------------------------------------------
+    # Continuous Physics (The Diagnostic Interface)
+    # ---------------------------------------------------------
+    def mean_date(self, l: NumT) -> Fraction:
+        """Physical time t (Days since J2000.0 TT) when Mean Elongation equals l turns."""
+        return self._m0_t2000 + self.p.m1 * Fraction(l)
+
+    def true_date(self, l: NumT) -> Fraction:
+        """Physical time t when True Elongation equals l turns. (True = Mean for Traditional)."""
+        return self.mean_date(l)
+
+    def get_l_from_t2000(self, t2000: NumT) -> Fraction:
+        """Inverse kinematic lookup: true elongation (in turns) at physical time t."""
+        return (Fraction(t2000) - self._m0_t2000) / self.p.m1
+
+    def mean_sun(self, l: NumT) -> Fraction:
+        """Mean solar longitude (turns) at the moment true_date(l)."""
+        s = self.p.s0 + self.p.s1 * Fraction(l)
+        return s - Fraction(s.numerator // s.denominator, 1)
+
+    def true_sun(self, l: NumT) -> Fraction:
+        """True solar longitude (turns) at the moment true_date(l). (True = Mean for Traditional)."""
+        return self.mean_sun(l)
+
+    # ---------------------------------------------------------
     # Core Mathematical Forward Tracking
     # ---------------------------------------------------------
-
     def mstar(self, Y: int, M: int) -> int:
         return 12 * (Y - self.p.Y0) + (M - self.p.M0)
 
@@ -156,21 +180,6 @@ class ArithmeticMonthEngine:
     def intercalation_index_traditional(self, Y: int, M: int, *, wrap: str = "extended") -> int:
         """
         Traditional/almanac-style intercalation index.
-        Rule:
-            cutoff = tau + ell - 1
-            if I > cutoff: I_trad = I + ell
-            else:          I_trad = I
-
-        wrap:
-        - "extended": return I_trad as an integer in {0,...,P-1} ∪ {P,...,P+ell-1}.
-                        (So 65/66 can appear when P=65, ell=2.)
-        - "mod":      return I_trad mod P in {0,...,P-1}.
-                        (So 0/1 instead of 65/66.)
-
-        Notes:
-        * This matches the Phugpa-style statement “index increases by 2 once >49”.
-        * For tau near the end (e.g. tau=P-ell), the shift may be rare/none in this
-            linear convention; this mirrors the “gap / wrap” discussion in the remark.
         """
         I = self.intercalation_index(Y, M)
 
@@ -183,7 +192,6 @@ class ArithmeticMonthEngine:
             return I_trad % self.p.P
         raise ValueError("wrap must be 'extended' or 'mod'")
 
-
     def n_plus(self, Y: int, M: int) -> int:
         """
         Right-end lunation index attached to label (Y,M):
@@ -195,7 +203,6 @@ class ArithmeticMonthEngine:
     # ---------------------------------------------------------
     # Core Mathematical Inverse Tracking
     # ---------------------------------------------------------
-
     def mstar_from_lunation(self, n: int) -> int:
         """
         Right-end inverse: M*(n) = floor((P*n - beta_int - 1)/Q) + 1.
@@ -231,13 +238,11 @@ class ArithmeticMonthEngine:
     # ---------------------------------------------------------
     # Debug / Legacy Helpers
     # ---------------------------------------------------------
-    
     def debug_label(self, Y: int, M: int) -> Dict[str, object]:
         Mst = self.mstar(Y, M)
         I_ext = self.intercalation_index(Y, M)
         I_int = self.intercalation_index_internal(Y, M)
         trig = self.is_trigger_label(Y, M)
-        # Traditional/almanac intercalation index (see Henning/Janson remark):
         I_trad_ext = self.intercalation_index_traditional(Y, M, wrap="extended")
         I_trad_mod = self.intercalation_index_traditional(Y, M, wrap="mod")
 
@@ -286,7 +291,6 @@ class ArithmeticMonthEngine:
 
         Y2, M2, leap_state = self.label_from_lunation(n)
 
-        # decode label, then compute intercalation indices for that label
         I_ext = self.intercalation_index(Y2, M2)
         I_int = self.intercalation_index_internal(Y2, M2)
         I_trad_ext = self.intercalation_index_traditional(Y2, M2, wrap="extended")

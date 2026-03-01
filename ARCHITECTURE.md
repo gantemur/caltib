@@ -48,3 +48,25 @@ Because the perturbations $C(t)$ themselves depend on time, `caltib` employs a P
 
 Because the Month and Day engines are independent, they may theoretically possess different astronomical epochs. `caltib` defines the epoch natively via the absolute Meeus mean new moon index ($k_0$).
 The `CalendarEngine` automatically aligns the engines by computing $\Delta k = \text{Day.epoch\_k} - \text{Month.epoch\_k}$, dynamically shifting the $x$ coordinate to guarantee perfect phase synchronization across any combination of models.
+
+
+## 1. The Strategy Pattern (The Orchestrator)
+The library is built around a pure Strategy Pattern. The `CalendarEngine` acts as a universal orchestrator that knows nothing about astronomical physics or traditional arithmetic. It strictly expects two interchangeable components that satisfy strict protocols (`interfaces.py`):
+* `MonthEngineProtocol`: Solves for the human month label (Year, Month, Leap) given an absolute lunation index `n`.
+* `DayEngineProtocol`: Solves for the physical time (`t2000`) given a continuous absolute tithi coordinate `x`.
+
+Because of this decoupled design, any combination of month and day models can be composed into a functional calendar. An ancient `ArithmeticMonthEngine` can be paired with a highly precise `RationalDayEngine` without either component knowing the other exists.
+
+## 2. Epoch Synchronization (`delta_k`)
+Different historical traditions defined their epoch zero points differently (e.g., the Phugpa epoch vs. the Tsurphu epoch). The `CalendarEngine` completely absorbs this complexity via the `delta_k` shift. 
+When a Composite calendar is instantiated, the orchestrator calculates `delta_k = month.epoch_k - day.epoch_k`. It dynamically shifts the coordinates between the Month and Day engines on the fly, allowing parameters from entirely different centuries to be perfectly aligned on the J2000.0 timeline.
+
+## 3. Pure Data Specifications & The Factory
+The library enforces a strict boundary between configuration and execution:
+* **Specs as Pure Data:** `src/caltib/engines/specs.py` contains only frozen `dataclasses` (`CalendarSpec`). It imports zero execution logic. This ensures serialization is trivial and avoids circular imports.
+* **The Factory Instantiator:** `src/caltib/engines/factory.py` is the singular chokepoint where pure data specifications are "hydrated" into live, executable engine objects. 
+
+## 4. Dynamic Location Overrides (Immutability)
+Because our specifications are built on frozen dataclasses, they are perfectly immutable. If a user wishes to calculate a continuous L1-L3 reform calendar for a custom location (e.g., Montreal instead of Lhasa), they do not need to alter the global specification. 
+
+The `api.get_calendar(name, location=LOC)` function uses Python's `dataclasses.replace` to safely clone the `CalendarSpec` in memory, inject the new coordinate parameters into the `DayEngine` configuration, and pass the cloned spec to the factory. The base `specs.py` data remains completely uncorrupted.
