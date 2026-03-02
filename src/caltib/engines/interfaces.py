@@ -101,6 +101,11 @@ class DayEngineProtocol(Protocol):
         """The absolute Meeus lunation index of the engine's epoch."""
         ...
 
+    @property
+    def location(self) -> LocationSpec:
+        """The geographic anchor for civil day boundaries."""
+        ...
+
     def mean_date(self, x: NumT) -> NumT:
         """Returns the mean physical time (Days since J2000.0) for absolute tithi x."""
         ...

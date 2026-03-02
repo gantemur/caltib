@@ -2,21 +2,23 @@ from __future__ import annotations
 
 from typing import Tuple
 from fractions import Fraction
+import math
 
 # 1. New Core Types
-from caltib.core.types import EngineId, EngineSpec, CalendarSpec
+from caltib.core.types import EngineId, EngineSpec, CalendarSpec, LocationSpec
 from caltib.core.time import k_from_epoch_jd
 
 # 2. New Pure Data Parameters
 from caltib.engines.arithmetic_month import ArithmeticMonthParams
 from caltib.engines.rational_month import RationalMonthParams
+from caltib.engines.arithmetic_day import ArithmeticDayParams
 from caltib.engines.trad_day import TraditionalDayParams
 from caltib.engines.rational_day import RationalDayParams
 
 # 3. Physics / Astro dependencies remain exactly the same
 from caltib.engines.astro.deltat import DeltaTRationalDef, ConstantDeltaTRationalDef, QuadraticDeltaTRationalDef
 from caltib.engines.astro.affine_series import TermDef, FundArg, build_phase
-from caltib.engines.astro.sunrise import LocationRational, ConstantSunriseRationalDef, SunriseRationalDef, SphericalSunriseRationalDef
+from caltib.engines.astro.sunrise import ConstantSunriseRationalDef, SunriseRationalDef, SphericalSunriseRationalDef
 
 
 # ============================================================
@@ -46,7 +48,7 @@ SUN_TAB_QUARTER  = (0, 6, 10, 11)                   # length 4 = 12/4+1
 
 
 # ============================================================
-# RATIONAL REFORM CONSTANTS & LOCATIONS
+# RATIONAL REFORM CONSTANTS
 # ============================================================
 
 JD_J2000 = Fraction(2451545, 1)
@@ -72,13 +74,6 @@ FUND_RATES = {
     "F": F1_NEW / M1_NEW,
 }
 
-# Standard locations
-LOC_LHASA = LocationRational(
-    lat_turn=Fraction(2965, 36000), 
-    lon_turn=Fraction(9110, 36000), 
-    elev_m=Fraction(3650, 1)  # Converted to Fraction
-)
-
 # Constant Delta T: 55.3s in 1987, 63.8s in 2000, 69.2s in early 2026
 DT_CONSTANT_DEF = ConstantDeltaTRationalDef(Fraction(69, 1))
 # Quadratic Delta T: -20 + 32 * ((year - 1820) / 100)^2
@@ -100,6 +95,91 @@ DAWN_SPHERICAL_DEF = SphericalSunriseRationalDef(
 # New tables
 SINE_TAB_QUARTER = (0, 228, 444, 638, 801, 923, 998, 1024)
 
+
+# ============================================================
+# APPROXIMATE LOCATIONS (For Traditional Arithmetic Engines)
+# ============================================================
+
+LOC_TIBET_APPROX = LocationSpec(
+    name="Tibetan Plateau (Approximate)",
+    lon_turn=Fraction(91, 360),      # ~91° E
+    lat_turn=None,
+    elev_m=None
+)
+
+LOC_MONGOLIA_APPROX = LocationSpec(
+    name="Mongolian Plateau (Approximate)",
+    lon_turn=Fraction(105, 360),     # ~105° E
+    lat_turn=None,
+    elev_m=None
+)
+
+LOC_BHUTAN_APPROX = LocationSpec(
+    name="Bhutan (Approximate)",
+    lon_turn=Fraction(90, 360),      # ~90° E
+    lat_turn=None,
+    elev_m=None
+)
+
+# ============================================================
+# PRECISE LOCATIONS (For Rational / Float Engines)
+# ============================================================
+
+LOC_LHASA = LocationSpec(
+    name="Lhasa",
+    lat_turn=Fraction(2965, 36000),    # 29.65° N
+    lon_turn=Fraction(9110, 36000),    # 91.10° E
+    elev_m=Fraction(3650, 1)
+)
+
+LOC_ULAANBAATAR = LocationSpec(
+    name="Ulaanbaatar",
+    lat_turn=Fraction(4792, 36000),    # 47.92° N
+    lon_turn=Fraction(10692, 36000),   # 106.92° E
+    elev_m=Fraction(1350, 1)
+)
+
+LOC_THIMPHU = LocationSpec(
+    name="Thimphu",
+    lat_turn=Fraction(2747, 36000),    # 27.47° N
+    lon_turn=Fraction(8964, 36000),    # 89.64° E
+    elev_m=Fraction(2320, 1)
+)
+
+LOC_HOHHOT = LocationSpec(
+    name="Hohhot",
+    lat_turn=Fraction(4082, 36000),    # 40.82° N
+    lon_turn=Fraction(11167, 36000),   # 111.67° E
+    elev_m=Fraction(1040, 1)
+)
+
+LOC_BEIJING = LocationSpec(
+    name="Beijing",
+    lat_turn=Fraction(3990, 36000),    # 39.90° N
+    lon_turn=Fraction(11640, 36000),   # 116.40° E
+    elev_m=Fraction(44, 1)
+)
+
+LOC_ULAN_UDE = LocationSpec(
+    name="Ulan-Ude",
+    lat_turn=Fraction(5183, 36000),    # 51.83° N
+    lon_turn=Fraction(10758, 36000),   # 107.58° E
+    elev_m=Fraction(500, 1)
+)
+
+LOC_ELISTA = LocationSpec(
+    name="Elista",
+    lat_turn=Fraction(4630, 36000),    # 46.30° N
+    lon_turn=Fraction(4426, 36000),    # 44.26° E
+    elev_m=Fraction(120, 1)
+)
+
+LOC_MONTREAL = LocationSpec(
+    name="Montreal",
+    lat_turn=Fraction(4550, 36000),    # 45.50° N
+    lon_turn=Fraction(-7357, 36000),   # 73.57° W
+    elev_m=Fraction(30, 1)
+)
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -125,6 +205,42 @@ def arith_month(
         m0=m0, m1=m1, s0=s0
     )
 
+def trad_day(
+    *, 
+    m0: Fraction, s0: Fraction, a0: Fraction, 
+    m1: Fraction = M1_TIB, s1: Fraction = S1_TIB, a1: Fraction = A1_TIB, a2: Fraction = A2_STD, 
+    location: LocationSpec = LOC_TIBET_APPROX
+) -> TraditionalDayParams:
+    return TraditionalDayParams(
+        epoch_k=k_from_epoch_jd(m0),  # Deduce Day epoch_k directly from m0
+        m0=m0, m1=m1, m2=m1 / 30,
+        s0=s0, s1=s1, s2=s1 / 30,
+        a0=a0, a1=a1, a2=a2,
+        moon_tab_quarter=MOON_TAB_QUARTER,
+        sun_tab_quarter=SUN_TAB_QUARTER,
+        location=location        
+    )
+
+def rational_day(
+    *,
+    funds: dict[str, FundArg],
+    location: LocationSpec = LOC_LHASA,
+    solar_terms: Tuple[TermDef, ...] = (),
+    lunar_terms: Tuple[TermDef, ...] = (),
+    iterations: int = 1,
+    delta_t: DeltaTRationalDef = DT_CONSTANT_DEF,
+    sunrise: SunriseRationalDef = DAWN_CONSTANT_DEF,
+    moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
+    sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
+) -> RationalDayParams:
+    return RationalDayParams(
+        epoch_k=k_from_epoch_jd(funds["m0"]),
+        A_sun=funds["S"].c0, B_sun=funds["S"].c1, solar_terms=solar_terms,
+        A_elong=funds["D"].c0, B_elong=funds["D"].c1, lunar_terms=lunar_terms,
+        iterations=iterations, delta_t=delta_t, sunrise=sunrise, location=location,
+        moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter
+    )
+
 def rational_month(
     *,
     funds: dict[str, FundArg],
@@ -143,37 +259,48 @@ def rational_month(
         A_elong=funds["D"].c0, B_elong=funds["D"].c1, lunar_terms=lunar_terms,
         iterations=iterations, 
         moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter,
-        Y0=Y0, M0=M0, sgang1_deg=sgang1_deg
+        Y0=Y0, M0=M0, sgang1_deg=sgang1_deg 
     )
 
-def trad_day(*, m0: Fraction, s0: Fraction, a0: Fraction, m1: Fraction = M1_TIB, s1: Fraction = S1_TIB, a1: Fraction = A1_TIB, a2: Fraction = A2_STD) -> TraditionalDayParams:
-    return TraditionalDayParams(
-        epoch_k=k_from_epoch_jd(m0),  # Deduce Day epoch_k directly from m0
-        m0=m0, m1=m1, m2=m1 / 30,
-        s0=s0, s1=s1, s2=s1 / 30,
-        a0=a0, a1=a1, a2=a2,
-        moon_tab_quarter=MOON_TAB_QUARTER,
-        sun_tab_quarter=SUN_TAB_QUARTER,
-    )
-
-def rational_day(
+def arith_day(
     *,
-    funds: dict[str, FundArg],
-    solar_terms: Tuple[TermDef, ...] = (),
-    lunar_terms: Tuple[TermDef, ...] = (),
-    iterations: int = 1,
-    delta_t: DeltaTRationalDef = DT_CONSTANT_DEF,
-    sunrise: SunriseRationalDef = DAWN_CONSTANT_DEF,
-    location: LocationRational = LOC_LHASA,
-    moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
-    sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
-) -> RationalDayParams:
-    return RationalDayParams(
-        epoch_k=k_from_epoch_jd(funds["m0"]),
-        A_sun=funds["S"].c0, B_sun=funds["S"].c1, solar_terms=solar_terms,
-        A_elong=funds["D"].c0, B_elong=funds["D"].c1, lunar_terms=lunar_terms,
-        iterations=iterations, delta_t=delta_t, sunrise=sunrise, location=location,
-        moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter
+    location: LocationSpec,
+    m0_abs: Fraction | None = None,
+    m0_loc: Fraction | None = None,
+    s0: Fraction,
+    s1: Fraction = S1_TIB,
+    U: int = 11312,
+    V: int = 11135,
+    dawn_time: Fraction = Fraction(1, 4),  # 6:00 AM (1/4 of a day past midnight)
+) -> ArithmeticDayParams:
+    """Auto-computes delta_star phase shifts natively for either absolute or local m0."""
+    
+    # JD starts at noon (.0). To make floor() roll over at local dawn, 
+    # we need to offset the fractional day. 
+    # For 6:00 AM (dawn_time = 1/4), dawn_shift becomes 1/4 (0.25 days).
+    dawn_shift = Fraction(1, 2) - dawn_time
+    
+    # Path 1: Initialized with absolute time
+    if m0_loc is None and m0_abs is not None:
+        m0_loc = m0_abs + location.lon_turn + dawn_shift
+    
+    # Path 2: Initialized with local time
+    elif m0_abs is None and m0_loc is not None:
+        m0_abs = m0_loc - location.lon_turn - dawn_shift
+        
+    else:
+        raise ValueError("Must provide exactly one of m0_abs or m0_loc")
+
+    # The civil day boundary is local, so delta_star MUST use local fractional time
+    jdn_floor = m0_loc.numerator // m0_loc.denominator
+    f_loc = m0_loc - Fraction(jdn_floor, 1)
+    delta_star = math.floor(f_loc * U) - 1
+
+    return ArithmeticDayParams(
+        epoch_k=k_from_epoch_jd(m0_abs),
+        location=location,
+        U=U, V=V, delta_star=delta_star,
+        m0_abs=m0_abs, m0_loc=m0_loc, s0=s0, s1=s1
     )
 
 def make_funds(
@@ -235,8 +362,6 @@ PHUGPA_SPEC = CalendarSpec(
     meta={"epoch": "E1987", "tradition": "phugpa"},
 )
 
-PHUGPA = EngineSpec(kind="traditional", id=PHUGPA_SPEC.id, payload=PHUGPA_SPEC)
-
 # ------------------------------------------------------------
 # TSURPHU (E1852)
 # ------------------------------------------------------------
@@ -259,8 +384,6 @@ TSURPHU_SPEC = CalendarSpec(
     meta={"epoch": "E1852", "tradition": "tsurphu"},
 )
 
-TSURPHU = EngineSpec(kind="traditional", id=TSURPHU_SPEC.id, payload=TSURPHU_SPEC)
-
 # ------------------------------------------------------------
 # MONGOL (E1747)
 # ------------------------------------------------------------
@@ -278,12 +401,11 @@ MONGOL_SPEC = CalendarSpec(
         m0=MONGOL_E1747_M0,
         s0=MONGOL_E1747_S0,
         a0=Fraction(1523, 1764),
+        location=LOC_MONGOLIA_APPROX
     ),
     leap_labeling="first_is_leap",
     meta={"epoch": "E1747", "tradition": "mongol"},
 )
-
-MONGOL = EngineSpec(kind="traditional", id=MONGOL_SPEC.id, payload=MONGOL_SPEC)
 
 # ------------------------------------------------------------
 # BHUTAN (E1754)
@@ -302,12 +424,11 @@ BHUTAN_SPEC = CalendarSpec(
         m0=BHUTAN_E1754_M0,
         s0=BHUTAN_E1754_S0,
         a0=Fraction(17, 147),
+        location=LOC_BHUTAN_APPROX
     ),
     leap_labeling="second_is_leap",
     meta={"epoch": "E1754", "tradition": "bhutan", "leap_labeling": "second_is_leap (simplified)"},
 )
-
-BHUTAN = EngineSpec(kind="traditional", id=BHUTAN_SPEC.id, payload=BHUTAN_SPEC)
 
 # ------------------------------------------------------------
 # KARANA (E806)
@@ -332,17 +453,14 @@ KARANA_SPEC = CalendarSpec(
     meta={"epoch": "E806", "tradition": "karana"},
 )
 
-KARANA = EngineSpec(kind="traditional", id=KARANA_SPEC.id, payload=KARANA_SPEC)
-
-
 # ------------------------------------------------------------
 
 TRAD_SPECS = {
-    "phugpa": PHUGPA,
-    "tsurphu": TSURPHU,
-    "mongol": MONGOL,
-    "bhutan": BHUTAN,
-    "karana": KARANA,
+    "phugpa": PHUGPA_SPEC,
+    "tsurphu": TSURPHU_SPEC,
+    "mongol": MONGOL_SPEC,
+    "bhutan": BHUTAN_SPEC,
+    "karana": KARANA_SPEC,
 }
 
 
@@ -380,7 +498,30 @@ L_LUNAR_TERMS_6 = L_LUNAR_TERMS_3 + (
 )
 
 # ============================================================
-# L1 REFORM: Single Anomaly Model
+# L0 REFORM: Pure Arithmetic Baseline
+# ============================================================
+
+L0_SPEC = CalendarSpec(
+    id=EngineId("reform", "l0", "0.1"),
+    month_params=arith_month(
+        P=P_NEW, Q=Q_NEW, beta_star=57, 
+        sgang1_deg=Fraction(307, 1), 
+        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=M1_NEW
+    ),
+    day_params=arith_day(
+        location=LOC_LHASA,
+        m0_abs=L_FUNDS["m0"],   # Passes absolute, arith_day auto-shifts for Lhasa!
+        s0=L_FUNDS["S"].c0, 
+        s1=S1_NEW, 
+        U=143925, 
+        V=141673
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1987", "description": "L0 Reform: Pure Arithmetic with Meeus constants"}
+)
+
+# ============================================================
+# L1 REFORM: Single Anomaly Model ("Modernized traditional")
 # ============================================================
 L1_SPEC = CalendarSpec(
     id=EngineId("reform", "l1", "0.1"),
@@ -397,8 +538,6 @@ L1_SPEC = CalendarSpec(
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "description": "L1 Reform: Single anomaly terms, constant sunrise"}
 )
-REFORM_L1 = EngineSpec(kind="rational", id=L1_SPEC.id, payload=L1_SPEC)
-
 
 # ============================================================
 # L2 REFORM: Evection and Variation Added
@@ -419,8 +558,6 @@ L2_SPEC = CalendarSpec(
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "description": "L2 Reform: 3 lunar terms, constant sunrise"}
 )
-REFORM_L2 = EngineSpec(kind="rational", id=L2_SPEC.id, payload=L2_SPEC)
-
 
 # ============================================================
 # L3 REFORM: Full 5-Term Orbit, Spherical Dawn, Quadratic Delta T
@@ -445,8 +582,6 @@ L3_SPEC = CalendarSpec(
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "description": "L3 Reform: 5 lunar terms, spherical dawn, quadratic delta T"}
 )
-REFORM_L3 = EngineSpec(kind="rational", id=L3_SPEC.id, payload=L3_SPEC)
-
 
 # ============================================================
 # L4 REFORM: Rational Month + Rational Day
@@ -477,14 +612,28 @@ L4_SPEC = CalendarSpec(
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "description": "L4 Reform: Rational Month + Rational Day (Full Astronomical)"}
 )
-REFORM_L4 = EngineSpec(kind="rational", id=L4_SPEC.id, payload=L4_SPEC)
 
+# ------------------------------------------------------------
 
 REFORM_SPECS = {
-    "reform-l1": REFORM_L1, 
-    "reform-l2": REFORM_L2, 
-    "reform-l3": REFORM_L3,
-    "reform-l4": REFORM_L4,
+    "reform-l0": L0_SPEC, 
+    "reform-l1": L1_SPEC, 
+    "reform-l2": L2_SPEC, 
+    "reform-l3": L3_SPEC,
+    "reform-l4": L4_SPEC,
 }
 
-ALL_SPECS = {**TRAD_SPECS, **REFORM_SPECS}
+ALIASES = {
+    "l0": L0_SPEC,
+    "l1": L1_SPEC,
+    "l2": L2_SPEC,
+    "l3": L3_SPEC,
+    "l4": L4_SPEC,
+}
+
+# ------------------------------------------------------------
+ 
+ALL_SPECS = {**TRAD_SPECS, **REFORM_SPECS, **ALIASES}
+
+# ------------------------------------------------------------
+

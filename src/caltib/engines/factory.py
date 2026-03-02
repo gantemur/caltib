@@ -5,9 +5,10 @@ Transforms pure data specifications into live, executable Engine objects.
 """
 
 from __future__ import annotations
-from caltib.core.types import EngineSpec, CalendarSpec
+from caltib.core.types import CalendarSpec
 from caltib.engines.calendar import CalendarEngine
 from caltib.engines.arithmetic_month import ArithmeticMonthParams, ArithmeticMonthEngine
+from caltib.engines.arithmetic_day import ArithmeticDayParams, ArithmeticDayEngine
 from caltib.engines.rational_month import RationalMonthParams, RationalMonthEngine
 from caltib.engines.trad_day import TraditionalDayParams, TraditionalDayEngine
 from caltib.engines.rational_day import RationalDayParams, RationalDayEngine
@@ -30,8 +31,12 @@ def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
         day_engine = TraditionalDayEngine(spec.day_params)
     elif isinstance(spec.day_params, RationalDayParams):
         day_engine = RationalDayEngine(spec.day_params)
+    elif isinstance(spec.day_params, ArithmeticDayParams):
+        day_engine = ArithmeticDayEngine(spec.day_params)
     # elif isinstance(spec.day_params, FloatDayParams):
     #     day_engine = FloatDayEngine(spec.day_params)
+    # elif isinstance(spec.day_params, EphDayParams):
+    #     day_engine = ephDayEngine(spec.day_params)
     else:
         raise TypeError(f"Unknown Day Params type: {type(spec.day_params)}")
         
@@ -43,6 +48,6 @@ def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
         leap_labeling=spec.leap_labeling
     )
 
-def make_engine(spec: EngineSpec) -> CalendarEngine:
+def make_engine(spec: CalendarSpec) -> CalendarEngine:
     """The universal entry point."""
-    return build_calendar_engine(spec.payload)
+    return build_calendar_engine(spec)

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Tuple
 
+from caltib.core.types import LocationSpec
 from caltib.engines.interfaces import DayEngineProtocol, NumT
 from caltib.engines.astro.sin_tables import OddPeriodicTable
 from caltib.engines.astro.affine_series import TermDef, TabTermT, AffineTabSeriesT
@@ -24,7 +25,6 @@ from caltib.engines.astro.deltat import (
     QuadraticDeltaTRational
 )
 from caltib.engines.astro.sunrise import (
-    LocationRational, 
     SunriseRationalDef, 
     ConstantSunriseRationalDef, 
     SphericalSunriseRationalDef, 
@@ -44,6 +44,7 @@ def frac_turn(x: Fraction) -> Fraction:
 @dataclass(frozen=True)
 class RationalDayParams:
     epoch_k: int  # Required by Protocol
+    location: LocationSpec
     
     A_sun: Fraction
     B_sun: Fraction
@@ -56,10 +57,13 @@ class RationalDayParams:
     iterations: int
     delta_t: DeltaTRationalDef
     sunrise: SunriseRationalDef
-    location: LocationRational
     moon_tab_quarter: Tuple[int, ...]
     sun_tab_quarter: Tuple[int, ...]
 
+    def with_location(self, new_loc: 'LocationSpec') -> 'RationalDayParams':
+        """Rebuilds the parameters for a new location."""
+        import dataclasses
+        return dataclasses.replace(self, location=new_loc)
 
 class RationalDayEngine(DayEngineProtocol):
     """
@@ -124,6 +128,11 @@ class RationalDayEngine(DayEngineProtocol):
     @property
     def epoch_k(self) -> int:
         return self.p.epoch_k
+
+    @property
+    def location(self) -> LocationSpec:
+        """Satisfies the new location-aware protocol."""
+        return self.p.location
 
     # ---------------------------------------------------------
     # Protocol Methods

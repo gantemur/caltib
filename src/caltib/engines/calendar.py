@@ -50,6 +50,20 @@ class CalendarEngine:
             return self.month
         raise TypeError("This calendar does not use an Arithmetic Month Engine.")
 
+    def with_location(self, new_loc: 'LocationSpec') -> 'CalendarEngine':
+        """
+        Returns a completely new CalendarEngine instance, perfectly 
+        recalibrated for the requested geographic location.
+        """
+        # 1. Ask the spec to rebuild its math for the new coordinates
+        new_spec = self.spec.with_location(new_loc)
+        
+        # 2. Import locally to avoid circular import issues with factory.py
+        from caltib.engines.factory import build_calendar_engine
+        
+        # 3. Spin up the fresh, location-aware engine!
+        return build_calendar_engine(new_spec)
+
     # ---------------------------------------------------------
     # Forward: Civil Date to Physical JDN
     # ---------------------------------------------------------

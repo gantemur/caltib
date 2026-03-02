@@ -7,11 +7,11 @@ from typing import Any, Dict, List, Optional, Sequence
 from fractions import Fraction
 
 from .core.engine import CalendarEngine, EngineRegistry
-from .core.types import DayInfo, TibetanDate, EngineSpec 
+from .core.types import DayInfo, TibetanDate, LocationSpec, CalendarSpec 
 from .core.time import from_jdn
 from .attributes.registry import compute_attributes
-from .engines.astro.sunrise import LocationRational
 from .engines.factory import make_engine as _make_engine
+
 
 JD_J2000 = Fraction(2451545, 1)
 _registry: Optional[EngineRegistry] = None
@@ -51,22 +51,25 @@ def to_gregorian(t: TibetanDate, *, engine: Optional[str] = None, policy: str = 
 def explain(d: date, *, engine: str = "phugpa") -> Dict[str, Any]:
     return _reg().get(engine).explain(d)
 
-def get_calendar(name: str, *, location: Optional[LocationRational] = None) -> CalendarEngine:
+def get_calendar(name: str, *, location: Optional[LocationSpec] = None) -> CalendarEngine:
     from .engines.specs import ALL_SPECS
     if name not in ALL_SPECS:
         raise KeyError(f"Unknown engine spec '{name}'")
+    
+    # spec is now natively a CalendarSpec!
     spec = ALL_SPECS[name]
     
+    # 2. Use our new cascading builder pattern to swap the location
     if location is not None:
-        if hasattr(spec.payload.day_params, 'location'):
-            day_params = replace(spec.payload.day_params, location=location)
-            spec = spec.tweak(day_params=day_params)
+        if hasattr(spec, 'with_location'):
+            spec = spec.with_location(location)
         else:
             raise ValueError(f"Calendar '{name}' does not support location overrides.")
 
     return _make_engine(spec)
 
-def make_engine(spec: EngineSpec) -> CalendarEngine:
+# 3. Updated type hint to natively expect CalendarSpec
+def make_engine(spec: CalendarSpec) -> CalendarEngine:
     return _make_engine(spec)
 
 def register_engine(name: str, engine: CalendarEngine, *, overwrite: bool = False) -> None:

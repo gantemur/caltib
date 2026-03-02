@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Optional, Tuple
 
+from caltib.core.types import LocationSpec
 from caltib.engines.interfaces import DayEngineProtocol, NumT
 from caltib.engines.astro.sin_tables import OddPeriodicTable
 from caltib.engines.astro.affine_series import PhaseDN, TabTermDN, AffineTabSeriesDN
@@ -28,6 +29,7 @@ def frac_turn(val: Fraction) -> Fraction:
 @dataclass(frozen=True)
 class TraditionalDayParams:
     epoch_k: int
+    location: LocationSpec
     
     # Base affine mean-date coefficients (absolute Julian Days)
     m0: Fraction
@@ -131,6 +133,11 @@ class TraditionalDayEngine(DayEngineProtocol):
     @property
     def epoch_k(self) -> int:
         return self.p.epoch_k
+
+    @property
+    def location(self) -> LocationSpec:
+        """Satisfies the new location-aware protocol."""
+        return self.p.location
 
     # ---------------------------------------------------------
     # Protocol Methods (Strictly t2000 output)
