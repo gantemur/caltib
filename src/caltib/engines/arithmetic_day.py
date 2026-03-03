@@ -7,7 +7,6 @@ Uses the mean-elongation U/V slope model and modular chad indexing.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -104,10 +103,13 @@ class ArithmeticDayEngine(DayEngineProtocol):
         """In a purely arithmetic mean model, true syzygy IS mean syzygy."""
         return self.mean_date(x)
 
-    def get_x_from_t2000(self, t2000: float) -> int:
-        """Inverse lookup of active tithi."""
-        # Fixed: now uses _m0_loc_t2000!
-        return math.floor((Fraction(t2000) - self._m0_loc_t2000) / self.p.m2)
+    def get_x_from_t2000(self, t2000: NumT) -> int:
+        """Inverse lookup of active tithi using pure rational arithmetic."""
+        # Calculate the exact fractional tithi index
+        x_frac = (Fraction(t2000) - self._m0_loc_t2000) / self.p.m2
+        
+        # Pure rational floor via unbounded integer division
+        return x_frac.numerator // x_frac.denominator
 
     def mean_sun(self, x: NumT) -> Fraction:
         return frac_turn(self.p.s0 + Fraction(x) * self.p.s2)
@@ -123,6 +125,19 @@ class ArithmeticDayEngine(DayEngineProtocol):
         # Continuous equivalent of J(x) = floor((V*x + V + delta_star) / U)
         continuous_j = (Fraction(self.p.V) * Fraction(x) + self.p.V + self.p.delta_star) / self.p.U
         return self._epoch_t2000 + continuous_j
+
+    def civil_jdn(self, x: NumT) -> int:
+        """
+        Returns the absolute discrete JDN using pure rational integer arithmetic.
+        Completely bypasses FPU and math.floor.
+        """
+        from fractions import Fraction
+        
+        # 1. Get the continuous fraction (t2000) and add the exact J2000 offset
+        abs_date = self.local_civil_date(x) + Fraction(2451545, 1)
+        
+        # 2. Pure rational floor via unbounded integer division
+        return abs_date.numerator // abs_date.denominator
 
     # ---------------------------------------------------------
     # Diagnostic / Appendix E Helpers

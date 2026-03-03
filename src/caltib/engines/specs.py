@@ -5,7 +5,7 @@ from fractions import Fraction
 import math
 
 # 1. New Core Types
-from caltib.core.types import EngineId, EngineSpec, CalendarSpec, LocationSpec
+from caltib.core.types import EngineId, CalendarSpec, LocationSpec
 from caltib.core.time import k_from_epoch_jd
 
 # 2. New Pure Data Parameters
@@ -70,8 +70,8 @@ FUND_RATES = {
     "S": S1_NEW / M1_NEW,
     "D": Fraction(1, 1) / M1_NEW,
     "M": R1_NEW / M1_NEW,
-    "Mp": A1_NEW / M1_NEW,
-    "F": F1_NEW / M1_NEW,
+    "Mp": (Fraction(1, 1) + A1_NEW) / M1_NEW,  # <--- Added 1 full revolution
+    "F": (Fraction(1, 1) + F1_NEW) / M1_NEW,   # <--- Added 1 full revolution
 }
 
 # Constant Delta T: 55.3s in 1987, 63.8s in 2000, 69.2s in early 2026
@@ -479,22 +479,22 @@ L_FUNDS = make_funds(
 
 # 2. Packaged Orbital Terms (Dynamically building on each other)
 L_SOLAR_TERMS = (
-    TermDef(amp=Fraction(32, 6015), phase=build_phase({"M": 1}, L_FUNDS)),
+    TermDef(amp=Fraction(543, 102067), phase=build_phase({"M": 1}, L_FUNDS)),
 )
 
 L_LUNAR_TERMS_1 = (
-    TermDef(amp=Fraction(8515, 16248), phase=build_phase({"Mp": 1}, L_FUNDS)),
+    TermDef(amp=Fraction(535, 30626), phase=build_phase({"Mp": 1}, L_FUNDS)),
 )
 
 L_LUNAR_TERMS_3 = L_LUNAR_TERMS_1 + (
-    TermDef(amp=Fraction(401, 3777), phase=build_phase({"D": 2, "Mp": -1}, L_FUNDS)),
-    TermDef(amp=Fraction(1064, 19395), phase=build_phase({"D": 2}, L_FUNDS)),
+    TermDef(amp=Fraction(44, 12433), phase=build_phase({"D": 2, "Mp": -1}, L_FUNDS)),
+    TermDef(amp=Fraction(101, 55232), phase=build_phase({"D": 2}, L_FUNDS)),
 )
 
 L_LUNAR_TERMS_6 = L_LUNAR_TERMS_3 + (
-    TermDef(amp=Fraction(-56, 3629), phase=build_phase({"M": 1}, L_FUNDS)),
-    TermDef(amp=Fraction(40, 2247), phase=build_phase({"Mp": 2}, L_FUNDS)),
-    TermDef(amp=Fraction(-447, 46916), phase=build_phase({"F": 2}, L_FUNDS)),
+    TermDef(amp=Fraction(-9, 17497), phase=build_phase({"M": 1}, L_FUNDS)),
+    TermDef(amp=Fraction(4, 6741), phase=build_phase({"Mp": 2}, L_FUNDS)),
+    TermDef(amp=Fraction(-29, 91313), phase=build_phase({"F": 2}, L_FUNDS)),
 )
 
 # ============================================================
@@ -553,7 +553,7 @@ L2_SPEC = CalendarSpec(
         funds=L_FUNDS,
         solar_terms=L_SOLAR_TERMS,
         lunar_terms=L_LUNAR_TERMS_3,
-        iterations=2,  
+        iterations=1,
     ),
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "description": "L2 Reform: 3 lunar terms, constant sunrise"}
@@ -573,7 +573,7 @@ L3_SPEC = CalendarSpec(
         funds=L_FUNDS,
         solar_terms=L_SOLAR_TERMS,
         lunar_terms=L_LUNAR_TERMS_6,
-        iterations=2,  
+        iterations=3,  
         delta_t=DT_QUADRATIC_DEF,
         sunrise=DAWN_SPHERICAL_DEF,  
         moon_tab_quarter=SINE_TAB_QUARTER,

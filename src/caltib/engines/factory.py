@@ -39,13 +39,13 @@ def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
     #     day_engine = ephDayEngine(spec.day_params)
     else:
         raise TypeError(f"Unknown Day Params type: {type(spec.day_params)}")
-        
+
     # 3. Orchestrate
+    # We only need to pass spec, month, and day. CalendarEngine handles the rest internally!
     return CalendarEngine(
-        id=spec.id,
+        spec=spec,
         month=month_engine, 
-        day=day_engine, 
-        leap_labeling=spec.leap_labeling
+        day=day_engine
     )
 
 def make_engine(spec: CalendarSpec) -> CalendarEngine:

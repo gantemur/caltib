@@ -139,8 +139,10 @@ def main(argv: list[str] | None = None) -> int:
         target_loc = loc_map[args.loc]
         if hasattr(engine_obj, 'with_location'):
             engine_obj = engine_obj.with_location(target_loc)
-            # Note: You may need to register this modified engine_obj back into your 
-            # API's _reg() dictionary temporarily if day_info strictly takes strings!
+            # Temporarily register this custom instance into the API so the string 
+            # name resolves to the localized engine during this script's execution.
+            from caltib import api as _api
+            _api._reg()._engines[engine_name] = engine_obj
 
     # 2. Execute
     if not args.lunar and not args.greg:

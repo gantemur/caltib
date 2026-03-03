@@ -13,7 +13,7 @@ def _need_numpy():
         import numpy as np
         return np
     except ImportError as e:
-        raise RuntimeError('Need numpy. Install: pip install numpy') from e
+        raise RuntimeError('Need numpy. Install: pip install "caltib[tools]"') from e
 
 
 def _need_scipy():
@@ -21,7 +21,7 @@ def _need_scipy():
         import scipy.optimize as opt
         return opt
     except ImportError as e:
-        raise RuntimeError('Need scipy. Install: pip install scipy') from e
+        raise RuntimeError('Need scipy. Install: pip install "caltib[tools]"') from e
 
 
 def optimize_minimax_odd(

@@ -156,6 +156,19 @@ class TraditionalDayEngine(DayEngineProtocol):
         """For traditional engines, the affine true_date is already civil-aligned."""
         return self.true_date(x)
 
+    def civil_jdn(self, x: NumT) -> int:
+        """
+        Returns the absolute discrete JDN using pure rational integer arithmetic.
+        Completely bypasses FPU and math.floor.
+        """
+        from fractions import Fraction
+        
+        # 1. Get the continuous fraction (t2000) and add the exact J2000 offset
+        abs_date = self.local_civil_date(x) + Fraction(2451545, 1)
+        
+        # 2. Pure rational floor via unbounded integer division
+        return abs_date.numerator // abs_date.denominator
+
     def mean_sun(self, x: NumT) -> Fraction:
         n, d = self._to_nd(x)
         s = self.p.s0 + self.p.s1 * n + self.p.s2 * d

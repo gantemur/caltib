@@ -163,24 +163,30 @@ class RationalMonthEngine(MonthEngineProtocol):
             "sgang_index": Z_n
         }
 
-    # ---------------------------------------------------------
+# ---------------------------------------------------------
     # Astronomical Transit Labeling (The Civil Interface)
     # ---------------------------------------------------------
     def sgang_index(self, n: int) -> int:
         """
         Returns the absolute zodiac/sgang transit index for a given lunation n.
         The sun advances through one sgang every 1/12 of a turn.
+        Evaluates using pure rational integer arithmetic to prevent transit snapping.
         """
+        from fractions import Fraction
         t_tt = self.true_date(n)
         
-        # Use absolute unrolled solar longitude to prevent wrap-around bugs across years
+        # Use absolute unrolled solar longitude to prevent wrap-around bugs
         abs_sun = self.solar_series.eval(t_tt) - self.p.sgang_base
         
-        # Floor it to find which 1/12th slice the sun is in at the moment of New Moon
-        return math.floor(float(abs_sun * 12))
+        # Multiply by 12 natively and extract the integer floor
+        z_frac = abs_sun * Fraction(12, 1)
+        return z_frac.numerator // z_frac.denominator
 
-    def get_month_info(self, n: int) -> Dict[str, Any]:
-        """Assigns civil month labels based on true astronomical transits."""
+    def label_from_lunation(self, n: int) -> Tuple[int, int, int]:
+        """
+        Protocol method: Assigns civil Year, Month, and Leap State 
+        dynamically based on true astronomical solar transits.
+        """
         Z_n = self.sgang_index(n)
         Z_prev = self.sgang_index(n - 1)
         Z_0 = self.sgang_index(0)
@@ -202,33 +208,53 @@ class RationalMonthEngine(MonthEngineProtocol):
             else:
                 leap_state = 0  # Regular month (no leap follows)
                 
+        return Y, M, leap_state
+
+    def get_month_info(self, n: int) -> Dict[str, Any]:
+        """Diagnostic dictionary wrapper for the civil month labels."""
+        Y, M, leap_state = self.label_from_lunation(n)
         return {
             "year": Y,
             "month": M,
             "leap_state": leap_state,
-            "sgang_index": Z_n
+            "sgang_index": self.sgang_index(n)
         }
 
     def get_lunations(self, year: int, month: int) -> List[int]:
         """
         Returns the absolute lunation indices for a given Year and Month number.
-        Uses a local search against the sgang transit boundaries.
+        Uses a local search against the sgang transit boundaries, with an O(1) 
+        pure rational affine inverse for the initial guess.
         """
+        from fractions import Fraction
+        
         M_linear_target = 12 * (year - self.p.Y0) + month
         Z_0 = self.sgang_index(0)
         Z_target = (M_linear_target - self.p.M0) + Z_0
         
-        # 1. Estimate n (1 lunation ≈ 1 transit)
-        n_guess = Z_target - Z_0
-        n = n_guess
+        # 1. Provide an extremely close starting guess based on the exact linear rates
+        # Target continuous solar longitude (in turns) at the start of the transit
+        S_target = Fraction(Z_target, 12) + self.p.sgang_base
         
-        # 2. Seek backward/forward to find the exact boundary
-        while self.sgang_index(n) > Z_target:
+        # Approximate physical time (t2000) when the sun reaches this longitude
+        t_guess = (S_target - self.p.A_sun) / self.p.B_sun
+        
+        # Approximate continuous lunation index at this time
+        n_guess_frac = self.p.A_elong + self.p.B_elong * t_guess
+        
+        # Pure rational integer floor
+        n = n_guess_frac.numerator // n_guess_frac.denominator
+        
+        # 2. Seek backward to find the absolute FIRST n of the target month.
+        # We must overshoot (>=) to guarantee we drop below any leap month clusters!
+        while self.sgang_index(n) >= Z_target:
             n -= 1
+            
+        # 3. Step forward to the exact lower boundary
         while self.sgang_index(n) < Z_target:
             n += 1
             
-        # 3. Collect all n's that share this transit target
+        # 4. Collect all n's that share this transit target
         results = []
         while self.sgang_index(n) == Z_target:
             results.append(n)

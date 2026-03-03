@@ -134,10 +134,15 @@ class AffineTabSeriesT:
           t_{k+1} = t0 - C(t_k)/B,   t0=(x0-A)/B
         This is the D.4.1 style iteration with fixed count for reproducibility.
         """
-        if iterations <= 0:
-            raise ValueError("iterations must be positive")
+        if iterations < 0:
+            raise ValueError("iterations must be non-negative")
             
         t0 = (x0 - self.A) / self.B
+        
+        # O(1) baseline bypass
+        if iterations == 0:
+            return t0
+            
         t = t0 if t_init is None else t_init
         invB = Fraction(1, 1) / self.B
         

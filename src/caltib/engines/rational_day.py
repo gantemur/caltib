@@ -8,7 +8,6 @@ fractional affine series and the Picard fixed-point iteration.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Tuple
@@ -156,11 +155,26 @@ class RationalDayEngine(DayEngineProtocol):
 
     def get_x_from_t2000(self, t2000: float) -> int:
         """
-        Inverse kinematic lookup. Returns the active absolute tithi index (x).
+        Inverse kinematic lookup. Returns the active absolute tithi index (x) 
+        that covers the given physical time (Days since J2000.0).
         """
-        # Series evaluates strictly in turns, so we scale by 30 at the end
-        e_turns = self.elong_series.eval(Fraction(t2000))
-        return math.floor(float(e_turns * 30))
+        from fractions import Fraction
+        target = Fraction(t2000)
+        
+        # 1. Provide an extremely close starting guess based on the elongation series.
+        e_turns = self.elong_series.eval(target)
+        x_est_frac = e_turns * Fraction(30, 1)
+        x_est = x_est_frac.numerator // x_est_frac.denominator
+        
+        # 2. Walk the physical boundaries to find the exact tithi enclosure.
+        # Tithi x is active if the target time falls strictly after tithi x-1 ends, 
+        # and on or before tithi x ends.
+        while self.true_date(x_est - 1) > target:
+            x_est -= 1
+        while self.true_date(x_est) <= target:
+            x_est += 1
+            
+        return x_est
 
     def mean_sun(self, x: NumT) -> Fraction:
         """Mean solar longitude (turns) at the physical moment of tithi x."""
@@ -200,9 +214,24 @@ class RationalDayEngine(DayEngineProtocol):
         )
         
         dawn_utc_exact = Fraction(j_civil, 1) - Fraction(1, 2) + dawn_frac_exact
+        # Calculate the absolute JDN coordinate
+        abs_jdn = Fraction(j_civil, 1) + (abs_t_utc - dawn_utc_exact)
         
-        return Fraction(j_civil, 1) + (abs_t_utc - dawn_utc_exact)
+        # Return t2000 to match the protocol!
+        return abs_jdn - JD_J2000
 
+    def civil_jdn(self, x: NumT) -> int:
+        """
+        Returns the absolute discrete JDN using pure rational integer arithmetic.
+        Completely bypasses FPU and math.floor.
+        """
+        from fractions import Fraction
+        
+        # 1. Get the continuous fraction (t2000) and add the exact J2000 offset
+        abs_date = self.local_civil_date(x) + Fraction(2451545, 1)
+        
+        # 2. Pure rational floor via unbounded integer division
+        return abs_date.numerator // abs_date.denominator
 
     # ---------------------------------------------------------
     # Civil Boundary & Time Extensions (Used by Orchestrator)
@@ -212,3 +241,25 @@ class RationalDayEngine(DayEngineProtocol):
         t_tt = self.true_date(x)
         dt_sec = self.delta_t.delta_t_seconds(t_tt)        
         return t_tt - (dt_sec / Fraction(86400, 1))
+
+    # ---------------------------------------------------------
+    # Astronomy / Debug
+    # ---------------------------------------------------------
+    
+    def mean_sun_tt(self, t2000: NumT) -> Fraction:
+        return self.solar_series.base(t2000)
+
+    def true_sun_tt(self, t2000: NumT) -> Fraction:
+        return self.solar_series.eval(t2000)
+
+    def mean_moon_tt(self, t2000: NumT) -> Fraction:
+        return self.lunar_series.base(t2000)
+
+    def true_moon_tt(self, t2000: NumT) -> Fraction:
+        return self.lunar_series.eval(t2000)
+
+    def mean_elong_tt(self, t2000: NumT) -> Fraction:
+        return self.elong_series.base(t2000)
+
+    def true_elong_tt(self, t2000: NumT) -> Fraction:
+        return self.elong_series.eval(t2000)

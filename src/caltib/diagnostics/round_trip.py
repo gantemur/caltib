@@ -41,6 +41,7 @@ def roundtrip_test(
         info = caltib.day_info(d0, engine=engine, debug=False)
         t = info.tibetan
 
+        # occ maps back to exactly one civil day
         back_occ = caltib.to_gregorian(t, engine=engine, policy="occ")
         if not back_occ or back_occ[0] != d0:
             failures += 1
@@ -53,6 +54,7 @@ def roundtrip_test(
             if failures >= max_failures:
                 return failures
 
+        # all maps back to all days carrying the label
         back_all = caltib.to_gregorian(t, engine=engine, policy="all")
         if d0 not in back_all:
             failures += 1
@@ -70,8 +72,12 @@ def roundtrip_test(
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Random round-trip tests: gregorian -> tibetan -> gregorian.")
-    p.add_argument("--engines", type=str, default="phugpa,tsurphu,mongol,bhutan,karana",
-                   help="Comma-separated engine list.")
+    
+    # Updated to include your new reform engines in the default test battery!
+    p.add_argument("--engines", type=str, 
+                   default="phugpa,tsurphu,mongol,bhutan,karana,l0",
+                   help="Comma-separated engine list (e.g. phugpa,mongol,l0,l1,l2,l3,l4).")
+                   
     p.add_argument("--N", type=int, default=2000, help="Trials per engine.")
     p.add_argument("--start", type=str, default="1600-01-01", help="Start date YYYY-MM-DD.")
     p.add_argument("--end", type=str, default="2400-12-31", help="End date YYYY-MM-DD.")

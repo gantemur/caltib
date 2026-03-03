@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI Reference - caltib</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container nav-bar">
+            <div class="logo">caltib</div>
+            <nav>
+                <a href="index.html">Home</a>
+                <a href="traditions.html">Traditions & Drift</a>
+                <a href="reforms.html">The Reforms</a>
+                <a href="library.html">Architecture</a>
+                <a href="cli.html">CLI</a>
+                <a href="api.html">API</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container content-section" style="margin-top: 40px;">
+        <h2>Command Line Interface</h2>
+        <p>The `caltib` CLI provides powerful tools for standard day-to-day calendar queries, massive historical diagnostic charting, and astronomical evaluation.</p>
+
+        <h3>Basic Usage</h3>
+        <pre style="background: #1e293b; color: #e2e8f0; padding: 15px; border-radius: 5px;"><code>caltib day 2026-02-21 --engine mongol
+caltib pretty-month --engine l3 --lunar 2026 1 --loc montreal
+caltib new-years --from-year 2000 --to-year 2030</code></pre>
+
+        <h3>Unified Diagnostics Suite (`caltib diag`)</h3>
+        <p>A suite of analytical tools to track secular drift, variance, and accuracy across centuries. All diagnostics natively support evaluating against the fast ELP2000 Reference model or the heavy JPL DE422 integration via the <code>--ephem</code> flag.</p>
+        <ul style="line-height: 1.8;">
+            <li><code>caltib diag analysis</code>: Measures sigma minima, drift vertices, and implied tidal coefficients.</li>
+            <li><code>caltib diag anomaly</code>: Plots the inverse angular anomaly (Equation of Center proxy).</li>
+            <li><code>caltib diag equinox</code>: Tracks solar longitude precession against the true tropical equinox.</li>
+            <li><code>caltib diag leap-months</code>: Generates a barcode grid comparing intercalation patterns.</li>
+            <li><code>caltib diag offsets</code>: Histograms mapping the spread of continuous syzygy deviations.</li>
+        </ul>
+
+        <h3>Astronomy & Design Tools</h3>
+        <ul style="line-height: 1.8;">
+            <li><code>caltib solar</code> / <code>caltib lunar</code>: Compute continuous TT/UTC coordinates.</li>
+            <li><code>caltib rational-params</code>: Generate continued fraction convergents for new engines.</li>
+            <li><code>caltib minimax</code>: Compute minimax odd-polynomial approximations for trigonometric functions.</li>
+        </ul>
+    </main>
+</body>
+</html>

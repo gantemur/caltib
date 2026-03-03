@@ -50,7 +50,7 @@ class ParameterDefinition:
         self.scale = scale  # 1.0 for turns, 30.0 for tithis
 
 
-def build_parameters(k: int) -> Tuple[List[ParameterDefinition], List[ParameterDefinition]]:
+def build_parameters(k: int) -> Tuple[List[ParameterDefinition], List[ParameterDefinition], List[ParameterDefinition]]:
     """Evaluates and builds the main and appendix parameters."""
     jd_tt = aa.jde_mean_new_moon(float(k))
     T = aa.T_centuries(jd_tt)
@@ -66,6 +66,7 @@ def build_parameters(k: int) -> Tuple[List[ParameterDefinition], List[ParameterD
     
     main_params = []
     appx_params = []
+    appx_tithis = []
     
     # ---------------------------------------------------------
     # MAIN 1: Traditional Epoch Constants (Evaluated at m0)
@@ -77,38 +78,48 @@ def build_parameters(k: int) -> Tuple[List[ParameterDefinition], List[ParameterD
     main_params.append(ParameterDefinition("f0 (Arg of Latitude at epoch)", fa_epoch.F_turn % 1.0, "turns"))
     
     # ---------------------------------------------------------
-    # MAIN 2: Solar & Lunar Amplitudes
+    # MAIN 2: Solar & Lunar Amplitudes (Natively in TURNS)
     # ---------------------------------------------------------
     amp_solar_eq = (1.914602 - 0.004817 * T - 0.000014 * (T**2)) / 360.0
     main_params.append(ParameterDefinition("Solar Eq of Center", amp_solar_eq, "turns"))
     
-    amp_moon_1 = (6.288774 / 360.0) * 30.0
-    main_params.append(ParameterDefinition("Lunar 1: Major Ineq (Mp)", amp_moon_1, "tithis", scale=30.0))
+    amp_moon_1 = 6.288774 / 360.0
+    main_params.append(ParameterDefinition("Lunar 1: Major Ineq (Mp)", amp_moon_1, "turns"))
     
-    amp_moon_2 = (1.274027 / 360.0) * 30.0
-    main_params.append(ParameterDefinition("Lunar 2: Evection (2D - Mp)", amp_moon_2, "tithis", scale=30.0))
+    amp_moon_2 = 1.274027 / 360.0
+    main_params.append(ParameterDefinition("Lunar 2: Evection (2D - Mp)", amp_moon_2, "turns"))
     
-    amp_moon_3 = (0.658314 / 360.0) * 30.0
-    main_params.append(ParameterDefinition("Lunar 3: Variation (2D)", amp_moon_3, "tithis", scale=30.0))
+    amp_moon_3 = 0.658314 / 360.0
+    main_params.append(ParameterDefinition("Lunar 3: Variation (2D)", amp_moon_3, "turns"))
     
-    amp_moon_4 = (-0.185116 * E / 360.0) * 30.0
-    main_params.append(ParameterDefinition("Lunar 4: Annual Eq (M)", amp_moon_4, "tithis", scale=30.0))
+    amp_moon_4 = -0.185116 * E / 360.0
+    main_params.append(ParameterDefinition("Lunar 4: Annual Eq (M)", amp_moon_4, "turns"))
     
-    amp_moon_5 = (0.213618 / 360.0) * 30.0
-    main_params.append(ParameterDefinition("Lunar 5: 2nd Elliptic (2Mp)", amp_moon_5, "tithis", scale=30.0))
+    amp_moon_5 = 0.213618 / 360.0
+    main_params.append(ParameterDefinition("Lunar 5: 2nd Elliptic (2Mp)", amp_moon_5, "turns"))
     
-    amp_moon_6 = (-0.114332 / 360.0) * 30.0
-    main_params.append(ParameterDefinition("Lunar 6: Reduction (2F)", amp_moon_6, "tithis", scale=30.0))
+    amp_moon_6 = -0.114332 / 360.0
+    main_params.append(ParameterDefinition("Lunar 6: Reduction (2F)", amp_moon_6, "turns"))
 
     # ---------------------------------------------------------
-    # APPENDIX: J2000.0 Reference Constants (Evaluated at T=0)
+    # APPENDIX 1: J2000.0 Reference Constants (Evaluated at T=0)
     # ---------------------------------------------------------
     appx_params.append(ParameterDefinition("c0_S (Mean Sun L0 at J2000.0)", sm_j2000.L0_turn % 1.0, "turns"))
     appx_params.append(ParameterDefinition("c0_Mp (Lunar Anomaly at J2000.0)", fa_j2000.Mp_turn % 1.0, "turns"))
     appx_params.append(ParameterDefinition("c0_M (Solar Anomaly at J2000.0)", sm_j2000.M_turn % 1.0, "turns"))
     appx_params.append(ParameterDefinition("c0_F (Arg of Latitude at J2000.0)", fa_j2000.F_turn % 1.0, "turns"))
     
-    return main_params, appx_params
+    # ---------------------------------------------------------
+    # APPENDIX 2: Lunar Amplitudes in TITHIS
+    # ---------------------------------------------------------
+    appx_tithis.append(ParameterDefinition("Lunar 1: Major Ineq (Mp)", amp_moon_1 * 30.0, "tithis", scale=30.0))
+    appx_tithis.append(ParameterDefinition("Lunar 2: Evection (2D - Mp)", amp_moon_2 * 30.0, "tithis", scale=30.0))
+    appx_tithis.append(ParameterDefinition("Lunar 3: Variation (2D)", amp_moon_3 * 30.0, "tithis", scale=30.0))
+    appx_tithis.append(ParameterDefinition("Lunar 4: Annual Eq (M)", amp_moon_4 * 30.0, "tithis", scale=30.0))
+    appx_tithis.append(ParameterDefinition("Lunar 5: 2nd Elliptic (2Mp)", amp_moon_5 * 30.0, "tithis", scale=30.0))
+    appx_tithis.append(ParameterDefinition("Lunar 6: Reduction (2F)", amp_moon_6 * 30.0, "tithis", scale=30.0))
+    
+    return main_params, appx_params, appx_tithis
 
 
 def print_param_list(params: List[ParameterDefinition], max_den: int):
@@ -152,7 +163,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = p.parse_args(argv)
 
     jd_tt = aa.jde_mean_new_moon(float(args.k))
-    main_params, appx_params = build_parameters(args.k)
+    main_params, appx_params, appx_tithis = build_parameters(args.k)
     
     print("==========================================================================================")
     print(f" EPOCH PARAMETER GENERATOR | Epoch Lunation k = {args.k} (JD_TT = {jd_tt:.5f})")
@@ -166,13 +177,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     print("==========================================================================================")
     
     print("\n==========================================================================================")
-    print(" APPENDIX: J2000.0 Reference Constants (c0)")
+    print(" APPENDIX 1: J2000.0 Reference Constants (c0)")
     print("==========================================================================================")
     print(" These represent the absolute phases at T=0 (J2000.0). When using make_funds() ")
     print(" with a traditional m0, the engine linearly back-projects phases. These values ")
     print(" provide the exact polynomial reference at J2000.0 for deep validation.")
     
     print_param_list(appx_params, args.max_den)
+    
+    print("\n==========================================================================================")
+    print(" APPENDIX 2: Lunar Amplitudes in Tithis (For Reference)")
+    print("==========================================================================================")
+    
+    print_param_list(appx_tithis, args.max_den)
     
     print("\n==========================================================================================\n")
     return 0

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design & Diagnostics - caltib</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+    <header>
+        <div class="container nav-bar">
+            <div class="logo">caltib</div>
+            <nav>
+                <a href="index.html">Home</a>
+                <a href="traditions.html">Traditions & Drift</a>
+                <a href="reforms.html">The Reforms</a>
+                <a href="library.html">Architecture</a>
+                <a href="tools.html" style="font-weight: bold; color: var(--text-main);">Design & Diagnostics</a>
+                <a href="api.html">API</a>
+                <a href="app.html" style="color: var(--primary-color); font-weight: bold;">Web App</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container content-section" style="margin-top: 40px;">
+        <h2>The Design & Diagnostics Laboratory</h2>
+        <p>A core philosophy of <code>caltib</code> is <strong>complete transparency</strong>. The modern reform engines (L1–L6) are not black boxes with arbitrary magic numbers. The library includes the exact mathematical tools used to derive, optimize, and validate every parameter in the system. Anyone can verify our constants or use these tools to design their own calendar engine.</p>
+        
+        <div style="background: #f8fafc; padding: 15px 20px; border-left: 4px solid var(--primary-color); margin-top: 20px; border-radius: 4px;">
+            <p style="margin: 0; font-size: 0.95rem;"><strong>Note:</strong> To access these modules, ensure you have installed the optional laboratory dependencies: <code>pip install "caltib[tools]"</code> (for design/charting) and <code>pip install "caltib[ephemeris]"</code> (for JPL DE422 integration).</p>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 30px 0;">
+
+        <h3>1. The "Ground Truth" Ephemeris Layer</h3>
+        <p>All parameter design and diagnostic testing must be measured against physical reality. <code>caltib</code> natively supports two interchangeable standards of truth:</p>
+        <ul style="line-height: 1.8; margin-bottom: 20px;">
+            <li><strong>The Analytical Reference (REF):</strong> A lightweight, highly precise, built-in implementation of truncated ELP2000/Meeus series algorithms. It allows the tools to run anywhere without heavy downloads or external dependencies.</li>
+            <li><strong>The JPL Integration (DE422):</strong> By supplying JPL <code>.bsp</code> files, the tools seamlessly swap to evaluating exact NASA numerical integrations for absolute astronomical proof.</li>
+        </ul>
+        <pre style="background: var(--code-bg); color: var(--code-text); padding: 15px; border-radius: 5px; overflow-x: auto;"><code># Calculate true solar longitude, Equation of Time, and precise sunrise
+caltib solar --jd-utc 2461072.5 --lat 29.65 --lon 91.11
+
+# Compare an engine's output natively against the JPL ephemeris
+caltib diag offsets --engine l3 --ephem de422</code></pre>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 30px 0;">
+
+        <h3>2. Calendar Design Tools</h3>
+        <p>These commands automatically process modern astronomical rates and compress them into the highly optimized rational fractions, integer tables, and minimax polynomials used by the reform engines.</p>
+        
+        <ul style="line-height: 1.8; margin-bottom: 20px;">
+            <li><code>caltib rational-params</code>: Uses continued fractions to generate optimal rational convergents for mean orbital motions, balancing precision with computational limits.</li>
+            <li><code>caltib sine-table</code>: Generates perfectly scaled, FPU-free integer sine-tables for evaluating the Equation of Center in the L1–L3 rational engines.</li>
+            <li><code>caltib minimax</code> & <code>pade-arctan</code>: Computes rigorous Chebyshev minimax odd-polynomial approximations for strictly reproducible floating-point trigonometric evaluation in the L4/L5 engines. </li>
+            <li><code>caltib float-params</code>: Generates full-precision hex-float representations of orbital parameters to guarantee bit-for-bit reproducibility across hardware architectures.</li>
+        </ul>
+        
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 30px 0;">
+
+        <h3>3. The Diagnostics Suite</h3>
+        <p>Once an engine is designed, the diagnostic suite visually and mathematically proves its stability across centuries. These tools were used to generate the charts seen on the <em>Traditions</em> and <em>Reforms</em> pages.</p>
+        
+        <ul style="line-height: 1.8; margin-bottom: 20px;">
+            <li><code>caltib diag analysis</code>: Fits quadratic curves to syzygy offsets over millennia to locate the engine's "Drift Vertex" (the exact historical year its parameters were perfect) and measures its implied secular acceleration.</li>
+            <li><code>caltib diag anomaly</code>: Plots the forward and inverse kinematic anomalies, proving that the engine's continuous orbital math successfully absorbs the Moon's orbital perturbations (Evection, Variation, etc.). </li>
+            <li><code>caltib diag equinox</code>: Evaluates an engine's sidereal/tropical drift by plotting its true solar longitude precisely at the true Vernal Equinox over a span of 1,500 years.</li>
+            <li><code>caltib diag drift-quad</code>: A deep-dive tool that generates scatter plots and rolling standard deviation ($\pm 1\sigma$) spread bands to visualize the exact moment an engine's phase drifts into chaos. </li>
+        </ul>
+        
+    </main>
+    
+    <footer>
+        <div class="container" style="text-align: center; color: var(--text-muted); padding: 40px 0; border-top: 1px solid var(--border-color); margin-top: 60px;">
+            <p style="margin-bottom: 10px;">Developed by <strong>Tsogtgerel Gantumur</strong></p>
+            <p style="font-size: 0.9rem;">McGill University • National University of Mongolia • Mongolian Academy of Sciences</p>
+            <p style="font-size: 0.8rem; margin-top: 20px; opacity: 0.7;">&copy; 2026. Released under the MIT License.</p>
+        </div>
+    </footer>
+</body>
+</html>

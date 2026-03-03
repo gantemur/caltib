@@ -143,7 +143,7 @@ def days_in_month(Y: int, M: int, *, is_leap_month: bool = False, engine: str = 
     n_d = n_m + eng.delta_k
     
     # Use the orchestrator's civil map instead of the old DayEngine hits
-    month_map = eng._build_civil_month(n_d)
+    month_map = eng.build_civil_month(n_d)
     
     rows = []
     for jdn, info in sorted(month_map.items()):
@@ -169,14 +169,14 @@ def end_jd_dn(d: int, n: int, *, engine: str = "phugpa") -> int:
     """Returns absolute Julian Day Number via continuous x."""
     eng = _reg().get(engine)
     x = Fraction(30 * n + d, 1)
-    return math.floor(eng.day.true_date(x) + JD_J2000)
+    return math.floor(eng.day.local_civil_date(x) + JD_J2000)
 
 def civil_month_n(n: int, *, engine: str = "phugpa") -> List[Dict[str, Any]]:
     """Diagnostic: list civil day records for a specific lunation n."""
     eng = _reg().get(engine)
     # Convert month engine n to day engine n_d
     n_d = n + eng.delta_k
-    month_map = eng._build_civil_month(n_d)
+    month_map = eng.build_civil_month(n_d)
     
     out = []
     for jdn, info in sorted(month_map.items()):

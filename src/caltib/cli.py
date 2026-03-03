@@ -19,23 +19,30 @@ def _parse_ymd(s: str) -> date:
 def _run_module_main(modpath: str, argv: list[str]) -> int:
     """
     Import module and run its main().
-
-    Supports:
-      - main(argv: list[str] | None = None) -> int|None
-      - main() -> int|None
     """
-    mod = importlib.import_module(modpath)
+    try:
+        mod = importlib.import_module(modpath)
+    except ImportError as e:
+        # Provide a highly actionable error message if an optional package is missing
+        if "jplephem" in str(e) or "skyfield" in str(e) or "ephemeris" in modpath:
+            raise SystemExit(f"\n[!] Ephemeris toolkit required.\nError: {e}\nFix: pip install \"caltib[ephemeris]\"\n")
+        elif "numpy" in str(e) or "matplotlib" in str(e) or "scipy" in str(e) or "panda" in str(e):
+            raise SystemExit(f"\n[!] Design/Diagnostics tools required.\nError: {e}\nFix: pip install \"caltib[tools]\"\n")
+        else:
+            raise SystemExit(f"\n[!] Failed to load {modpath}: {e}\nDid you install the required extras (tools or ephemeris)?\n")
+
     if not hasattr(mod, "main"):
         raise SystemExit(f"Module {modpath} has no main()")
+    
     fn = getattr(mod, "main")
-
     sig = inspect.signature(fn)
+    
     if len(sig.parameters) == 0:
         rv = fn()
     else:
         rv = fn(argv)
+        
     return int(rv or 0)
-
 
 def cmd_day(argv: list[str]) -> int:
     import caltib
@@ -140,7 +147,6 @@ def cmd_solar(argv: list[str]) -> int:
 
     civil_times = solar.sunrise_sunset_utc(jd_utc, args.lat, args.lon, eps_model=args.eps_model)
     if civil_times:
-        # Convert fractional hours to HH:MM:SS
         def fmt_time(h: float) -> str:
             h_int = int(h)
             m = (h - h_int) * 60
@@ -175,11 +181,9 @@ def cmd_lunar(argv: list[str]) -> int:
 
     jd_tt = args.jd_tt
     
-    # Calculate both lunar and solar coordinates
     moon_coords = lunar.lunar_position(jd_tt)
     sun_coords = solar.solar_longitude(jd_tt)
     
-    # Calculate elongations and wrap to [0, 360)
     elongation_true = aa.wrap_deg(moon_coords.L_true_deg - sun_coords.L_true_deg)
     elongation_app = aa.wrap_deg(moon_coords.L_app_deg - sun_coords.L_app_deg)
 
@@ -201,7 +205,6 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    # Backward compatibility: `caltib YYYY-MM-DD ...`
     if argv and _DATE_RE.match(argv[0]):
         return cmd_day(argv)
 
@@ -215,32 +218,36 @@ def main(argv: list[str] | None = None) -> int:
     p_day.add_argument("--debug", action="store_true")
     p_day.add_argument("--attr", action="append", default=[], help="attribute name (repeatable)")
 
-    # diagnostics (non-ephem)
+    # basic utilities
     sub.add_parser("pretty-month", help="Print lunar/Gregorian month calendars (diagnostics)")
     sub.add_parser("new-years", help="Print New Year table (diagnostics)")
 
-    # diagnostics (non-ephem)
-    p_diag = sub.add_parser("diag", help="Diagnostics tools (no ephemeris required)")
+    # ---------------------------------------------------------
+    # NEW UNIFIED DIAGNOSTICS SUITE
+    # ---------------------------------------------------------
+    p_diag = sub.add_parser("diag", help="Unified Diagnostics tools (Supports native --ephem toggle)")
     p_diag.add_argument(
         "tool",
-        choices=["equinox-trads", "leap-months", "losar-scatter", "round-trip"],
-        help="Which diagnostic to run",
+        choices=[
+            "analysis",
+            "anomaly",
+            "anomaly-forward",
+            "drift",
+            "drift-quad",
+            "equinox",
+            "leap-months",
+            "losar-scatter",
+            "offsets",
+            "round-trip"
+        ],
+        help="Which unified diagnostic to run",
     )
 
-    # ephem diagnostics
-    p_ephem = sub.add_parser("ephem", help="Ephemeris-based diagnostics")
+    p_ephem = sub.add_parser("ephem", help="Strict JPL Ephemeris tools")
     p_ephem.add_argument(
         "tool",
-        choices=[
-            "raw-offsets",
-            "drift-quad",
-            "drift-trads",
-            "analysis-trads",
-            "offsets-trads",
-            "anomaly-trads",
-            "validate-ref"
-        ],
-        help="Which ephemeris diagnostic to run",
+        choices=["validate-ref"],
+        help="Which ephemeris tool to run",
     )
 
     # astronomy tools
@@ -276,27 +283,27 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "new-years":
         return _run_module_main("caltib.diagnostics.new_years_table", rest)
 
+    # ---------------------------------------------------------
+    # ROUTING MAPS
+    # ---------------------------------------------------------
     if args.cmd == "diag":
         tool_map = {
-            "equinox-trads": "caltib.diagnostics.equinox_trads",
+            "analysis": "caltib.diagnostics.analysis",
+            "anomaly": "caltib.diagnostics.anomaly",
+            "anomaly-forward": "caltib.diagnostics.anomaly_forward",
+            "drift": "caltib.diagnostics.drift",
+            "drift-quad": "caltib.diagnostics.drift_quad",
+            "equinox": "caltib.diagnostics.equinox",
             "leap-months": "caltib.diagnostics.leap_months",
             "losar-scatter": "caltib.diagnostics.losar_scatter",
+            "offsets": "caltib.diagnostics.offsets",
             "round-trip": "caltib.diagnostics.round_trip",
         }
         return _run_module_main(tool_map[args.tool], rest)
 
     if args.cmd == "ephem":
-        tool_map = {
-            "raw-offsets": "caltib.diagnostics.ephem.offsets_trads",
-            "drift-quad": "caltib.diagnostics.ephem.drift_quad_fit",
-            "drift-trads": "caltib.diagnostics.ephem.drift_trads",
-            "analysis-trads": "caltib.diagnostics.ephem.analysis_trads",
-            "offsets-trads": "caltib.diagnostics.ephem.offsets_trads",
-            "anomaly-trads": "caltib.diagnostics.ephem.anomaly_trads",
-            "validate-ref": "caltib.diagnostics.ephem.validate_reference",
-        }
-        modpath = tool_map[args.tool]
-        return _run_module_main(modpath, rest)
+        if args.tool == "validate-ref":
+            return _run_module_main("caltib.diagnostics.ephem.validate_reference", rest)
 
     if args.cmd == "astro-args":
         return cmd_astro_args(rest)
@@ -333,4 +340,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

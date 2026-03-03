@@ -14,7 +14,7 @@ def _need_numpy():
         import numpy as np
         return np
     except ImportError as e:
-        raise RuntimeError('Need numpy. Install: pip install "caltib[diagnostics]"') from e
+        raise RuntimeError('Need numpy. Install: pip install "caltib[tools]"') from e
 
 
 def _need_matplotlib():
@@ -22,7 +22,7 @@ def _need_matplotlib():
         import matplotlib.pyplot as plt
         return plt
     except ImportError as e:
-        raise RuntimeError('Need matplotlib. Install: pip install "caltib[diagnostics]"') from e
+        raise RuntimeError('Need matplotlib. Install: pip install "caltib[tools]"') from e
 
 
 @dataclass(frozen=True)

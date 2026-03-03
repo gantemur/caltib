@@ -7,16 +7,15 @@ together, handling epoch synchronization and civil Julian Day boundaries.
 
 from __future__ import annotations
 
-import math
+from datetime import date
 from fractions import Fraction
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from caltib.core.types import EngineId, DayInfo, TibetanDate
+from caltib.core.types import EngineId, DayInfo, TibetanDate, LocationSpec
 from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol
 
 # J2000.0 TT base for absolute Julian Day conversion
 JD_J2000 = Fraction(2451545, 1)
-
 
 class CalendarEngine:
     """
@@ -25,15 +24,17 @@ class CalendarEngine:
     """
     def __init__(
         self, 
-        id: EngineId,
+        spec: 'CalendarSpec',  # <-- Store the exact spec that built this engine
         month: MonthEngineProtocol, 
         day: DayEngineProtocol, 
-        leap_labeling: str = "first_is_leap"
     ):
-        self.id = id
+        self.spec = spec
+        self.id = spec.id
+        # Safely extract leap_labeling from the spec
+        self.leap_labeling = getattr(spec, 'leap_labeling', "first_is_leap")
+        
         self.month = month
         self.day = day
-        self.leap_labeling = leap_labeling
         
         if self.leap_labeling not in ("first_is_leap", "second_is_leap"):
             raise ValueError("leap_labeling must be 'first_is_leap' or 'second_is_leap'")
@@ -50,12 +51,13 @@ class CalendarEngine:
             return self.month
         raise TypeError("This calendar does not use an Arithmetic Month Engine.")
 
+    #Generate a calendar engine with given location
     def with_location(self, new_loc: 'LocationSpec') -> 'CalendarEngine':
         """
         Returns a completely new CalendarEngine instance, perfectly 
         recalibrated for the requested geographic location.
         """
-        # 1. Ask the spec to rebuild its math for the new coordinates
+        # 1. Ask the internal spec to rebuild its math for the new coordinates
         new_spec = self.spec.with_location(new_loc)
         
         # 2. Import locally to avoid circular import issues with factory.py
@@ -89,97 +91,84 @@ class CalendarEngine:
         n_d = n_m + self.delta_k
         x = Fraction(30 * n_d + day, 1)
         
-        # 3. Use civil-aligned date, NOT physical true_date
-        t2000_civil = self.day.local_civil_date(x)
-        return math.floor(t2000_civil + JD_J2000)
+        # 3. Use the protected discrete boundary!
+        return self.day.civil_jdn(x)
 
     # ---------------------------------------------------------
     # Inverse: Physical JDN to Civil Date
     # ---------------------------------------------------------
 
-    def _build_civil_month(self, n_d: int) -> Dict[int, Dict[str, Any]]:
+    def from_jdn(self, jdn: int) -> dict:
         """
-        Internally maps a Day engine lunation n_d to a dictionary of 
-        JDN -> Civil Day attributes, handling skipped and repeated days.
+        Maps a Gregorian JDN to a Tibetan Date using pure monotonic search 
+        over exact discrete boundaries.
         """
-        hits: Dict[int, List[int]] = {}
-        # Use civil-aligned date, NOT physical true_date
-        for d in range(1, 31):
-            x = Fraction(30 * n_d + d, 1)
-            t2000_civil = self.day.local_civil_date(x) # Shifted to dawn
-            j = math.floor(t2000_civil + JD_J2000)
-            hits.setdefault(j, []).append(d)
+        # 1. Get initial approximation for x (t2000 coordinate)
+        t2000 = jdn - 2451545
+        x = self.day.get_x_from_t2000(t2000)
+        
+        # 2. Monotonic search for the exact x active at the dawn of `jdn`
+        # The civil day `jdn` belongs to tithi `x` iff: J(x-1) < jdn <= J(x)
+        while True:
+            # We now rely on the DayEngine to provide the exact absolute JDN!
+            j_end = self.day.civil_jdn(x)
+            j_prev = self.day.civil_jdn(x - 1)
             
-        # Get absolute civil month boundaries
-        first_t2000 = self.day.true_date(Fraction(30 * (n_d - 1) + 30, 1))
-        first_jd = math.floor(first_t2000 + JD_J2000) + 1
-        
-        last_t2000 = self.day.true_date(Fraction(30 * n_d + 30, 1))
-        last_jd = math.floor(last_t2000 + JD_J2000)
-
-        day_map = {}
-        prev_label: int | None = None
-        
-        for j in range(first_jd, last_jd + 1):
-            ended = hits.get(j, [])
-            if not ended:
-                if prev_label is None:
-                    day_map[j] = {"day": 1, "repeated": False, "skipped": False}
-                    prev_label = 1
-                else:
-                    day_map[j] = {"day": prev_label, "repeated": True, "skipped": False}
+            if jdn <= j_prev:
+                x -= 1
+            elif jdn > j_end:
+                x += 1
             else:
-                label = ended[-1]
-                skipped = len(ended) >= 2
-                day_map[j] = {"day": label, "repeated": False, "skipped": skipped}
-                prev_label = label
+                break
                 
-        return day_map
-
-    def from_jdn(self, jdn: int) -> Dict[str, Any]:
-        """
-        Translates a local Julian Day Number into a human calendar date dictionary.
-        """
-        # 1. Estimate the target n_d using the Day engine inverse lookup
-        approx_t2000 = jdn - float(JD_J2000) + 0.5
-        approx_x = self.day.get_x_from_t2000(approx_t2000)
-        n_d = approx_x // 30
-        
-        # 2. Look up the exact day in the civil month map
-        month_map = self._build_civil_month(n_d)
-        
-        # Edge case: JDN falls just outside the estimated month boundaries
-        if jdn not in month_map:
-            if jdn < min(month_map.keys()):
-                n_d -= 1
-            elif jdn > max(month_map.keys()):
-                n_d += 1
-            month_map = self._build_civil_month(n_d)
-            
-        day_info = month_map[jdn]
-        
-        # 3. Shift back to Month engine coordinates
+        # 3. Decompose absolute x into relative month (n_m) and day (d)
+        n_d = (x - 1) // 30
+        d = (x - 1) % 30 + 1
         n_m = n_d - self.delta_k
-        m_info = self.month.get_month_info(n_m)
         
-        # 4. Resolve human leap month label
+        # 4. Resolve Month labels
+        year, month_no, leap_state = self.month.label_from_lunation(n_m)
         is_leap = False
-        leap_state = m_info["leap_state"]
         if leap_state == 1:
             is_leap = (self.leap_labeling == "first_is_leap")
         elif leap_state == 2:
             is_leap = (self.leap_labeling == "second_is_leap")
             
+        # 5. Strict Physical Metadata
+        occ = jdn - j_prev
+        
+        # CRITICAL FIX: The Orchestrator expects 'repeated' to mean "Is THIS day the duplicate?"
+        # If occ == 2, it is the duplicate day. If occ == 1, it is the main day.
+        is_duplicate_day = (occ > 1)
+        
+        # skipped: The previous tithi (x-1) was skipped if it covered 0 dawns
+        skipped = (self.day.civil_jdn(x - 1) == self.day.civil_jdn(x - 2))
+        
         return {
-            "year": m_info["year"],
-            "month": m_info["month"],
+            "year": year,
+            "month": month_no,
             "is_leap": is_leap,
-            "day": day_info["day"],
-            "repeated": day_info["repeated"],
-            "skipped": day_info["skipped"],
-            "linear_month": m_info["linear_month"]
+            "day": d,
+            "occ": occ,
+            "repeated": is_duplicate_day,  # Prevents day_info from overwriting occ=1!
+            "skipped": skipped,
+            "linear_month": n_m
         }
 
+    def build_civil_month(self, n_d: int) -> dict:
+        """Diagnostic wrapper: Builds a month array using pure continuous bounds."""
+        # Bracket the month safely using the protected boundaries
+        j_start = self.day.civil_jdn(30 * n_d)
+        j_end = self.day.civil_jdn(30 * n_d + 30)
+        
+        month_map = {}
+        for jdn in range(j_start, j_end + 2):
+            res = self.from_jdn(jdn)
+            # Filter days to only those belonging to this exact lunation
+            if (res["linear_month"] + self.delta_k) == n_d:
+                month_map[jdn] = res
+        return month_map
+    
     # ---------------------------------------------------------
     # High-Level API Methods (Required by CLI / api.py)
     # ---------------------------------------------------------
@@ -208,11 +197,42 @@ class CalendarEngine:
             debug=res if debug else None
         )
 
-    def to_gregorian(self, t: TibetanDate, *, policy: str = "all") -> List[Any]:
+    
+    def to_gregorian(self, t: 'TibetanDate', *, policy: str = "all") -> list[date]:
+        """
+        Maps a TibetanDate back to Gregorian dates using pure continuous analytical mapping.
+        """
         from caltib.core.time import from_jdn
-        jdn = self.to_jdn(t.tib_year, t.month_no, t.is_leap_month, t.tithi)
-        # Note: robust policy handling (first, second, all) can be expanded here
-        return [from_jdn(jdn)]
-
-    def explain(self, d: Any) -> Dict[str, Any]:
-        return self.day_info(d, debug=True).__dict__
+        
+        # 1. Resolve absolute lunation index
+        lunations = self.month.get_lunations(t.tib_year, t.month_no)
+        if len(lunations) == 1:
+            n_m = lunations[0]
+        else:
+            if self.leap_labeling == "first_is_leap":
+                n_m = lunations[0] if t.is_leap_month else lunations[1]
+            else:
+                n_m = lunations[1] if t.is_leap_month else lunations[0]
+                
+        # 2. Get the absolute continuous tithi index (x)
+        n_d = n_m + self.delta_k
+        x = 30 * n_d + t.tithi
+        
+        # 3. The Pure Mathematical Mapping using the DayEngine's exact integers
+        j_start = self.day.civil_jdn(x - 1) + 1
+        j_end   = self.day.civil_jdn(x) + 1 
+        
+        valid_jdns = list(range(j_start, j_end))
+        
+        # 4. Routing
+        if policy == "all":
+            return [from_jdn(j) for j in valid_jdns]
+            
+        elif policy == "occ":
+            if not valid_jdns:
+                return [] 
+            idx = min(t.occ - 1, len(valid_jdns) - 1)
+            return [from_jdn(valid_jdns[idx])]
+            
+        else:
+            raise ValueError(f"Unknown to_gregorian policy: {policy}")

@@ -13,14 +13,14 @@ def _need_numpy():
         import numpy as np
         return np
     except ImportError as e:
-        raise RuntimeError('Need numpy. Install: pip install "caltib[diagnostics]"') from e
+        raise RuntimeError('Need numpy. Install: pip install "caltib[tools]"') from e
 
 def _need_matplotlib():
     try:
         import matplotlib.pyplot as plt
         return plt
     except ImportError as e:
-        raise RuntimeError('Need matplotlib. Install: pip install "caltib[diagnostics]"') from e
+        raise RuntimeError('Need matplotlib. Install: pip install "caltib[tools]"') from e
 
 def day_of_year(d: date) -> int:
     return (d - date(d.year, 1, 1)).days + 1
@@ -103,7 +103,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "mongol":  Style("Mongol", 1747, "0.45",       "o", linewidths=1.2, size=18, hollow=True,  jitter=0.0),
         "tsurphu": Style("Tsurphu",1447, "tab:red",    "_", linewidths=1.0, size=18, hollow=False, jitter=0.0),
         "bhutan":  Style("Bhutan", 1754, "tab:red",    "|", linewidths=1.0, size=18, hollow=False, jitter=0.0),
-        "l1":      Style("L1 (Mean)", 1987, "tab:green", "s", linewidths=0.0, size=14, hollow=False, jitter=0.0),
+        "l1":      Style("L1 (Mean)", 1987, "tab:green", "s", linewidths=1.0, size=14, hollow=True, jitter=0.0),
         "l2":      Style("L2 (Anom)", 1987, "tab:orange", "^", linewidths=0.0, size=15, hollow=False, jitter=0.0),
         "l3":      Style("L3 (Exact)", 1987, "tab:purple", "D", linewidths=0.0, size=13, hollow=False, jitter=0.0),
     }

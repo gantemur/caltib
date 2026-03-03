@@ -14,11 +14,9 @@ from __future__ import annotations
 from fractions import Fraction
 from typing import Any, Dict, List, Protocol, Union
 
+from caltib.core.types import LocationSpec
+
 # A generic numeric type to support both exact Rational engines and Float engines
-NumT = Union[int, float, Fraction]
-
-from typing import Protocol, List, Dict, Any, Union
-
 NumT = Union[int, float, Fraction]
 
 class MonthEngineProtocol(Protocol):
@@ -114,10 +112,17 @@ class DayEngineProtocol(Protocol):
         """Returns the true physical time (Days since J2000.0) for absolute tithi x."""
         ...
 
-    def local_civil_date(self, x: NumT) -> Fraction:
+    def local_civil_date(self, x: NumT) -> NumT:
         """
         Civil-aligned time. Shifted such that floor(local_civil_date + J2000) 
         accurately bounds the human day (e.g., local dawn).
+        """
+        ...
+
+    def civil_jdn(self, x: NumT) -> int:
+        """
+        Returns the absolute, discrete Julian Day Number on which tithi x ends. 
+        Must be computed securely to prevent float precision boundary snapping.
         """
         ...
 

@@ -13,9 +13,15 @@ authors = [{name = "caltib contributors"}]
 dependencies = []
 
 [project.optional-dependencies]
-full = ["caltib[diagnostics,ephemeris]"]
-diagnostics = ["numpy>=1.24", "pandas>=2", "matplotlib>=3.8"]
+# The ultimate bundle
+full = ["caltib[tools,ephemeris]"]
+
+# For the design and diagnostics laboratory
+tools = ["numpy>=1.24", "matplotlib>=3.8", "scipy>=1.10"]
+
+# For JPL DE422 numerical integration and the L6 engine
 ephemeris = ["skyfield>=1.45", "jplephem>=2.21"]
+
 dev = ["pytest>=8", "ruff>=0.4", "mypy>=1.8", "build>=1.2", "twine>=5"]
 
 [project.scripts]
