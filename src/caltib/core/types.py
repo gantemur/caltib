@@ -14,7 +14,7 @@ class EngineId:
 @dataclass(frozen=True)
 class TibetanDate:
     engine: EngineId
-    tib_year: int
+    year: int
     month_no: int
     is_leap_month: bool
     tithi: int
