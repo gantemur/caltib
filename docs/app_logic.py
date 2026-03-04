@@ -236,12 +236,12 @@ def render_month_view(cur_date, engine):
                     today_class = "real-today" if is_real_today else ""
                     
                     tithi_str = _n(getattr(cell_tib, 'tithi', '--'))
-                    
+
                     html += f'''
-                    <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}" onclick="window.jump_to_specific_date({y}, {m}, {d})">
-                        <div class="greg-date">{d}</div>
-                        <div class="tib-tithi" style="font-size: 1rem;">{tithi_str}</div>
-                        <div style="font-size: 0.75rem; color: #ef4444; text-align: right; margin-top: auto;">{cell_meta}</div>
+                    <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 4px; display: flex; flex-direction: column; align-items: center;" onclick="window.jump_to_specific_date({y}, {m}, {d})">
+                        <div class="greg-date" style="font-size: 1.1rem; font-weight: bold; color: var(--text-main); line-height: 1.1;">{d}</div>
+                        <div class="tib-tithi" style="font-size: 0.85rem; color: var(--primary-color); margin-top: 4px;">{tithi_str}</div>
+                        <div style="font-size: 0.65rem; color: #ef4444; margin-top: auto; font-weight: bold; text-align: center; line-height: 1.1;">{cell_meta}</div>
                     </div>'''
 
         html += '</div>'
@@ -278,7 +278,6 @@ def render_month_view(cur_date, engine):
             for day in m_info.days:
                 tib = day.tibetan
                 c_date = day.civil_date
-                greg_label = c_date.strftime("%b %d")
                 
                 bg = "#eff6ff" if c_date == cur_date else ""
                 border = "var(--primary-color)" if c_date == cur_date else "var(--border-color)"
@@ -295,12 +294,20 @@ def render_month_view(cur_date, engine):
                     meta.append(_t("skip_short"))
                     tithi_str += "-"
                 meta_str = "<br>".join(meta)
+
+                # Get short translated month, drop the leading zero on the day (e.g., "Feb 09" -> "Feb 9")
+                greg_months = _t("greg_months")
+                if isinstance(greg_months, list) and len(greg_months) > c_date.month:
+                    short_month = greg_months[c_date.month][:3] 
+                else:
+                    short_month = c_date.strftime("%b")
+                greg_label = f"{short_month} {c_date.day}"
                 
                 html += f'''
-                <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
-                    <div class="tib-tithi" style="text-align: left; font-size: 1.6rem; color: var(--text-main);">{tithi_str}</div>
-                    <div class="greg-date" style="text-align: right; font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">{greg_label}</div>
-                    <div style="font-size: 0.7rem; color: #ef4444; margin-top: auto; font-weight: bold;">{meta_str}</div>
+                <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 4px; display: flex; flex-direction: column; align-items: center;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
+                    <div class="tib-tithi" style="font-size: 1.3rem; font-weight: bold; color: var(--text-main); line-height: 1.1;">{tithi_str}</div>
+                    <div class="greg-date" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
+                    <div style="font-size: 0.65rem; color: #ef4444; margin-top: auto; font-weight: bold; text-align: center; line-height: 1.1;">{meta_str}</div>
                 </div>'''
                                 
         html += '</div>'

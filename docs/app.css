@@ -78,3 +78,20 @@
     content: ''; position: absolute; top: 4px; left: 4px; width: 8px; height: 8px; 
     background: #10b981; border-radius: 50%;
 }
+
+/* Mobile Grid Optimizations */
+@media (max-width: 600px) {
+    .month-grid {
+        gap: 2px; /* Reduce space between cells */
+    }
+    .month-header {
+        font-size: 0.75rem;
+        padding: 5px 2px;
+    }
+    .month-cell {
+        padding: 2px !important;
+    }
+    /* Shrink text slightly more on narrow screens */
+    .tib-tithi { font-size: 1.1rem !important; }
+    .greg-date { font-size: 0.65rem !important; }
+}
