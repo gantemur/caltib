@@ -31,20 +31,35 @@
             <div style="margin-bottom: 15px;">
                 <label for="engine-select"><strong>Calculation Engine</strong></label><br>
                 <select id="engine-select" style="width: 100%; padding: 8px; margin-top: 5px;">
-                    <optgroup label="Traditions">
+                    <optgroup label="Traditional">
                         <option value="phugpa">Phugpa</option>
                         <option value="tsurphu">Tsurphu</option>
                         <option value="mongol">Mongol</option>
                         <option value="bhutan">Bhutan</option>
                         <option value="karana">Karana</option>
                     </optgroup>
-                    <optgroup label="Reforms">
+                    <optgroup label="Reformed">
                         <option value="l0">L0 (Pure Arithmetic)</option>
                         <option value="l1">L1 (Modern Trad)</option>
                         <option value="l2">L2 (Evection/Var)</option>
                         <option value="l3">L3 (Spherical Dawn)</option>
                         <option value="l4">L4 (Float-Day)</option>
                     </optgroup>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="loc-select"><strong>Location</strong></label><br>
+                <select id="loc-select" style="width: 100%; padding: 8px; margin-top: 5px;">
+                    <option value="none">None (Traditional)</option>
+                    <option value="lhasa">Lhasa</option>
+                    <option value="ulaanbaatar">Ulaanbaatar</option>
+                    <option value="thimphu">Thimphu</option>
+                    <option value="hohhot">Hohhot</option>
+                    <option value="ulan_ude">Ulan-Ude</option>
+                    <option value="elista">Elista</option>
+                    <option value="beijing">Beijing</option>
+                    <option value="montreal">Montreal</option>
                 </select>
             </div>
 
@@ -57,6 +72,12 @@
                     <option value="mn">Mongolian</option>
                     <option value="ru">Russian</option>
                 </select>
+            </div>
+
+            <div style="margin-top: 25px; display: flex; gap: 10px;">
+                <button class="nav-btn" py-click="export_config" style="flex: 1; font-size: 0.8rem; padding: 6px; border-radius: 4px;">💾 Export</button>
+                <button class="nav-btn" onclick="document.getElementById('config-upload').click()" style="flex: 1; font-size: 0.8rem; padding: 6px; border-radius: 4px;">📂 Import</button>
+                <input type="file" id="config-upload" style="display: none;" accept=".json" py-change="import_config">
             </div>
             
             <div id="sys-status" style="margin-top: 15px; font-size: 0.85rem; color: #eab308; font-weight: bold;">Initializing Environment...</div>
@@ -87,32 +108,42 @@
                     </div>
                     <button class="nav-btn" py-click="nav_day_next">&#9654;</button>
                 </div>
+                
                 <div class="day-card">
-                    <div class="day-card-body">
+                    <div class="day-card-body" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
+                        
                         <div class="day-stat-box">
-                            <div class="day-stat-lbl">Year / Cycle</div>
+                            <div class="day-stat-lbl">Alignment</div>
                             <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_year_view" id="day-val-year">--</div>
                         </div>
+                        
                         <div class="day-stat-box">
                             <div class="day-stat-lbl">Lunar Month</div>
                             <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_month_view" id="day-val-month">--</div>
                         </div>
-                        <div class="day-stat-box" style="grid-column: 1 / -1;">
-                            <div class="day-stat-lbl">Tithi (Lunar Day)</div>
-                            <div class="day-stat-val" id="day-val-tithi" style="font-size: 3rem; color: var(--primary-color);">--</div>
-                            <div id="day-val-tithi-meta" style="color: #ef4444; font-weight: bold; font-size: 0.9rem;"></div>
+                
+                        <div class="day-stat-box">
+                            <div class="day-stat-lbl">Weekday</div>
+                            <div class="day-stat-val" style="color: var(--primary-color);" id="day-val-weekday">--</div>
                         </div>
                         
-                        <div class="ext-section">
-                            <div class="ext-title">Astrological Attributes (Pending)</div>
+                        <div class="day-stat-box" style="grid-column: 1 / -1; margin-top: 10px; padding: 15px 0;">
+                            <div class="day-stat-lbl">Tithi (Lunar Day)</div>
+                            <div class="day-stat-val" id="day-val-tithi" style="font-size: 3.5rem; color: var(--primary-color); line-height: 1.1;">--</div>
+                            <div id="day-val-tithi-meta" style="color: #ef4444; font-weight: bold; font-size: 0.9rem; margin-top: 5px;"></div>
+                        </div>
+                        
+                        <div class="ext-section" style="grid-column: 1 / -1; text-align: left;">
+                            <div class="ext-title" id="lbl-ext-attr">Astrological Attributes (Pending)</div>
                             <div class="ext-grid">
                                 <span class="ext-badge">Element: Fire</span>
                                 <span class="ext-badge">Animal: Horse</span>
                                 <span class="ext-badge">Mewa: 2 Black</span>
                             </div>
                         </div>
-                        <div class="ext-section">
-                            <div class="ext-title">True Planetary Positions (Pending)</div>
+                        
+                        <div class="ext-section" style="grid-column: 1 / -1; text-align: left;">
+                            <div class="ext-title" id="lbl-ext-planets">True Planetary Positions (Pending)</div>
                             <div class="ext-grid">
                                 <span class="ext-badge">Sun: 331.2°</span>
                                 <span class="ext-badge">Moon: 12.4°</span>
@@ -189,7 +220,11 @@
                 </div>
             </div>
             
-        </section>
+            <div style="text-align: center; padding: 20px 0 10px 0; margin-top: auto; font-size: 0.8rem; color: var(--text-muted);">
+                Powered by <strong><a href="https://gantemur.github.io/caltib/" target="_blank" style="color: var(--primary-color); text-decoration: none; font-weight: bold;">caltib</a></strong> &mdash; Designed by Gantumur
+            </div>
+
+        </section> 
     </main>
 
     <script>

@@ -4,6 +4,25 @@ import calendar
 import caltib
 from pyodide.ffi import create_proxy
 import caltib.i18n as i18n
+import json
+
+
+
+from caltib.core.types import LocationSpec
+
+from caltib.engines import specs
+
+# Map the HTML dropdown values directly to your backend specs
+PRESET_LOCATIONS = {
+    "lhasa": specs.LOC_LHASA,
+    "ulaanbaatar": specs.LOC_ULAANBAATAR,
+    "thimphu": specs.LOC_THIMPHU,
+    "hohhot": specs.LOC_HOHHOT,
+    "beijing": specs.LOC_BEIJING,
+    "ulan_ude": specs.LOC_ULAN_UDE,
+    "elista": specs.LOC_ELISTA,
+    "montreal": specs.LOC_MONTREAL
+}
 
 # --- GLOBAL APPLICATION STATE ---
 APP_STATE = {
@@ -16,6 +35,91 @@ APP_STATE = {
 
 APP_STATE["lang"] = "en"
 
+# --- LOCAL STORAGE AUTO-SAVE ---
+def save_state():
+    """Saves the current dropdown selections to the browser's persistent storage."""
+    state = {
+        "engine": js.document.getElementById("engine-select").value,
+        "location": js.document.getElementById("loc-select").value,
+        "language": js.document.getElementById("lang-select").value
+    }
+    js.window.localStorage.setItem("caltib_config", json.dumps(state))
+
+def load_state():
+    """Attempts to load saved settings on startup."""
+    saved = js.window.localStorage.getItem("caltib_config")
+    if saved:
+        try:
+            state = json.loads(saved)
+            if "engine" in state: js.document.getElementById("engine-select").value = state["engine"]
+            if "location" in state: js.document.getElementById("loc-select").value = state["location"]
+            if "language" in state: 
+                js.document.getElementById("lang-select").value = state["language"]
+                APP_STATE["lang"] = state["language"]
+        except Exception:
+            pass
+
+# --- FILE EXPORT / IMPORT ---
+def export_config(e):
+    """Downloads the current state as a JSON file."""
+    state = {
+        "engine": js.document.getElementById("engine-select").value,
+        "location": js.document.getElementById("loc-select").value,
+        "language": js.document.getElementById("lang-select").value
+    }
+    json_str = json.dumps(state, indent=2)
+    
+    # Create a virtual file (Blob) and force the browser to download it
+    blob = js.Blob.new([json_str], type="application/json")
+    url = js.window.URL.createObjectURL(blob)
+    
+    a = js.document.createElement("a")
+    a.href = url
+    a.download = "caltib_config.json"
+    js.document.body.appendChild(a)
+    a.click()
+    js.document.body.removeChild(a)
+    js.window.URL.revokeObjectURL(url)
+
+def import_config(e):
+    """Reads an uploaded JSON file and applies it to the UI."""
+    file_input = js.document.getElementById("config-upload")
+    if not file_input.files.length:
+        return
+    
+    file = file_input.files.item(0)
+    
+    def on_file_loaded(event):
+        try:
+            content = event.target.result
+            state = json.loads(content)
+            
+            # Update DOM
+            if "engine" in state: js.document.getElementById("engine-select").value = state["engine"]
+            if "location" in state: js.document.getElementById("loc-select").value = state["location"]
+            if "language" in state: js.document.getElementById("lang-select").value = state["language"]
+            
+            # Apply changes across the app
+            APP_STATE["lang"] = js.document.getElementById("lang-select").value
+            APP_STATE["data_cache"].clear()
+            
+            save_state()           # Update local storage with the new imported file
+            sync_location_ui()     # Fix disabled dropdown states
+            update_static_ui()     # Update translations
+            render_all_views()     # Repaint calendar
+            generate_losar_list()  # Repaint Losar table
+            
+        except Exception as ex:
+            print(f"Failed to load config file: {ex}")
+            
+    # Read the file asynchronously
+    reader = js.FileReader.new()
+    reader.onload = create_proxy(on_file_loaded)
+    reader.readAsText(file)
+    file_input.value = "" # Reset input so the user can import the same file again later
+
+js.window.export_config = create_proxy(export_config)
+
 # --- TRANSLATION HELPERS ---
 def _t(key):
     """Shorthand string translator"""
@@ -25,6 +129,19 @@ def _n(num):
     """Shorthand numeral translator"""
     if num == "--": return num
     return i18n.localize_num(num, APP_STATE["lang"])
+
+def get_rabjung_string(tib_year):
+    """Calculates the Rabjung cycle and year, returning a localized string."""
+    if not isinstance(tib_year, int):
+        return ""
+    # The first Rabjung started in 1027 AD.
+    offset = tib_year - 1026
+    cycle = (offset - 1) // 60 + 1
+    year_in_cycle = (offset - 1) % 60 + 1
+    
+    fmt_str = _t("rabjung_fmt")
+    # Translate the numbers!
+    return fmt_str.replace("{R}", _n(cycle)).replace("{Y}", _n(year_in_cycle))
 
 # --- UI LABEL UPDATER ---
 def update_static_ui():
@@ -39,6 +156,7 @@ def update_static_ui():
     js.document.querySelector("#day-val-year").previousElementSibling.innerText = _t("alignment")
     js.document.querySelector("#day-val-month").previousElementSibling.innerText = _t("lunar_month")
     js.document.querySelector("#day-val-tithi").previousElementSibling.innerText = _t("tithi")
+    js.document.querySelector("#day-val-weekday").previousElementSibling.innerText = _t("weekday_lbl")
     
     # Toggle Buttons
     js.document.getElementById("tog-m-greg").innerText = _t("greg_grid")
@@ -53,39 +171,91 @@ def init_app():
     status_div.innerText = "System Ready."
     status_div.style.color = "#22c55e"
     
-    # Set default Losar range (-5 to +10)
     curr_y = APP_STATE["date"].year
     js.document.getElementById("losar-start").value = str(curr_y - 5)
     js.document.getElementById("losar-end").value = str(curr_y + 5)
     
-    # Handle engine changes seamlessly
-    def on_engine_change(e):
+    # 1. EVENT HANDLERS (Now with auto-save!)
+    def handle_calc_change(e):
         APP_STATE["data_cache"].clear()
+        sync_location_ui() 
+        save_state()          # <-- Save on change
         render_all_views()
-        generate_losar_list()  # Keep the Losar tab perfectly synced!
-        
-    select_el = js.document.getElementById("engine-select")
-    select_el.addEventListener("change", create_proxy(on_engine_change))
-    
-    def on_lang_change(e):
+        generate_losar_list()
+
+    def handle_lang_change(e):
         APP_STATE["lang"] = js.document.getElementById("lang-select").value
         update_static_ui()
-        render_all_views() # Repaint grids with new numerals/weekdays
+        save_state()          # <-- Save on change
+        render_all_views()
         generate_losar_list()
         
-    js.document.getElementById("lang-select").addEventListener("change", create_proxy(on_lang_change))
-    
-    update_static_ui() # Run once on load
+    # 2. BINDINGS
+    js.document.getElementById("engine-select").addEventListener("change", create_proxy(handle_calc_change))
+    js.document.getElementById("loc-select").addEventListener("change", create_proxy(handle_calc_change))
+    js.document.getElementById("lang-select").addEventListener("change", create_proxy(handle_lang_change))
 
+    # 3. INITIAL BOOTSTRAP
+    # Set hardcoded defaults first...
+    js.document.getElementById("engine-select").value = "phugpa"
+    js.document.getElementById("loc-select").value = "none"
+    
+    # ...then overwrite them if the user has previously saved settings!
+    load_state()
+    
+    sync_location_ui()
+    update_static_ui()
     render_all_views()
-    generate_losar_list()  # Initial calculation
+    generate_losar_list()
+
+
+def sync_location_ui():
+    """Manages the disabled state and auto-selection of the Location dropdown."""
+    eng_select = js.document.getElementById("engine-select")
+    loc_select = js.document.getElementById("loc-select")
+    
+    # Safely get the selected option and its parent <optgroup>
+    selected_opt = eng_select.options.item(eng_select.selectedIndex)
+    group = getattr(selected_opt, "parentElement", None)
+    
+    is_trad = False
+    if group and getattr(group, "tagName", "").upper() == "OPTGROUP":
+        if "traditional" in getattr(group, "label", "").lower():
+            is_trad = True
+            
+    none_opt = loc_select.querySelector('option[value="none"]')
+    
+    if is_trad:
+        # TRADITIONAL MODE
+        loc_select.disabled = True
+        if none_opt: none_opt.disabled = False
+        loc_select.value = "none"
+    else:
+        # REFORMED MODE
+        loc_select.disabled = False
+        if none_opt: none_opt.disabled = True
+        
+        # Safe fallback if stuck on 'none'
+        if loc_select.value == "none":
+            loc_select.value = "lhasa"
 
 # --- CACHE WRAPPERS (The Performance Fix) ---
 def get_engine():
+    """Purely fetches the engine based on current UI state. No DOM manipulation."""
     engine_id = js.document.getElementById("engine-select").value
-    if engine_id not in APP_STATE["engine_cache"]:
-        APP_STATE["engine_cache"][engine_id] = caltib.get_calendar(engine_id)
-    return APP_STATE["engine_cache"][engine_id]
+    loc_id = js.document.getElementById("loc-select").value
+    
+    cache_key = f"{engine_id}_{loc_id}"
+    
+    if cache_key not in APP_STATE["engine_cache"]:
+        if loc_id != "none" and loc_id in PRESET_LOCATIONS:
+            # We now safely pass the location because ALL engines have with_location()
+            loc_spec = PRESET_LOCATIONS[loc_id]
+            APP_STATE["engine_cache"][cache_key] = caltib.get_calendar(engine_id, location=loc_spec)
+        else:
+            APP_STATE["engine_cache"][cache_key] = caltib.get_calendar(engine_id)
+            
+    return APP_STATE["engine_cache"][cache_key]
 
 def get_cached_day(engine, d: date):
     key = f"D_{engine.id.name}_{d.isoformat()}"
@@ -188,10 +358,31 @@ def render_day_view(cur_date, engine):
     
     leap_str = _t("leap_suffix") if getattr(tib, 'is_leap_month', False) else ""
     
-    # Gregorian dates (like the top title) usually stay Arabic, but you can format if you prefer
-    js.document.getElementById("day-title").innerText = cur_date.strftime("%A, %B %d, %Y")
+    # 1. Format and translate the blue title (without the weekday)
+    greg_months = _t("greg_months")
+    m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
     
-    js.document.getElementById("day-val-year").innerHTML = f'{_t("alignment")}: {y_val}'
+    title_fmt = _t("day_title_fmt")
+    if title_fmt != "day_title_fmt":
+        title_text = title_fmt.replace("{month}", m_name).replace("{day}", str(cur_date.day)).replace("{year}", str(cur_date.year))
+    else:
+        title_text = f"{m_name} {cur_date.day}, {cur_date.year}"
+        
+    js.document.getElementById("day-title").innerText = title_text
+    
+    # 2. Extract and translate the Weekday
+    weekdays = _t("weekdays")
+    weekday_name = weekdays[cur_date.weekday()] if isinstance(weekdays, list) else cur_date.strftime("%A")
+    
+    # Update the weekday element (if it exists in the HTML)
+    weekday_el = js.document.getElementById("day-val-weekday")
+    if weekday_el:
+        weekday_el.innerText = weekday_name
+        # Also translate the label above it
+        weekday_el.previousElementSibling.innerText = _t("weekday_lbl")
+    
+    # 3. Update existing Day Card elements
+    js.document.getElementById("day-val-year").innerText = str(y_val)
     js.document.getElementById("day-val-month").innerText = f'{m_val}{leap_str}'
     js.document.getElementById("day-val-tithi").innerText = str(t_val)
     
@@ -206,7 +397,11 @@ def render_month_view(cur_date, engine):
     
     if mode == "gregorian":
         y, m = cur_date.year, cur_date.month
-        js.document.getElementById("month-title").innerText = cur_date.strftime("%B %Y")
+        
+        # 1. Translate the Gregorian Title
+        greg_months = _t("greg_months")
+        m_name = greg_months[m] if isinstance(greg_months, list) and len(greg_months) > m else cur_date.strftime("%B")
+        js.document.getElementById("month-title").innerText = f"{m_name} {_n(y)}"
         
         html = '<div class="month-grid">'
         weekdays = _t("weekdays")
@@ -224,9 +419,19 @@ def render_month_view(cur_date, engine):
                     cell_info = get_cached_day(engine, cell_date)
                     cell_tib = cell_info.tibetan
                     
-                    cell_meta = ""
-                    if getattr(cell_tib, 'occ', 1) == 2: cell_meta += _t("dup_short")
-                    if getattr(cell_tib, 'previous_tithi_skipped', False): cell_meta += _t("skip_short")
+                    m_num = _n(getattr(cell_tib, 'month', ''))
+                    m_mark = ""
+                    if getattr(cell_tib, 'is_leap_month', False):
+                        m_mark = "-" if getattr(engine, 'leap_labeling', 'first_is_leap') == "first_is_leap" else "+"
+                        
+                    t_num = _n(getattr(cell_tib, 'tithi', ''))
+                    t_mark = ""
+                    if getattr(cell_tib, 'occ', 1) == 2:
+                        t_mark = "+"
+                    elif getattr(cell_tib, 'previous_tithi_skipped', False):
+                        t_mark = "-"
+                        
+                    combo_str = f"{m_num}{m_mark}/{t_num}{t_mark}"
                     
                     is_active = (d == cur_date.day)
                     is_real_today = (y == REAL_TODAY.year and m == REAL_TODAY.month and d == REAL_TODAY.day)
@@ -235,13 +440,10 @@ def render_month_view(cur_date, engine):
                     border = "var(--primary-color)" if is_active else "var(--border-color)"
                     today_class = "real-today" if is_real_today else ""
                     
-                    tithi_str = _n(getattr(cell_tib, 'tithi', '--'))
-
                     html += f'''
-                    <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 4px; display: flex; flex-direction: column; align-items: center;" onclick="window.jump_to_specific_date({y}, {m}, {d})">
+                    <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center;" onclick="window.jump_to_specific_date({y}, {m}, {d})">
                         <div class="greg-date" style="font-size: 1.1rem; font-weight: bold; color: var(--text-main); line-height: 1.1;">{d}</div>
-                        <div class="tib-tithi" style="font-size: 0.85rem; color: var(--primary-color); margin-top: 4px;">{tithi_str}</div>
-                        <div style="font-size: 0.65rem; color: #ef4444; margin-top: auto; font-weight: bold; text-align: center; line-height: 1.1;">{cell_meta}</div>
+                        <div class="tib-tithi" style="font-size: 0.85rem; font-weight: bold; color: var(--primary-color); margin-top: 6px;">{combo_str}</div>
                     </div>'''
 
         html += '</div>'
@@ -256,24 +458,29 @@ def render_month_view(cur_date, engine):
         
         m_info = get_cached_month(engine, t_year, t_month, is_leap)
         
-        leap_str = " (Leap)" if is_leap else ""
-        js.document.getElementById("month-title").innerText = f"Tibetan Month {t_month}{leap_str}, Year {t_year}"
+        # 2. Translate the Tibetan Title (with Mongolian Season logic)
+        t_year_str = _n(t_year)
+        t_month_str = _n(t_month)
+        leap_str = _t("leap_suffix") if is_leap else ""
+        lang = APP_STATE.get("lang", "en")
         
-        # 1. Use the standard 7-column grid and print headers
-        html = '<div class="month-grid">'
-        weekdays = _t("weekdays")
-        for d in weekdays:
-            html += f'<div class="month-header">{d}</div>'
+        if lang == "mn":
+            seasons = _t("mn_seasons")
+            season_name = seasons.get(t_month, str(t_month)) if isinstance(seasons, dict) else str(t_month)
+            title_text = f"{season_name}{leap_str}, {t_year_str} он"
+        else:
+            title_text = f"{_t('tib_year')} {t_year_str}, {_t('lunar_month')} {t_month_str}{leap_str}"
             
+        js.document.getElementById("month-title").innerText = title_text
+        
+        # Build the Grid
+        html = '<div class="month-grid" style="grid-template-columns: repeat(7, 1fr);">'
+        
+        for d in _t("weekdays"): html += f'<div class="month-header">{d}</div>'
         if m_info.days:
-            # 2. Calculate the weekday offset for the 1st of the month
             first_weekday = m_info.days[0].civil_date.weekday()
+            for _ in range(first_weekday): html += '<div class="month-cell empty"></div>'
             
-            # 3. Print empty padding cells
-            for _ in range(first_weekday):
-                html += '<div class="month-cell empty"></div>'
-                
-            # 4. Print the actual days
             REAL_TODAY = date.today()
             for day in m_info.days:
                 tib = day.tibetan
@@ -282,49 +489,55 @@ def render_month_view(cur_date, engine):
                 bg = "#eff6ff" if c_date == cur_date else ""
                 border = "var(--primary-color)" if c_date == cur_date else "var(--border-color)"
                 today_class = "real-today" if c_date == REAL_TODAY else ""
-
-                # Get the translated number
+                
                 tithi_str = _n(getattr(tib, 'tithi', '--'))
+                if getattr(tib, 'occ', 1) == 2: tithi_str += "+"
+                if getattr(tib, 'previous_tithi_skipped', False): tithi_str += "-"
                 
-                meta = []
-                if getattr(tib, 'occ', 1) == 2: 
-                    meta.append(_t("dup_short"))
-                    tithi_str += "+" # You can translate the '+' sign too if desired!
-                if getattr(tib, 'previous_tithi_skipped', False): 
-                    meta.append(_t("skip_short"))
-                    tithi_str += "-"
-                meta_str = "<br>".join(meta)
+                # 3. Clean 3/14 Date Format
+                greg_label = f"{c_date.month}/{c_date.day}"
 
-                # Get short translated month, drop the leading zero on the day (e.g., "Feb 09" -> "Feb 9")
-                greg_months = _t("greg_months")
-                if isinstance(greg_months, list) and len(greg_months) > c_date.month:
-                    short_month = greg_months[c_date.month][:3] 
-                else:
-                    short_month = c_date.strftime("%b")
-                greg_label = f"{short_month} {c_date.day}"
-                
+                # Render cell with SUBTLE dots at the bottom
                 html += f'''
-                <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 4px; display: flex; flex-direction: column; align-items: center;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
-                    <div class="tib-tithi" style="font-size: 1.3rem; font-weight: bold; color: var(--text-main); line-height: 1.1;">{tithi_str}</div>
+                <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
+                    <div class="tib-tithi" style="font-size: 1.3rem; font-weight: bold; color: var(--text-main); line-height: 1; margin-top: 2px;">{tithi_str}</div>
                     <div class="greg-date" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
-                    <div style="font-size: 0.65rem; color: #ef4444; margin-top: auto; font-weight: bold; text-align: center; line-height: 1.1;">{meta_str}</div>
+                    
+                    <div class="attr-space" style="margin-top: auto; padding-top: 6px; display: flex; gap: 4px;">
+                        <div style="width: 4px; height: 4px; border-radius: 50%; background: #94a3b8;"></div>
+                        <div style="width: 4px; height: 4px; border-radius: 50%; background: #94a3b8;"></div>
+                    </div>
                 </div>'''
                                 
         html += '</div>'
+        html += f'<div style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: var(--text-muted);">[ Month Attributes Placeholder ]</div>'
+
         container.innerHTML = html
 
 def render_year_view(cur_date, engine):
     mode = APP_STATE.get("year_mode", "gregorian")
     container = js.document.getElementById("year-grid-container")
     
+    # 1. Update the Year Spinner Label (The Blue Title)
+    spinner_lbl = js.document.getElementById("label-year-spinner")
+    if spinner_lbl:
+        # Uses "Gregorian Year" vs "Tibetan Year" translations from i18n
+        spinner_lbl.innerText = _t("greg_year") + ":" if mode == "gregorian" else _t("tib_year") + ":"
+    
     if mode == "gregorian":
         y = cur_date.year
         js.document.getElementById("year-spinner").value = str(y)
         
         y_html = ""
+        greg_months = _t("greg_months")
+        
         for mi in range(1, 13):
             y_html += f'<div class="mini-month" onclick="window.jump_to_month_grid({y}, {mi}, 1)">'
-            y_html += f'<div class="mini-month-title">{calendar.month_name[mi]}</div>'
+            
+            # 2. Translate Gregorian Mini-Month Titles
+            m_name = greg_months[mi] if isinstance(greg_months, list) and len(greg_months) > mi else calendar.month_name[mi]
+            y_html += f'<div class="mini-month-title">{m_name}</div>'
+            
             y_html += '<div class="mini-month-body" style="grid-template-columns: repeat(7, 1fr);">'
             mini_matrix = calendar.monthcalendar(y, mi)
             REAL_TODAY = date.today()
@@ -337,13 +550,21 @@ def render_year_view(cur_date, engine):
                         is_active = (d == cur_date.day and mi == cur_date.month)
                         is_real_today = (y == REAL_TODAY.year and mi == REAL_TODAY.month and d == REAL_TODAY.day)
                         
+                        cell_date = date(y, mi, d)
+                        tib = get_cached_day(engine, cell_date).tibetan
+                        is_first_tib_day = (getattr(tib, 'linear_day', -1) == 1)
+                        
+                        day_text = str(d)
+                        if is_first_tib_day:
+                            day_text = f'<span style="color: var(--primary-color); font-weight: bold;">{d}</span>'
+                        
                         if is_active:
-                            y_html += f'<div style="background: var(--primary-color); color: white; border-radius: 50%; font-weight: bold;">{d}</div>'
+                            y_html += f'<div style="background: var(--primary-color); color: white; border-radius: 50%; font-weight: bold;">{day_text}</div>'
                         elif is_real_today:
-                            # Use the green accent for the real world today!
-                            y_html += f'<div style="background: #10b981; color: white; border-radius: 50%; font-weight: bold;">{d}</div>'
+                            y_html += f'<div style="background: #10b981; color: white; border-radius: 50%; font-weight: bold;">{day_text}</div>'
                         else:
-                            y_html += f'<div>{d}</div>'
+                            y_html += f'<div>{day_text}</div>'
+
             y_html += '</div></div>'
             
         container.innerHTML = y_html
@@ -353,14 +574,19 @@ def render_year_view(cur_date, engine):
         t_year = getattr(anchor_info.tibetan, 'year')
         js.document.getElementById("year-spinner").value = str(t_year)
         
-        y_info = get_cached_year(engine, t_year) # Cached!
+        y_info = get_cached_year(engine, t_year)
         
-        y_html = ""
+        # 3. Inject the Rabjung Cycle string!
+        rabjung_str = get_rabjung_string(t_year)
+        y_html = f'<div style="grid-column: 1 / -1; width: 100%; text-align: center; margin-bottom: 15px; font-size: 1rem; font-weight: bold; color: var(--primary-color);">{rabjung_str}</div>'
+        
+        lang = APP_STATE.get("lang", "en")
+        
         for m_info in y_info.months:
             m_tib = m_info.tibetan
             t_month = getattr(m_tib, 'month')
             is_leap = getattr(m_tib, 'is_leap_month', False)
-            leap_str = " (Leap)" if is_leap else ""
+            leap_str = _t("leap_suffix") if is_leap else ""
             
             if m_info.gregorian_start:
                 gy, gm, gd = m_info.gregorian_start.year, m_info.gregorian_start.month, m_info.gregorian_start.day
@@ -369,7 +595,17 @@ def render_year_view(cur_date, engine):
                 click_action = ""
                 
             y_html += f'<div class="mini-month" {click_action}>'
-            y_html += f'<div class="mini-month-title">Month {t_month}{leap_str}</div>'
+            
+            # 4. Translate Tibetan Mini-Month Titles (with Mongolian Seasons)
+            t_month_str = _n(t_month)
+            if lang == "mn":
+                seasons = _t("mn_seasons")
+                season_name = seasons.get(t_month, str(t_month)) if isinstance(seasons, dict) else str(t_month)
+                m_title = f"{season_name}{leap_str}"
+            else:
+                m_title = f"{_t('lunar_month')} {t_month_str}{leap_str}"
+                
+            y_html += f'<div class="mini-month-title">{m_title}</div>'
             y_html += '<div class="mini-month-body" style="grid-template-columns: repeat(7, 1fr);">'
             
             if m_info.days:
@@ -380,24 +616,26 @@ def render_year_view(cur_date, engine):
                 REAL_TODAY = date.today()
                 for d_info in m_info.days:
                     tib = d_info.tibetan
+                    tithi_val = _n(getattr(tib, "tithi", "--"))
                     
-                    # Core styling logic
                     cell_style = ""
-                    tithi_str = str(getattr(tib, "tithi", "--"))
+                    mark = ""
+                    is_active = (d_info.civil_date == cur_date)
+                    is_real_today = (d_info.civil_date == REAL_TODAY)
                     
-                    if d_info.civil_date == cur_date:
+                    if getattr(tib, 'occ', 1) == 2:
+                        mark = "+"
+                        cell_style = "color: var(--primary-color);"
+                    elif getattr(tib, 'previous_tithi_skipped', False):
+                        mark = "-"
+                        cell_style = "color: var(--primary-color);"
+                        
+                    if is_active:
                         cell_style = "background: var(--primary-color); color: white; border-radius: 4px; font-weight: bold;"
-                    elif d_info.civil_date == REAL_TODAY:
+                    elif is_real_today:
                         cell_style = "background: #10b981; color: white; border-radius: 4px; font-weight: bold;"
-                    else:
-                        if getattr(tib, 'occ', 1) == 2:
-                            cell_style = "color: var(--primary-color); font-weight: bold;"
-                            tithi_str += "+"
-                        elif getattr(tib, 'previous_tithi_skipped', False):
-                            cell_style = "color: var(--primary-color); font-weight: bold;"
-                            tithi_str += "-"
-                            
-                    y_html += f'<div style="{cell_style}">{tithi_str}</div>'
+                        
+                    y_html += f'<div style="{cell_style} padding: 4px 0; border-radius: 4px; text-align: center;">{tithi_val}{mark}</div>'
                         
             y_html += '</div></div>'
             
@@ -468,8 +706,9 @@ def generate_losar_list(event=None):
                 month_name = losar_date.strftime("%B")
                 
             date_str = f"{month_name} {gd:02d}"
-            
-            date_link = f"<span class='clickable-link' style='color: var(--primary-color); font-weight: bold;' onclick='window.jump_to_specific_date({gy}, {gm}, {gd})'>{date_str}</span>"
+
+            # Make the date clickable to jump to the Day Card, but keep the text normal weight
+            date_link = f"<span class='clickable-link' style='color: var(--primary-color);' onclick='window.jump_to_specific_date({gy}, {gm}, {gd})'>{date_str}</span>"
             y_str = _n(y)
             
             html += f"<tr><td style='text-align: center;'>{y_str}</td><td>{date_link}</td></tr>"

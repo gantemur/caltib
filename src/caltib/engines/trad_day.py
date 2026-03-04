@@ -65,6 +65,19 @@ class TraditionalDayParams:
         if self.r2 is None:
             object.__setattr__(self, 'r2', self.s2)
 
+    def with_location(self, location: 'LocationSpec') -> 'TraditionalDayParams':
+        """
+        Traditional engines do not use geographical coordinates for math, 
+        but we accept the location to satisfy the DayEngineProtocol and 
+        allow for theoretical reformed calendars.
+        """
+        import dataclasses
+        # If you added a 'location' field to TraditionalDayParams, use replace:
+        if hasattr(self, 'location'):
+            return dataclasses.replace(self, location=location)
+        # Otherwise, if it's purely a dummy method, just return self:
+        return self
+
 
 class TraditionalDayEngine(DayEngineProtocol):
     """
