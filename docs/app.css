@@ -3,6 +3,30 @@
 .controls-panel { width: 250px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); height: fit-content; }
 .view-panel { flex: 1; min-width: 300px; }
 
+/* 1. Global Horizontal Lock */
+html, body {
+    overflow-x: hidden;
+    width: 100%;
+    position: relative;
+}
+
+/* 2. Mobile-Only Bounce Lock */
+/* (hover: none) and (pointer: coarse) perfectly targets touchscreens! */
+@media (hover: none) and (pointer: coarse) {
+    body {
+        /* Stops the pull-to-refresh and rubber-band bounce effects */
+        overscroll-behavior-y: none; 
+        overscroll-behavior-x: none; 
+    }
+    
+    /* Make sure the main content area can still scroll vertically if it's long */
+    .main-content {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling on iOS */
+        height: 100vh;
+    }
+}
+
 /* Navigation & Tabs */
 .tabs { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 15px; }
 .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: none; font-size: 1.1rem; color: var(--text-muted); }
