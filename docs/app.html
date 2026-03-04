@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>caltib - Interactive Calendar</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="app.css">
     
     <link rel="stylesheet" href="https://pyscript.net/releases/2023.11.1/core.css" />
     <script type="module" src="https://pyscript.net/releases/2023.11.1/core.js"></script>
@@ -13,77 +14,6 @@
         packages = ["./caltib-0.1.0-py3-none-any.whl"]
     </py-config>
 
-    <style>
-        /* Layout */
-        .app-container { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
-        .controls-panel { width: 250px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); height: fit-content; }
-        .view-panel { flex: 1; min-width: 300px; }
-        
-        /* Navigation & Tabs */
-        .tabs { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 15px; }
-        .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: none; font-size: 1.1rem; color: var(--text-muted); }
-        .tab-btn.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); font-weight: bold; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        /* Header Nav Controls */
-        .view-header { display: flex; justify-content: space-between; align-items: center; background: var(--primary-color); color: white; padding: 15px; border-radius: 8px 8px 0 0; }
-        /* Ensure clickable links inside the header remain white */
-        .view-header .clickable-link {
-            color: white;
-            text-decoration-color: rgba(255, 255, 255, 0.6);
-        }
-        .view-header .clickable-link:hover {
-            color: #f1f5f9;
-        }
-        .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; font-size: 1.2rem; cursor: pointer; padding: 5px 15px; border-radius: 4px; transition: 0.2s; }
-        .nav-btn:hover { background: rgba(255,255,255,0.4); }
-        .view-title { font-size: 1.5rem; font-weight: bold; margin: 0; color: white; }
-        
-        /* Interactive Links */
-        .clickable-link { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
-        .clickable-link:hover { opacity: 0.8; }
-
-        /* Toggles */
-        .toggle-group { display: flex; gap: 10px; margin: 15px 0; }
-        .toggle-btn { padding: 5px 15px; border: 1px solid var(--primary-color); background: white; color: var(--primary-color); cursor: pointer; border-radius: 20px; }
-        .toggle-btn.active { background: var(--primary-color); color: white; }
-
-        /* Day Card */
-        .day-card { border: 1px solid var(--border-color); border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .day-card-body { padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .day-stat-box { background: #f1f5f9; padding: 15px; border-radius: 6px; text-align: center; }
-        .day-stat-val { font-size: 1.5rem; font-weight: bold; color: var(--text-main); }
-        .day-stat-lbl { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
-        
-        /* Extensions for future engines */
-        .ext-section { grid-column: 1 / -1; border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 10px; }
-        .ext-title { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; font-weight: bold; }
-        .ext-grid { display: flex; gap: 15px; flex-wrap: wrap; }
-        .ext-badge { background: #e2e8f0; padding: 5px 12px; border-radius: 20px; font-size: 0.9rem; }
-
-        /* Grid System */
-        .grid-attributes { background: #fffbeb; border: 1px solid #fde68a; padding: 10px; text-align: center; border-radius: 6px; margin-bottom: 15px; color: #92400e; font-weight: bold; }
-        .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .month-header { text-align: center; font-weight: bold; padding: 8px; background: #e2e8f0; border-radius: 4px; font-size: 0.9rem;}
-        .month-cell { border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; min-height: 80px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; transition: 0.1s;}
-        .month-cell:hover { border-color: var(--primary-color); background: #f8fafc; }
-        .month-cell.empty { background: transparent; border: 1px dashed transparent; cursor: default; }
-        .greg-date { font-weight: bold; color: var(--text-main); }
-        .tib-tithi { text-align: right; color: var(--primary-color); font-size: 1.2rem; font-weight: bold; }
-
-        /* Year Grid (Mini Months) */
-        .year-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
-        .mini-month { border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; overflow: hidden; }
-        .mini-month-title { background: #f1f5f9; text-align: center; padding: 8px; font-weight: bold; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
-        .mini-month-body { padding: 10px; text-align: center; color: var(--text-muted); font-size: 0.8rem; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;}
-        .mini-month:hover { border-color: var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        
-        /* Generic Table for Losar */
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .data-table th, .data-table td { padding: 10px; border: 1px solid var(--border-color); text-align: left; }
-        .data-table th { background: #f1f5f9; }
-    </style>
 </head>
 <body>
     <header>
@@ -123,7 +53,9 @@
                 <select id="lang-select" style="width: 100%; padding: 8px; margin-top: 5px;">
                     <option value="en">English</option>
                     <option value="bo">Tibetan</option>
+                    <option value="dz">Dzongkha (Bhutanese)</option>
                     <option value="mn">Mongolian</option>
+                    <option value="ru">Russian</option>
                 </select>
             </div>
             
@@ -141,7 +73,18 @@
             <div id="tab-day" class="tab-content active">
                 <div class="view-header">
                     <button class="nav-btn" py-click="nav_day_prev">&#9664;</button>
-                    <h2 class="view-title clickable-link" id="day-title" py-click="go_to_month_view">Loading...</h2>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h2 class="view-title clickable-link" id="day-title" py-click="go_to_month_view">Loading...</h2>
+                        <button class="nav-btn" py-click="go_today" title="Go to Today" style="display: flex; align-items: center; justify-content: center; padding: 6px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                <circle cx="12" cy="16" r="2" fill="currentColor"></circle>
+                            </svg>
+                        </button>
+                    </div>
                     <button class="nav-btn" py-click="nav_day_next">&#9654;</button>
                 </div>
                 <div class="day-card">
@@ -183,7 +126,12 @@
             <div id="tab-month" class="tab-content">
                 <div class="view-header">
                     <button class="nav-btn" py-click="nav_month_prev">&#9664;</button>
-                    <h2 class="view-title clickable-link" id="month-title" py-click="go_to_year_view">Loading...</h2>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h2 class="view-title clickable-link" id="month-title" py-click="go_to_year_view">Loading...</h2>
+                        <button class="nav-btn" py-click="go_today" title="Go to Today" style="display: flex; align-items: center; justify-content: center; padding: 6px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><circle cx="12" cy="16" r="2" fill="currentColor"></circle></svg>
+                        </button>
+                    </div>
                     <button class="nav-btn" py-click="nav_month_next">&#9654;</button>
                 </div>
                 
@@ -202,9 +150,14 @@
             <div id="tab-year" class="tab-content">
                 <div class="view-header">
                     <button class="nav-btn" py-click="nav_year_prev">&#9664;</button>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span class="view-title">Year:</span>
-                        <input type="number" id="year-spinner" style="padding: 5px; width: 80px; font-size: 1.2rem; border-radius: 4px; border: none; text-align: center; font-weight: bold;" py-change="sync_year_spinner">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: white; display: flex; align-items: center; gap: 10px;">
+                            <span id="label-year-spinner">Year:</span>
+                            <input type="number" id="year-spinner" style="width: 80px; text-align: center; border-radius: 4px; border: none; padding: 5px;" py-change="sync_year_spinner">
+                        </div>
+                        <button class="nav-btn" py-click="go_today" title="Go to Today" style="display: flex; align-items: center; justify-content: center; padding: 6px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><circle cx="12" cy="16" r="2" fill="currentColor"></circle></svg>
+                        </button>
                     </div>
                     <button class="nav-btn" py-click="nav_year_next">&#9654;</button>
                 </div>
@@ -226,11 +179,10 @@
                     <h2 class="view-title">Losar / Tsagaan Sar Finder</h2>
                 </div>
                 <div style="padding: 20px; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 8px 8px;">
-                    <p>Calculate the Gregorian start date of the traditional New Year over a range of years.</p>
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 20px;">
-                        <label>From Year:</label>
+                        <label>From </label>
                         <input type="number" id="losar-start" style="padding: 5px; width: 80px;" py-change="generate_losar_list">
-                        <label>To Year:</label>
+                        <label>To </label>
                         <input type="number" id="losar-end" style="padding: 5px; width: 80px;" py-change="generate_losar_list">
                     </div>
                     <div id="losar-output"></div>

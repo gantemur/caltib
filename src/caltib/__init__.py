@@ -1,6 +1,6 @@
 """caltib public API.
 
-Keep this surface small: users should mostly interact with functions re-exported here.
+Users should mostly interact with functions re-exported here.
 """
 
 # Initialize registry on import
