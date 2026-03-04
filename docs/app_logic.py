@@ -23,7 +23,7 @@ def init_app():
     # Set default Losar range (-5 to +10)
     curr_y = APP_STATE["date"].year
     js.document.getElementById("losar-start").value = str(curr_y - 5)
-    js.document.getElementById("losar-end").value = str(curr_y + 10)
+    js.document.getElementById("losar-end").value = str(curr_y + 5)
     
     # Handle engine changes seamlessly
     def on_engine_change(e):

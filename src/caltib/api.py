@@ -89,7 +89,7 @@ def _get_n_m(eng: CalendarEngine, Y: int, M: int, is_leap: bool) -> int:
     return lunations[1] if is_leap else lunations[0]
 
 # ============================================================
-# High-Level Bulk Data API (The Modern Interface)
+# High-Level Bulk Data API (Modern Interface)
 # ============================================================
 
 def month_info(Y: int, M: int, *, is_leap_month: bool = False, engine: str = "phugpa") -> MonthInfo:
