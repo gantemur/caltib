@@ -169,7 +169,6 @@ def update_static_ui():
     eng_val = js.document.getElementById("engine-select").value
     losar_tab_name = _t("tsagaan_sar") if eng_val == "mongol" else _t("losar")
     
-    # Replace 'btn-tab-losar' with the actual HTML ID of your Losar navigation tab
     losar_tab_el = js.document.getElementById("btn-tab-losar")
     if losar_tab_el:
         losar_tab_el.innerText = losar_tab_name
@@ -190,6 +189,7 @@ def init_app():
         APP_STATE["data_cache"].clear()
         sync_location_ui() 
         save_state()          # <-- Save on change
+        update_static_ui()
         render_all_views()
         generate_losar_list()
 
@@ -474,9 +474,8 @@ def render_month_view(cur_date, engine):
                     if getattr(cell_tib, 'occ', 1) == 2: t_mark = "+"
                     elif getattr(cell_tib, 'previous_tithi_skipped', False): t_mark = "-"
                         
-                    # Inject superscripts!
-                    # Create a clean pre-superscript for the month and a post-superscript for marks
-                    month_sup = f'<sup style="font-size: 0.7em; margin-right: 2px; opacity: 0.75;">{m_num}{m_mark}</sup>'
+                    m_mark_html = f'<sup style="font-size: 0.75em;">{m_mark}</sup>' if m_mark else ""
+                    month_sup = f'<sup style="font-size: 0.7em; margin-right: 2px; opacity: 0.75;">{m_num}{m_mark_html}</sup>'
                     tithi_sup = f'<sup style="font-size: 0.7em; margin-left: 2px;">{t_mark}</sup>'
                     combo_str = f"{month_sup}{t_num}{tithi_sup}"
                     
@@ -511,7 +510,7 @@ def render_month_view(cur_date, engine):
         
         # Compact Blue Title (e.g., 2027/04-)
         m_mark = "-" if (is_leap and getattr(engine, 'leap_labeling', 'first_is_leap') == "first_is_leap") else ("+" if is_leap else "")
-        js.document.getElementById("month-title").innerText = f"{t_year}/{t_month}{m_mark}"
+        js.document.getElementById("month-title").innerHTML = f"{t_year}/{t_month}<sup>{m_mark}</sup>"
         
         # Long Sub-Title String
         if lang == "mn":
@@ -739,8 +738,8 @@ def generate_losar_list(event=None):
         # Build the translated title: e.g., "Цагаан сар - Пүг"
         header_title = f"{main_title} - {eng_name}"
         
-        # Apply this title to your Losar tab's title element (replace 'losar-title-id' with your actual HTML ID)
-        title_el = js.document.getElementById("#tab-losar .view-title")
+        # Apply this title to Losar tab's title element
+        title_el = js.document.getElementById("losar-title")
         if title_el:
             title_el.innerText = header_title
             

@@ -28,8 +28,11 @@ TRANSLATIONS = {
         "engines": {
             "phugpa": "Phugpa",
             "tsurphu": "Tsurphu",
-            "mongol": "Mongol"
-        }
+            "mongol": "Mongol",
+            "bhutan": "Bhutan",
+            "karana": "Karana",
+            "l0": "L0", "l1": "L1", "l2": "L2", "l3": "L3", "l4": "L4", "l5": "L5", "l6": "L6"
+        },
     },
     "bo": { # Tibetan
         "tab_day": "ཉིན་རེ།", "tab_month": "ཟླ་རེ།", "tab_year": "ལོ་རེ།", "tab_losar": "ལོ་གསར།",
@@ -54,8 +57,11 @@ TRANSLATIONS = {
         "engines": {
             "phugpa": "ཕུག་པ།",
             "tsurphu": "མཚུར་ཕུ།",
-            "mongol": "སོག་པོ།"
-        }
+            "mongol": "སོག་པོ།",
+            "bhutan": "འབྲུག་ལུགས།",
+            "karana": "བྱེད་རྩིས།",
+            "l0": "L0", "l1": "L1", "l2": "L2", "l3": "L3", "l4": "L4", "l5": "L5", "l6": "L6"
+        },
     },
     "dz": { # Dzongkha (Bhutanese)
         "tab_day": "ཉིནམ།", "tab_month": "ཟླཝ།", "tab_year": "ལོ།", "tab_losar": "ལོ་གསར།",
@@ -80,7 +86,10 @@ TRANSLATIONS = {
         "engines": {
             "phugpa": "ཕུག་པ།",
             "tsurphu": "མཚུར་ཕུ།",
-            "mongol": "སོག་པོ།"
+            "mongol": "སོག་པོ།",
+            "bhutan": "འབྲུག་ལུགས།",
+            "karana": "བྱེད་རྩིས།",
+            "l0": "L0", "l1": "L1", "l2": "L2", "l3": "L3", "l4": "L4", "l5": "L5", "l6": "L6"
         },
     },
     "mn": { # Mongolian (Cyrillic)
@@ -106,7 +115,10 @@ TRANSLATIONS = {
         "engines": {
             "phugpa": "Пүг",
             "tsurphu": "Цүр",
-            "mongol": "Төгсбуянт" # Or "Монгол", adjust as preferred!
+            "mongol": "Төгсбуянт",
+            "bhutan": "Бутан",
+            "karana": "Карана",
+            "l0": "L0", "l1": "L1", "l2": "L2", "l3": "L3", "l4": "L4", "l5": "L5", "l6": "L6"
         },
         # Mongolian Seasonal Abbreviations
         "mn_seasons": {
@@ -139,8 +151,11 @@ TRANSLATIONS = {
         "engines": {
             "phugpa": "Пхугпа",
             "tsurphu": "Цурпху",
-            "mongol": "Монгольский"
-        }
+            "mongol": "Монгольский",
+            "bhutan": "Бутан",
+            "karana": "Карана",
+            "l0": "L0", "l1": "L1", "l2": "L2", "l3": "L3", "l4": "L4", "l5": "L5", "l6": "L6"
+        },
     }
 }
 
