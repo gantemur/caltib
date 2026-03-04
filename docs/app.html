@@ -110,26 +110,26 @@
                 </div>
                 
                 <div class="day-card">
-                    <div class="day-card-body" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
+                    <div class="day-card-body" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center;">
                         
+                        <div class="day-stat-box" style="grid-column: 1 / -1;">
+                            <div class="day-stat-lbl" id="lbl-greg-date">Gregorian</div>
+                            <div class="day-stat-val" style="color: var(--text-main);" id="day-val-greg">--</div>
+                        </div>
+                
                         <div class="day-stat-box">
                             <div class="day-stat-lbl">Alignment</div>
-                            <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_year_view" id="day-val-year">--</div>
+                            <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_tib_year" id="day-val-year">--</div>
                         </div>
                         
-                        <div class="day-stat-box">
-                            <div class="day-stat-lbl" id="lbl-greg-date">Gregorian</div>
-                            <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_month_view" id="day-val-greg">--</div>
-                        </div>
-
                         <div class="day-stat-box">
                             <div class="day-stat-lbl" id="lbl-weekday">Weekday</div>
                             <div class="day-stat-val" style="color: var(--primary-color);" id="day-val-weekday">--</div>
                         </div>
                         
-                        <div class="day-stat-box" style="grid-column: 1 / -1; margin-top: 5px;">
+                        <div class="day-stat-box" style="grid-column: 1 / -1;">
                             <div class="day-stat-lbl">Lunar Month</div>
-                            <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_month_view" id="day-val-month">--</div>
+                            <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_tib_month" id="day-val-month">--</div>
                         </div>
                         
                         <div class="day-stat-box" style="grid-column: 1 / -1; margin-top: 5px; padding: 10px 0;">

@@ -21,6 +21,7 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "{month} {year}",
         "tib_month_long_fmt": "Year {year}, Lunar Month {month}",
         "greg_date_lbl": "Gregorian",
+        "weekdays_long": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     },
     "bo": { # Tibetan
         "tab_day": "ཉིན་རེ།", "tab_month": "ཟླ་རེ།", "tab_year": "ལོ་རེ།", "tab_losar": "ལོ་གསར།",
@@ -38,6 +39,7 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "སྤྱི་ལོ་ {year} {month}",
         "tib_month_long_fmt": "བོད་ལོ་ {year}, ཟླ་བ་ {month}",
         "greg_date_lbl": "སྤྱི་ཚེས།",
+        "weekdays_long": ["གཟའ་ཟླ་བ།", "གཟའ་མིག་དམར།", "གཟའ་ལྷག་པ།", "གཟའ་ཕུར་བུ།", "གཟའ་པ་སངས།", "གཟའ་སྤེན་པ།", "གཟའ་ཉི་མ།"]
     },
     "dz": { # Dzongkha (Bhutanese)
         "tab_day": "ཉིནམ།", "tab_month": "ཟླཝ།", "tab_year": "ལོ།", "tab_losar": "ལོ་གསར།",
@@ -55,6 +57,7 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "ཕྱི་ལོ་ {year} ཟླཝ་ {month}",
         "tib_month_long_fmt": "རང་ལོ་ {year}, ཟླཝ་ {month}",
         "greg_date_lbl": "ཕྱི་ཚེས།",
+        "weekdays_long": ["གཟའ་ཟླཝ།", "གཟའ་མིག་དམར།", "གཟའ་ལྷགཔ།", "གཟའ་ཕུར་བུ།", "གཟའ་པ་སངས།", "གཟའ་སྤེན་པ།", "གཟའ་ཉིམ།"]
     },
     "mn": { # Mongolian (Cyrillic)
         "tab_day": "Өдөр", "tab_month": "Сар", "tab_year": "Жил", "tab_losar": "Цагаан сар",
@@ -72,6 +75,7 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "{year} оны {month}",
         "tib_month_long_fmt": "{year} он, {month}",
         "greg_date_lbl": "Аргын өдөр",
+        "weekdays_long": ["Даваа", "Мягмар", "Лхагва", "Пүрэв", "Баасан", "Бямба", "Ням"],
         # Mongolian Seasonal Abbreviations
         "mn_seasons": {
             1: "Хаврын эхэн", 2: "Хаврын дунд", 3: "Хаврын эцэс",
@@ -96,6 +100,7 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "{month} {year} г.",
         "tib_month_long_fmt": "Год {year}, Лунный месяц {month}",
         "greg_date_lbl": "Григорианский",
+        "weekdays_long": ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
     }
 }
 

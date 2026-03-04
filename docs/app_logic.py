@@ -327,6 +327,26 @@ def sync_year_spinner(e):
 def go_to_month_view(e): js.document.getElementById("btn-tab-month").click()
 def go_to_year_view(e): js.document.getElementById("btn-tab-year").click()
 
+def go_to_tib_month(e):
+    """Forces the month grid to Tibetan mode and navigates."""
+    APP_STATE["month_mode"] = "tibetan"
+    js.document.getElementById("tog-m-greg").classList.remove("active")
+    js.document.getElementById("tog-m-tib").classList.add("active")
+    render_all_views()
+    js.document.getElementById("btn-tab-month").click()
+
+def go_to_tib_year(e):
+    """Forces the year grid to Tibetan mode and navigates."""
+    APP_STATE["year_mode"] = "tibetan"
+    js.document.getElementById("tog-y-greg").classList.remove("active")
+    js.document.getElementById("tog-y-tib").classList.add("active")
+    render_all_views()
+    js.document.getElementById("btn-tab-year").click()
+
+# Register the proxies for the HTML clicks
+js.window.go_to_tib_month = create_proxy(go_to_tib_month)
+js.window.go_to_tib_year = create_proxy(go_to_tib_year)
+
 def jump_to_specific_date(y, m, d):
     set_date(date(y, m, d))
     js.document.getElementById("btn-tab-day").click()
@@ -362,11 +382,11 @@ def render_day_view(cur_date, engine):
     # 1. Compact Blue Title (YYYY/MM/DD)
     js.document.getElementById("day-title").innerText = f"{cur_date.year}/{cur_date.month:02d}/{cur_date.day:02d}"
     
-    # 2. Extract and translate the Weekday
-    weekdays = _t("weekdays")
-    weekday_name = weekdays[cur_date.weekday()] if isinstance(weekdays, list) else cur_date.strftime("%A")
+    # 2. Extract and translate the LONG Weekday
+    weekdays_long = _t("weekdays_long")
+    weekday_name = weekdays_long[cur_date.weekday()] if isinstance(weekdays_long, list) else cur_date.strftime("%A")
     js.document.getElementById("day-val-weekday").innerText = weekday_name
-    
+
     # 3. Populate Gregorian Date Box with Long Name
     greg_months = _t("greg_months")
     greg_m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
@@ -438,7 +458,10 @@ def render_month_view(cur_date, engine):
                     elif getattr(cell_tib, 'previous_tithi_skipped', False): t_mark = "-"
                         
                     # Inject superscripts!
-                    combo_str = f"{m_num}{fmt_mark(m_mark)}/{t_num}{fmt_mark(t_mark)}"
+                    # Create a clean pre-superscript for the month and a post-superscript for marks
+                    month_sup = f'<sup style="font-size: 0.7em; margin-right: 2px; opacity: 0.75;">{m_num}{m_mark}</sup>'
+                    tithi_sup = f'<sup style="font-size: 0.7em; margin-left: 2px;">{t_mark}</sup>'
+                    combo_str = f"{month_sup}{t_num}{tithi_sup}"
                     
                     is_active = (d == cur_date.day)
                     is_real_today = (y == REAL_TODAY.year and m == REAL_TODAY.month and d == REAL_TODAY.day)
@@ -508,12 +531,14 @@ def render_month_view(cur_date, engine):
                 # Combine Tithi Number + Superscript Mark
                 tithi_html = f"{t_num}{fmt_mark(t_mark)}"
                 
-                greg_label = f"{c_date.month}/{c_date.day}"
+                # Superscript the Gregorian month to save horizontal space!
+                greg_label = f'<sup style="font-size: 0.7em; margin-right: 2px; opacity: 0.75;">{c_date.month}</sup>{c_date.day}'
+                #greg_label = f"{c_date.month}/{c_date.day}"
 
                 # Shrunk tithi_html from 1.3rem to 1.1rem, and greg_label from 0.75rem to 0.65rem
                 html += f'''
                 <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
-                    <div class="tib-tithi" style="font-size: 1.1rem; font-weight: bold; color: var(--text-main); line-height: 1; margin-top: 2px;">{tithi_html}</div>
+                    <div class="tib-tithi" style="font-size: 1.1rem; font-weight: bold; color: var(--primary-color); line-height: 1; margin-top: 2px;">{tithi_html}</div>
                     <div class="greg-date" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
                     
                     <div class="attr-space" style="margin-top: auto; padding-top: 6px; display: flex; gap: 4px;">
@@ -569,7 +594,7 @@ def render_year_view(cur_date, engine):
                         
                         day_text = str(d)
                         if is_first_tib_day:
-                            day_text = f'<span style="color: var(--primary-color); font-weight: bold;">{d}</span>'
+                            day_text = f'<span style="color: var(--primary-color);">{d}</span>'
                         
                         if is_active:
                             y_html += f'<div style="background: var(--primary-color); color: white; border-radius: 50%; font-weight: bold;">{day_text}</div>'
@@ -648,7 +673,7 @@ def render_year_view(cur_date, engine):
                     elif is_real_today:
                         cell_style = "background: #10b981; color: white; border-radius: 4px; font-weight: bold;"
                         
-                    y_html += f'<div style="{cell_style} padding: 4px 0; border-radius: 4px; text-align: center;">{tithi_val}{mark}</div>'
+                    y_html += f'<div style="{cell_style} padding: 4px 0; border-radius: 4px; text-align: center;">{tithi_val}<sup>{mark}</sup></div>'
                         
             y_html += '</div></div>'
             
