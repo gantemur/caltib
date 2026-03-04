@@ -95,3 +95,14 @@
     .tib-tithi { font-size: 1.1rem !important; }
     .greg-date { font-size: 0.65rem !important; }
 }
+
+.month-grid {
+    /* This strictly traps the grid inside the screen width */
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important; 
+    width: 100%;
+}
+.month-cell {
+    min-width: 0; 
+    word-wrap: break-word; /* Let long text wrap instead of pushing boundaries */
+}

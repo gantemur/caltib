@@ -157,6 +157,7 @@ def update_static_ui():
     js.document.querySelector("#day-val-month").previousElementSibling.innerText = _t("lunar_month")
     js.document.querySelector("#day-val-tithi").previousElementSibling.innerText = _t("tithi")
     js.document.querySelector("#day-val-weekday").previousElementSibling.innerText = _t("weekday_lbl")
+    js.document.getElementById("lbl-greg-date").innerText = _t("greg_date_lbl")
     
     # Toggle Buttons
     js.document.getElementById("tog-m-greg").innerText = _t("greg_grid")
@@ -366,9 +367,11 @@ def render_day_view(cur_date, engine):
     weekday_name = weekdays[cur_date.weekday()] if isinstance(weekdays, list) else cur_date.strftime("%A")
     js.document.getElementById("day-val-weekday").innerText = weekday_name
     
-    # 3. Populate Gregorian Date Box
-    js.document.getElementById("day-val-greg").innerText = f"{cur_date.month}/{cur_date.day}"
-    
+    # 3. Populate Gregorian Date Box with Long Name
+    greg_months = _t("greg_months")
+    greg_m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
+    js.document.getElementById("day-val-greg").innerText = f"{greg_m_name} {cur_date.day}"
+
     # 4. Populate Year and Lunar Month (Handle Mongolian Seasons)
     js.document.getElementById("day-val-year").innerText = _n(y_val)
     
@@ -443,10 +446,11 @@ def render_month_view(cur_date, engine):
                     border = "var(--primary-color)" if is_active else "var(--border-color)"
                     today_class = "real-today" if is_real_today else ""
                     
+                    # Shrunk combo_str from 0.85rem to 0.75rem
                     html += f'''
                     <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center;" onclick="window.jump_to_specific_date({y}, {m}, {d})">
                         <div class="greg-date" style="font-size: 1.1rem; font-weight: bold; color: var(--text-main); line-height: 1.1;">{d}</div>
-                        <div class="tib-tithi" style="font-size: 0.85rem; font-weight: bold; color: var(--primary-color); margin-top: 6px;">{combo_str}</div>
+                        <div class="tib-tithi" style="font-size: 0.75rem; font-weight: bold; color: var(--primary-color); margin-top: 6px;">{combo_str}</div>
                     </div>'''
 
         html += '</div>'
@@ -506,10 +510,11 @@ def render_month_view(cur_date, engine):
                 
                 greg_label = f"{c_date.month}/{c_date.day}"
 
+                # Shrunk tithi_html from 1.3rem to 1.1rem, and greg_label from 0.75rem to 0.65rem
                 html += f'''
                 <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
-                    <div class="tib-tithi" style="font-size: 1.3rem; font-weight: bold; color: var(--text-main); line-height: 1; margin-top: 2px;">{tithi_html}</div>
-                    <div class="greg-date" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
+                    <div class="tib-tithi" style="font-size: 1.1rem; font-weight: bold; color: var(--text-main); line-height: 1; margin-top: 2px;">{tithi_html}</div>
+                    <div class="greg-date" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
                     
                     <div class="attr-space" style="margin-top: auto; padding-top: 6px; display: flex; gap: 4px;">
                         <div style="width: 4px; height: 4px; border-radius: 50%; background: #94a3b8;"></div>
@@ -530,7 +535,7 @@ def render_year_view(cur_date, engine):
     spinner_lbl = js.document.getElementById("label-year-spinner")
     if spinner_lbl:
         # Uses "Gregorian Year" vs "Tibetan Year" translations from i18n
-        spinner_lbl.innerText = _t("greg_year") + ":" if mode == "gregorian" else _t("tib_year") + ":"
+        spinner_lbl.innerText = _t("year_prefix")
     
     if mode == "gregorian":
         y = cur_date.year
