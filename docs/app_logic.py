@@ -165,6 +165,15 @@ def update_static_ui():
     js.document.getElementById("tog-y-greg").innerText = _t("greg_year")
     js.document.getElementById("tog-y-tib").innerText = _t("tib_year")
 
+    # Dynamically rename the Losar Tab
+    eng_val = js.document.getElementById("engine-select").value
+    losar_tab_name = _t("tsagaan_sar") if eng_val == "mongol" else _t("losar")
+    
+    # Replace 'btn-tab-losar' with the actual HTML ID of your Losar navigation tab
+    losar_tab_el = js.document.getElementById("btn-tab-losar")
+    if losar_tab_el:
+        losar_tab_el.innerText = losar_tab_name
+
 # --- INITIALIZATION ---
 status_div = js.document.getElementById("sys-status")
 
@@ -388,9 +397,17 @@ def render_day_view(cur_date, engine):
     js.document.getElementById("day-val-weekday").innerText = weekday_name
 
     # 3. Populate Gregorian Date Box with Long Name
+    # 3. Populate Gregorian Date Box with proper localization grammar
     greg_months = _t("greg_months")
     greg_m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
-    js.document.getElementById("day-val-greg").innerText = f"{greg_m_name} {cur_date.day}"
+    
+    day_fmt = _t("day_card_greg_fmt")
+    if day_fmt and day_fmt != "day_card_greg_fmt":
+        greg_val_str = day_fmt.replace("{month}", greg_m_name).replace("{day}", str(cur_date.day))
+    else:
+        greg_val_str = f"{greg_m_name} {cur_date.day}"
+        
+    js.document.getElementById("day-val-greg").innerText = greg_val_str
 
     # 4. Populate Year and Lunar Month (Handle Mongolian Seasons)
     js.document.getElementById("day-val-year").innerText = _n(y_val)
@@ -709,9 +726,23 @@ def generate_losar_list(event=None):
         engine_name = select_el.options.item(select_el.selectedIndex).text
         
         # 1. Update the blue Header Title
-        title_el = js.document.querySelector("#tab-losar .view-title")
+        # Get the current engine to determine naming
+        eng_val = js.document.getElementById("engine-select").value
+        
+        # 1. Swap Losar to Tsagaan Sar if Mongol is selected
+        main_title = _t("tsagaan_sar") if eng_val == "mongol" else _t("losar")
+        
+        # 2. Translate the engine name
+        engines_dict = _t("engines")
+        eng_name = engines_dict.get(eng_val, eng_val.capitalize()) if isinstance(engines_dict, dict) else eng_val.capitalize()
+        
+        # Build the translated title: e.g., "Цагаан сар - Пүг"
+        header_title = f"{main_title} - {eng_name}"
+        
+        # Apply this title to your Losar tab's title element (replace 'losar-title-id' with your actual HTML ID)
+        title_el = js.document.getElementById("#tab-losar .view-title")
         if title_el:
-            title_el.innerText = f"{_t('tab_losar')} - {engine_name}"
+            title_el.innerText = header_title
             
         output = js.document.getElementById("losar-output")
         output.innerHTML = "<em>Calculating...</em>"

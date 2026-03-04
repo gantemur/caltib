@@ -21,7 +21,15 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "{month} {year}",
         "tib_month_long_fmt": "Year {year}, Lunar Month {month}",
         "greg_date_lbl": "Gregorian",
-        "weekdays_long": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        "weekdays_long": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        "day_card_greg_fmt": "{month} {day}",
+        "losar": "Losar",
+        "tsagaan_sar": "Tsagaan Sar",
+        "engines": {
+            "phugpa": "Phugpa",
+            "tsurphu": "Tsurphu",
+            "mongol": "Mongol"
+        }
     },
     "bo": { # Tibetan
         "tab_day": "ཉིན་རེ།", "tab_month": "ཟླ་རེ།", "tab_year": "ལོ་རེ།", "tab_losar": "ལོ་གསར།",
@@ -39,7 +47,15 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "སྤྱི་ལོ་ {year} {month}",
         "tib_month_long_fmt": "བོད་ལོ་ {year}, ཟླ་བ་ {month}",
         "greg_date_lbl": "སྤྱི་ཚེས།",
-        "weekdays_long": ["གཟའ་ཟླ་བ།", "གཟའ་མིག་དམར།", "གཟའ་ལྷག་པ།", "གཟའ་ཕུར་བུ།", "གཟའ་པ་སངས།", "གཟའ་སྤེན་པ།", "གཟའ་ཉི་མ།"]
+        "weekdays_long": ["གཟའ་ཟླ་བ།", "གཟའ་མིག་དམར།", "གཟའ་ལྷག་པ།", "གཟའ་ཕུར་བུ།", "གཟའ་པ་སངས།", "གཟའ་སྤེན་པ།", "གཟའ་ཉི་མ།"],
+        "day_card_greg_fmt": "{month} ཚེས་ {day}",
+        "losar": "ལོ་གསར།",
+        "tsagaan_sar": "Tsagaan Sar", # Or Tibetan phonetic equivalent
+        "engines": {
+            "phugpa": "ཕུག་པ།",
+            "tsurphu": "མཚུར་ཕུ།",
+            "mongol": "སོག་པོ།"
+        }
     },
     "dz": { # Dzongkha (Bhutanese)
         "tab_day": "ཉིནམ།", "tab_month": "ཟླཝ།", "tab_year": "ལོ།", "tab_losar": "ལོ་གསར།",
@@ -57,7 +73,15 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "ཕྱི་ལོ་ {year} ཟླཝ་ {month}",
         "tib_month_long_fmt": "རང་ལོ་ {year}, ཟླཝ་ {month}",
         "greg_date_lbl": "ཕྱི་ཚེས།",
-        "weekdays_long": ["གཟའ་ཟླཝ།", "གཟའ་མིག་དམར།", "གཟའ་ལྷགཔ།", "གཟའ་ཕུར་བུ།", "གཟའ་པ་སངས།", "གཟའ་སྤེན་པ།", "གཟའ་ཉིམ།"]
+        "weekdays_long": ["གཟའ་ཟླཝ།", "གཟའ་མིག་དམར།", "གཟའ་ལྷགཔ།", "གཟའ་ཕུར་བུ།", "གཟའ་པ་སངས།", "གཟའ་སྤེན་པ།", "གཟའ་ཉིམ།"],
+        "losar": "ལོ་གསར།",
+        "tsagaan_sar": "Tsagaan Sar",
+        "day_card_greg_fmt": "{month} ཚེས་ {day}",
+        "engines": {
+            "phugpa": "ཕུག་པ།",
+            "tsurphu": "མཚུར་ཕུ།",
+            "mongol": "སོག་པོ།"
+        },
     },
     "mn": { # Mongolian (Cyrillic)
         "tab_day": "Өдөр", "tab_month": "Сар", "tab_year": "Жил", "tab_losar": "Цагаан сар",
@@ -76,6 +100,14 @@ TRANSLATIONS = {
         "tib_month_long_fmt": "{year} он, {month}",
         "greg_date_lbl": "Аргын өдөр",
         "weekdays_long": ["Даваа", "Мягмар", "Лхагва", "Пүрэв", "Баасан", "Бямба", "Ням"],
+        "day_card_greg_fmt": "{month}ын {day}", 
+        "losar": "Лосар",
+        "tsagaan_sar": "Цагаан сар",
+        "engines": {
+            "phugpa": "Пүг",
+            "tsurphu": "Цүр",
+            "mongol": "Төгсбуянт" # Or "Монгол", adjust as preferred!
+        },
         # Mongolian Seasonal Abbreviations
         "mn_seasons": {
             1: "Хаврын эхэн", 2: "Хаврын дунд", 3: "Хаврын эцэс",
@@ -100,7 +132,15 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "{month} {year} г.",
         "tib_month_long_fmt": "Год {year}, Лунный месяц {month}",
         "greg_date_lbl": "Григорианский",
-        "weekdays_long": ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+        "weekdays_long": ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"],
+        "day_card_greg_fmt": "{day} {month}", # In Russian, the day number usually comes first
+        "losar": "Лосар",
+        "tsagaan_sar": "Цагаан сар",
+        "engines": {
+            "phugpa": "Пхугпа",
+            "tsurphu": "Цурпху",
+            "mongol": "Монгольский"
+        }
     }
 }
 
