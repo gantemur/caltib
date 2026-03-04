@@ -352,38 +352,34 @@ def render_day_view(cur_date, engine):
     info = get_cached_day(engine, cur_date)
     tib = info.tibetan
     
-    y_val = _n(getattr(tib, 'year', '--'))
-    m_val = _n(getattr(tib, 'month', '--'))
+    y_val = getattr(tib, 'year', '--')
+    m_val = getattr(tib, 'month', '--')
     t_val = _n(getattr(tib, 'tithi', '--'))
     
     leap_str = _t("leap_suffix") if getattr(tib, 'is_leap_month', False) else ""
     
-    # 1. Format and translate the blue title (without the weekday)
-    greg_months = _t("greg_months")
-    m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
-    
-    title_fmt = _t("day_title_fmt")
-    if title_fmt != "day_title_fmt":
-        title_text = title_fmt.replace("{month}", m_name).replace("{day}", str(cur_date.day)).replace("{year}", str(cur_date.year))
-    else:
-        title_text = f"{m_name} {cur_date.day}, {cur_date.year}"
-        
-    js.document.getElementById("day-title").innerText = title_text
+    # 1. Compact Blue Title (YYYY/MM/DD)
+    js.document.getElementById("day-title").innerText = f"{cur_date.year}/{cur_date.month:02d}/{cur_date.day:02d}"
     
     # 2. Extract and translate the Weekday
     weekdays = _t("weekdays")
     weekday_name = weekdays[cur_date.weekday()] if isinstance(weekdays, list) else cur_date.strftime("%A")
+    js.document.getElementById("day-val-weekday").innerText = weekday_name
     
-    # Update the weekday element (if it exists in the HTML)
-    weekday_el = js.document.getElementById("day-val-weekday")
-    if weekday_el:
-        weekday_el.innerText = weekday_name
-        # Also translate the label above it
-        weekday_el.previousElementSibling.innerText = _t("weekday_lbl")
+    # 3. Populate Gregorian Date Box
+    js.document.getElementById("day-val-greg").innerText = f"{cur_date.month}/{cur_date.day}"
     
-    # 3. Update existing Day Card elements
-    js.document.getElementById("day-val-year").innerText = str(y_val)
-    js.document.getElementById("day-val-month").innerText = f'{m_val}{leap_str}'
+    # 4. Populate Year and Lunar Month (Handle Mongolian Seasons)
+    js.document.getElementById("day-val-year").innerText = _n(y_val)
+    
+    lang = APP_STATE.get("lang", "en")
+    if lang == "mn" and isinstance(m_val, int):
+        seasons = _t("mn_seasons")
+        m_name_str = seasons.get(m_val, str(m_val)) if isinstance(seasons, dict) else str(m_val)
+        js.document.getElementById("day-val-month").innerText = f"{m_name_str}{leap_str}"
+    else:
+        js.document.getElementById("day-val-month").innerText = f"{_n(m_val)}{leap_str}"
+        
     js.document.getElementById("day-val-tithi").innerText = str(t_val)
     
     meta_str = ""
@@ -391,22 +387,31 @@ def render_day_view(cur_date, engine):
     if getattr(tib, 'previous_tithi_skipped', False): meta_str = _t("skipped_day")
     js.document.getElementById("day-val-tithi-meta").innerText = meta_str
 
+
 def render_month_view(cur_date, engine):
     mode = APP_STATE.get("month_mode", "gregorian")
     container = js.document.getElementById("month-grid-container")
+    lang = APP_STATE.get("lang", "en")
     
+    # Helper to generate superscripts
+    def fmt_mark(m): return f'<sup style="font-size: 0.65em; margin-left: 1px;">{m}</sup>' if m else ""
+
     if mode == "gregorian":
         y, m = cur_date.year, cur_date.month
         
-        # 1. Translate the Gregorian Title
+        # Compact Blue Title
+        js.document.getElementById("month-title").innerText = f"{y}/{m:02d}"
+        
+        # Long Sub-Title String
         greg_months = _t("greg_months")
         m_name = greg_months[m] if isinstance(greg_months, list) and len(greg_months) > m else cur_date.strftime("%B")
-        js.document.getElementById("month-title").innerText = f"{m_name} {_n(y)}"
+        long_title = _t("greg_month_long_fmt").replace("{month}", m_name).replace("{year}", _n(y))
         
-        html = '<div class="month-grid">'
+        html = f'<div style="text-align: center; font-size: 1.1rem; font-weight: bold; color: var(--primary-color); margin-bottom: 15px;">{long_title}</div>'
+        html += '<div class="month-grid">'
+        
         weekdays = _t("weekdays")
-        for d in weekdays:
-            html += f'<div class="month-header">{d}</div>'
+        for d in weekdays: html += f'<div class="month-header">{d}</div>'
             
         REAL_TODAY = date.today()
         cal_matrix = calendar.monthcalendar(y, m)
@@ -426,16 +431,14 @@ def render_month_view(cur_date, engine):
                         
                     t_num = _n(getattr(cell_tib, 'tithi', ''))
                     t_mark = ""
-                    if getattr(cell_tib, 'occ', 1) == 2:
-                        t_mark = "+"
-                    elif getattr(cell_tib, 'previous_tithi_skipped', False):
-                        t_mark = "-"
+                    if getattr(cell_tib, 'occ', 1) == 2: t_mark = "+"
+                    elif getattr(cell_tib, 'previous_tithi_skipped', False): t_mark = "-"
                         
-                    combo_str = f"{m_num}{m_mark}/{t_num}{t_mark}"
+                    # Inject superscripts!
+                    combo_str = f"{m_num}{fmt_mark(m_mark)}/{t_num}{fmt_mark(t_mark)}"
                     
                     is_active = (d == cur_date.day)
                     is_real_today = (y == REAL_TODAY.year and m == REAL_TODAY.month and d == REAL_TODAY.day)
-                    
                     bg = "#eff6ff" if is_active else ""
                     border = "var(--primary-color)" if is_active else "var(--border-color)"
                     today_class = "real-today" if is_real_today else ""
@@ -450,7 +453,7 @@ def render_month_view(cur_date, engine):
         container.innerHTML = html
 
     else:
-        # THE TIBETAN GRID (Aligned to Mon-Sun)
+        # THE TIBETAN GRID
         anchor_info = get_cached_day(engine, cur_date)
         t_year = getattr(anchor_info.tibetan, 'year')
         t_month = getattr(anchor_info.tibetan, 'month')
@@ -458,23 +461,26 @@ def render_month_view(cur_date, engine):
         
         m_info = get_cached_month(engine, t_year, t_month, is_leap)
         
-        # 2. Translate the Tibetan Title (with Mongolian Season logic)
         t_year_str = _n(t_year)
         t_month_str = _n(t_month)
         leap_str = _t("leap_suffix") if is_leap else ""
-        lang = APP_STATE.get("lang", "en")
         
+        # Compact Blue Title (e.g., 2027/04-)
+        m_mark = "-" if (is_leap and getattr(engine, 'leap_labeling', 'first_is_leap') == "first_is_leap") else ("+" if is_leap else "")
+        js.document.getElementById("month-title").innerText = f"{t_year}/{t_month}{m_mark}"
+        
+        # Long Sub-Title String
         if lang == "mn":
             seasons = _t("mn_seasons")
             season_name = seasons.get(t_month, str(t_month)) if isinstance(seasons, dict) else str(t_month)
-            title_text = f"{season_name}{leap_str}, {t_year_str} он"
+            m_name = f"{season_name}{leap_str}"
         else:
-            title_text = f"{_t('tib_year')} {t_year_str}, {_t('lunar_month')} {t_month_str}{leap_str}"
+            m_name = f"{t_month_str}{leap_str}"
             
-        js.document.getElementById("month-title").innerText = title_text
+        long_title = _t("tib_month_long_fmt").replace("{month}", m_name).replace("{year}", t_year_str)
         
-        # Build the Grid
-        html = '<div class="month-grid" style="grid-template-columns: repeat(7, 1fr);">'
+        html = f'<div style="text-align: center; font-size: 1.1rem; font-weight: bold; color: var(--primary-color); margin-bottom: 15px;">{long_title}</div>'
+        html += '<div class="month-grid" style="grid-template-columns: repeat(7, 1fr);">'
         
         for d in _t("weekdays"): html += f'<div class="month-header">{d}</div>'
         if m_info.days:
@@ -490,17 +496,19 @@ def render_month_view(cur_date, engine):
                 border = "var(--primary-color)" if c_date == cur_date else "var(--border-color)"
                 today_class = "real-today" if c_date == REAL_TODAY else ""
                 
-                tithi_str = _n(getattr(tib, 'tithi', '--'))
-                if getattr(tib, 'occ', 1) == 2: tithi_str += "+"
-                if getattr(tib, 'previous_tithi_skipped', False): tithi_str += "-"
+                t_num = _n(getattr(tib, 'tithi', '--'))
+                t_mark = ""
+                if getattr(tib, 'occ', 1) == 2: t_mark = "+"
+                if getattr(tib, 'previous_tithi_skipped', False): t_mark = "-"
                 
-                # 3. Clean 3/14 Date Format
+                # Combine Tithi Number + Superscript Mark
+                tithi_html = f"{t_num}{fmt_mark(t_mark)}"
+                
                 greg_label = f"{c_date.month}/{c_date.day}"
 
-                # Render cell with SUBTLE dots at the bottom
                 html += f'''
                 <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
-                    <div class="tib-tithi" style="font-size: 1.3rem; font-weight: bold; color: var(--text-main); line-height: 1; margin-top: 2px;">{tithi_str}</div>
+                    <div class="tib-tithi" style="font-size: 1.3rem; font-weight: bold; color: var(--text-main); line-height: 1; margin-top: 2px;">{tithi_html}</div>
                     <div class="greg-date" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
                     
                     <div class="attr-space" style="margin-top: auto; padding-top: 6px; display: flex; gap: 4px;">

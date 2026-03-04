@@ -18,6 +18,9 @@ TRANSLATIONS = {
         "rabjung_fmt": "Rabjung {R}, Year {Y}",
         "day_title_fmt": "{month} {day}, {year}",
         "weekday_lbl": "Weekday",
+        "greg_month_long_fmt": "{month} {year}",
+        "tib_month_long_fmt": "Year {year}, Lunar Month {month}",
+        "greg_date_lbl": "Gregorian",
     },
     "bo": { # Tibetan
         "tab_day": "ཉིན་རེ།", "tab_month": "ཟླ་རེ།", "tab_year": "ལོ་རེ།", "tab_losar": "ལོ་གསར།",
@@ -32,6 +35,9 @@ TRANSLATIONS = {
         "rabjung_fmt": "རབ་བྱུང་ {R} པའི་ལོ་ {Y}",
         "day_title_fmt": "སྤྱི་ལོ་ {year} ཟླ་ {month} ཚེས་ {day}",
         "weekday_lbl": "གཟའ།",
+        "greg_month_long_fmt": "སྤྱི་ལོ་ {year} {month}",
+        "tib_month_long_fmt": "བོད་ལོ་ {year}, ཟླ་བ་ {month}",
+        "greg_date_lbl": "སྤྱི་ཚེས།",
     },
     "dz": { # Dzongkha (Bhutanese)
         "tab_day": "ཉིནམ།", "tab_month": "ཟླཝ།", "tab_year": "ལོ།", "tab_losar": "ལོ་གསར།",
@@ -45,6 +51,10 @@ TRANSLATIONS = {
         "rabjung_fmt": "རབ་བྱུང་ {R} པའི་ལོ་ {Y}",
         "day_title_fmt": "ཕྱི་ལོ་ {year} ཟླཝ་ {month} ཚེས་ {day}",
         "weekday_lbl": "གཟའ།",
+        "greg_months": ["", "སྤྱི་ཟླ་ ༡ པ།", "སྤྱི་ཟླ་ ༢ པ།", "སྤྱི་ཟླ་ ༣ པ།", "སྤྱི་ཟླ་ ༤ པ།", "སྤྱི་ཟླ་ ༥ པ།", "སྤྱི་ཟླ་ ༦ པ།", "སྤྱི་ཟླ་ ༧ པ།", "སྤྱི་ཟླ་ ༨ པ།", "སྤྱི་ཟླ་ ༩ པ།", "སྤྱི་ཟླ་ ༡༠ པ།", "སྤྱི་ཟླ་ ༡༡ པ།", "སྤྱི་ཟླ་ ༡༢ པ།"],
+        "greg_month_long_fmt": "ཕྱི་ལོ་ {year} ཟླཝ་ {month}",
+        "tib_month_long_fmt": "རང་ལོ་ {year}, ཟླཝ་ {month}",
+        "greg_date_lbl": "ཕྱི་ཚེས།",
     },
     "mn": { # Mongolian (Cyrillic)
         "tab_day": "Өдөр", "tab_month": "Сар", "tab_year": "Жил", "tab_losar": "Цагаан сар",
@@ -58,6 +68,10 @@ TRANSLATIONS = {
         "rabjung_fmt": "{R}-р жаран, {Y}-р он",
         "day_title_fmt": "{year} оны {month}-р сарын {day}",
         "weekday_lbl": "Гараг",
+        "greg_months": ["", "1-р сар", "2-р сар", "3-р сар", "4-р сар", "5-р сар", "6-р сар", "7-р сар", "8-р сар", "9-р сар", "10-р сар", "11-р сар", "12-р сар"],
+        "greg_month_long_fmt": "{year} оны {month}",
+        "tib_month_long_fmt": "{year} он, {month}",
+        "greg_date_lbl": "Аргын өдөр",
         # Mongolian Seasonal Abbreviations
         "mn_seasons": {
             1: "Хавар-1", 2: "Хавар-2", 3: "Хавар-3",
@@ -78,6 +92,10 @@ TRANSLATIONS = {
         "rabjung_fmt": "{R}-й цикл Рабджунг, год {Y}",
         "day_title_fmt": "{day} {month} {year} г.",
         "weekday_lbl": "День недели",
+        "greg_months": ["", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"],
+        "greg_month_long_fmt": "{month} {year} г.",
+        "tib_month_long_fmt": "Год {year}, Лунный месяц {month}",
+        "greg_date_lbl": "Григорианский",
     }
 }
 

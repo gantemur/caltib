@@ -118,16 +118,21 @@
                         </div>
                         
                         <div class="day-stat-box">
-                            <div class="day-stat-lbl">Lunar Month</div>
-                            <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_month_view" id="day-val-month">--</div>
+                            <div class="day-stat-lbl" id="lbl-greg-date">Gregorian</div>
+                            <div class="day-stat-val" style="color: var(--text-main);" id="day-val-greg">--</div>
                         </div>
                 
                         <div class="day-stat-box">
-                            <div class="day-stat-lbl">Weekday</div>
+                            <div class="day-stat-lbl" id="lbl-weekday">Weekday</div>
                             <div class="day-stat-val" style="color: var(--primary-color);" id="day-val-weekday">--</div>
                         </div>
                         
-                        <div class="day-stat-box" style="grid-column: 1 / -1; margin-top: 10px; padding: 15px 0;">
+                        <div class="day-stat-box" style="grid-column: 1 / -1; margin-top: 5px;">
+                            <div class="day-stat-lbl">Lunar Month</div>
+                            <div class="day-stat-val clickable-link" style="color: var(--primary-color);" py-click="go_to_month_view" id="day-val-month">--</div>
+                        </div>
+                        
+                        <div class="day-stat-box" style="grid-column: 1 / -1; margin-top: 5px; padding: 10px 0;">
                             <div class="day-stat-lbl">Tithi (Lunar Day)</div>
                             <div class="day-stat-val" id="day-val-tithi" style="font-size: 3.5rem; color: var(--primary-color); line-height: 1.1;">--</div>
                             <div id="day-val-tithi-meta" style="color: #ef4444; font-weight: bold; font-size: 0.9rem; margin-top: 5px;"></div>
