@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from fractions import Fraction
 from typing import Any, Dict, Literal, Optional, Tuple
@@ -15,10 +15,16 @@ class EngineId:
 class TibetanDate:
     engine: EngineId
     year: int
-    month_no: int
+    month: int
     is_leap_month: bool
     tithi: int
     occ: int = 1  # 1 or 2
+    previous_tithi_skipped: bool = False  # Crystal clear nomenclature
+    linear_day: int = 0
+
+    @property
+    def lunar_day(self) -> int:
+        return self.tithi
 
 @dataclass(frozen=True)
 class DayInfo:
@@ -28,7 +34,49 @@ class DayInfo:
     status: Literal["normal", "duplicated"]
     festival_tags: Tuple[str, ...] = ()
     attributes: Optional[Dict[str, Any]] = None
+    planets: Optional[Dict[str, Any]] = None
     debug: Optional[Dict[str, Any]] = None
+
+@dataclass(frozen=True)
+class TibetanMonth:
+    engine: EngineId
+    year: int
+    month: int
+    is_leap_month: bool
+    occ: int = 1
+    previous_month_skipped: bool = False  # Symmetric with previous_tithi_skipped
+    linear_month: int = 0     # Absolute civil month index of this year (1 to 12/13)
+
+@dataclass(frozen=True)
+class MonthInfo:
+    tibetan: TibetanMonth
+    gregorian_start: Optional[date]  # None if the month is skipped
+    gregorian_end: Optional[date]    # None if the month is skipped
+    days: List[DayInfo] = field(default_factory=list) # Exactly length 29 or 30 for valid months
+    status: Literal["normal", "duplicated", "skipped"] = "normal"
+    attributes: Optional[Dict[str, Any]] = None
+
+@dataclass(frozen=True)
+class TibetanYear:
+    engine: EngineId
+    year: int
+    
+    # 60-Year Sexagenary Cycle (Starts 1027 AD)
+    @property
+    def rabjung_cycle(self) -> int:
+        return (self.year - 1027) // 60 + 1
+
+    @property
+    def rabjung_year(self) -> int:
+        return (self.year - 1027) % 60 + 1
+
+@dataclass(frozen=True)
+class YearInfo:
+    tibetan: TibetanYear
+    gregorian_start: date
+    gregorian_end: date
+    months: List[MonthInfo] = field(default_factory=list) # Length 12 or 13 (leap year)
+    attributes: Optional[Dict[str, Any]] = None
 
 @dataclass(frozen=True)
 class LocationSpec:

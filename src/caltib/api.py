@@ -89,15 +89,52 @@ def _get_n_m(eng: CalendarEngine, Y: int, M: int, is_leap: bool) -> int:
     return lunations[1] if is_leap else lunations[0]
 
 # ============================================================
-# Month-level debug API
+# High-Level Bulk Data API (The Modern Interface)
 # ============================================================
 
-def intercalation_index(Y: int, M: int, *, engine: str = "phugpa") -> int:
-# This works only for traditional engines
-    eng = _reg().get(engine)
-    return eng.trad.intercalation_index(Y, M)
+def month_info(Y: int, M: int, *, is_leap_month: bool = False, engine: str = "phugpa") -> MonthInfo:
+    """Returns a fully populated MonthInfo dataclass, including all days and alignments."""
+    return _reg().get(engine).month_info(Y, M, is_leap_month)
 
-def month_info(Y: int, M: int, *, engine: str = "phugpa", debug: bool = False) -> Dict[str, Any]:
+def year_info(Y: int, *, engine: str = "phugpa") -> YearInfo:
+    """Returns a fully populated YearInfo dataclass, including all active months and days."""
+    return _reg().get(engine).year_info(Y)
+
+def new_year_day(Y: int, *, engine: str = "phugpa", as_date: bool = True) -> Any:
+    """
+    Returns the Gregorian date for Losar/Tsagaan Sar.
+    If as_date is True, returns a pure datetime.date object. 
+    Otherwise, returns a dictionary with physical diagnostic data.
+    """
+    eng = _reg().get(engine)
+    if eng.leap_labeling == "first_is_leap":
+        Y_last, M_last, L_last = Y - 1, 12, False
+    else:
+        n1 = _get_n_m(eng, Y, 1, False)
+        Y_last, M_last, leap_state = eng.month.label_from_lunation(n1 - 1)
+        L_last = (leap_state == 2)
+
+    n_last = _get_n_m(eng, Y_last, M_last, L_last)
+    n_last_d = n_last + eng.delta_k
+    jdn = end_jd_dn(30, n_last_d, engine=engine) + 1
+
+    if as_date:
+        return from_jdn(jdn)
+    
+    return {
+        "Y": Y, 
+        "jdn": jdn, 
+        "prev_month": {"Y": Y_last, "M": M_last, "is_leap_month": L_last}, 
+        "n_last": n_last,
+        "date": from_jdn(jdn)
+    }
+
+# ============================================================
+# Diagnostic & Legacy API 
+# ============================================================
+
+def debug_month_labels(Y: int, M: int, *, engine: str = "phugpa", debug: bool = False) -> Dict[str, Any]:
+    """Formerly called 'month_info'. Returns internal math labels."""
     eng = _reg().get(engine)
     if hasattr(eng.month, "debug_label"):
         out = eng.month.debug_label(Y, M)
@@ -105,6 +142,25 @@ def month_info(Y: int, M: int, *, engine: str = "phugpa", debug: bool = False) -
             out["engine"] = eng.info()
         return out
     raise TypeError(f"Engine '{engine}' does not expose month-layer info")
+
+def debug_lunation_n(n: int, *, engine: str = "phugpa", debug: bool = False) -> Dict[str, Any]:
+    """Formerly called 'month_from_n'. Returns internal math labels for absolute n."""
+    eng = _reg().get(engine)
+    if hasattr(eng.month, "debug_lunation"):
+        out = eng.month.debug_lunation(n)
+        if debug:
+            out["engine"] = eng.info()
+        return out
+    raise TypeError(f"Engine '{engine}' does not expose month-layer info")
+
+# ============================================================
+# Month-level debug API
+# ============================================================
+
+def intercalation_index(Y: int, M: int, *, engine: str = "phugpa") -> int:
+# This works only for traditional engines
+    eng = _reg().get(engine)
+    return eng.trad.intercalation_index(Y, M)
 
 def month_from_n(n: int, *, engine: str = "phugpa", debug: bool = False) -> Dict[str, Any]:
     eng = _reg().get(engine)
@@ -114,28 +170,6 @@ def month_from_n(n: int, *, engine: str = "phugpa", debug: bool = False) -> Dict
             out["engine"] = eng.info()
         return out
     raise TypeError(f"Engine '{engine}' does not expose month-layer info")
-
-def months_in_year(Y: int, *, engine: str = "phugpa", debug: bool = False):
-    eng = _reg().get(engine)
-    me = eng.month
-    out = []
-    
-    for M in range(1, 13):
-        trig = me.is_trigger_label(Y, M)
-        insts = [True, False] if trig and eng.leap_labeling == "first_is_leap" else ([False, True] if trig else [False])
-
-        for is_leap in insts:
-            n = _get_n_m(eng, Y, M, is_leap)
-            rec = {
-                "Y": Y, "M": M, "is_leap_month": is_leap, "n": n, "trigger": trig,
-                "I": me.intercalation_index(Y, M),
-                "I_int": me.intercalation_index_internal(Y, M),
-            }
-            if hasattr(me, "intercalation_index_traditional"):
-                rec["I_trad_ext"] = me.intercalation_index_traditional(Y, M, wrap="extended")
-                rec["I_trad_mod"] = me.intercalation_index_traditional(Y, M, wrap="mod")
-            out.append(rec)
-    return out
 
 def days_in_month(Y: int, M: int, *, is_leap_month: bool = False, engine: str = "phugpa"):
     eng = _reg().get(engine)
@@ -201,24 +235,6 @@ def month_bounds(Y: int, M: int, *, is_leap_month: bool = False, engine: str = "
     if as_date:
         out["first_date"] = from_jdn(first_jdn)
         out["last_date"] = from_jdn(last_jdn)
-    return out
-
-def new_year_day(Y: int, *, engine: str = "phugpa", debug: bool = False, as_date: bool = True) -> dict:
-    eng = _reg().get(engine)
-    if eng.leap_labeling == "first_is_leap":
-        Y_last, M_last, L_last = Y - 1, 12, False
-    else:
-        n1 = _get_n_m(eng, Y, 1, False)
-        Y_last, M_last, leap_state = eng.month.label_from_lunation(n1 - 1)
-        L_last = (leap_state == 2)
-
-    n_last = _get_n_m(eng, Y_last, M_last, L_last)
-    n_last_d = n_last + eng.delta_k
-    jdn = end_jd_dn(30, n_last_d, engine=engine) + 1
-
-    out = {"Y": Y, "jdn": jdn, "prev_month": {"Y": Y_last, "M": M_last, "is_leap_month": L_last}, "n_last": n_last}
-    if as_date:
-        out["date"] = from_jdn(jdn)
     return out
 
 def prev_month(Y: int, M: int, *, is_leap_month: bool = False, engine: str = "phugpa", debug: bool = False) -> dict:

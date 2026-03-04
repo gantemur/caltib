@@ -11,7 +11,7 @@ from datetime import date
 from fractions import Fraction
 from typing import Any, Dict
 
-from caltib.core.types import EngineId, DayInfo, TibetanDate, LocationSpec
+from caltib.core.types import EngineId, DayInfo, TibetanDate, MonthInfo, TibetanMonth, YearInfo, TibetanYear, LocationSpec, CalendarSpec
 from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol
 
 # J2000.0 TT base for absolute Julian Day conversion
@@ -24,7 +24,7 @@ class CalendarEngine:
     """
     def __init__(
         self, 
-        spec: 'CalendarSpec',  # <-- Store the exact spec that built this engine
+        spec: 'CalendarSpec',
         month: MonthEngineProtocol, 
         day: DayEngineProtocol, 
     ):
@@ -127,7 +127,7 @@ class CalendarEngine:
         n_m = n_d - self.delta_k
         
         # 4. Resolve Month labels
-        year, month_no, leap_state = self.month.label_from_lunation(n_m)
+        year, month, leap_state = self.month.label_from_lunation(n_m)
         is_leap = False
         if leap_state == 1:
             is_leap = (self.leap_labeling == "first_is_leap")
@@ -146,7 +146,7 @@ class CalendarEngine:
         
         return {
             "year": year,
-            "month": month_no,
+            "month": month,
             "is_leap": is_leap,
             "day": d,
             "occ": occ,
@@ -180,13 +180,20 @@ class CalendarEngine:
         jdn = to_jdn(d)
         res = self.from_jdn(jdn)
         
+        n_m = res["linear_month"]
+        n_d = n_m + self.delta_k
+        j_month_start_boundary = self.day.civil_jdn(30 * n_d)
+        linear_day = jdn - j_month_start_boundary
+        
         tib_date = TibetanDate(
             engine=self.id,
-            tib_year=res["year"],
-            month_no=res["month"],
+            year=res["year"],
+            month=res["month"],
             is_leap_month=res["is_leap"],
             tithi=res["day"],
-            occ=2 if res["repeated"] else 1
+            occ=2 if res["repeated"] else 1,
+            previous_tithi_skipped=res["skipped"],
+            linear_day=linear_day  # Injected here!
         )
         
         return DayInfo(
@@ -196,7 +203,6 @@ class CalendarEngine:
             status="duplicated" if res["repeated"] else "normal",
             debug=res if debug else None
         )
-
     
     def to_gregorian(self, t: 'TibetanDate', *, policy: str = "all") -> list[date]:
         """
@@ -205,7 +211,7 @@ class CalendarEngine:
         from caltib.core.time import from_jdn
         
         # 1. Resolve absolute lunation index
-        lunations = self.month.get_lunations(t.tib_year, t.month_no)
+        lunations = self.month.get_lunations(t.year, t.month)
         if len(lunations) == 1:
             n_m = lunations[0]
         else:
@@ -236,3 +242,146 @@ class CalendarEngine:
             
         else:
             raise ValueError(f"Unknown to_gregorian policy: {policy}")
+
+    # ---------------------------------------------------------
+    # Bulk Data Generators (Month & Year)
+    # ---------------------------------------------------------
+
+    def _build_month_info_from_n(self, n: int) -> MonthInfo:
+        """Internal helper to build a full MonthInfo object from an absolute lunation index."""
+        # 1. Ask the protocol for the exact human labels for this n
+        m_data = self.month.get_month_info(n)
+        year = m_data["year"]
+        month = m_data["month"]
+        leap_state = m_data["leap_state"]
+        linear_month = m_data.get("linear_month", 0)
+
+        # 2. Resolve leap labeling policy
+        is_leap = False
+        if leap_state == 1:
+            is_leap = (self.leap_labeling == "first_is_leap")
+        elif leap_state == 2:
+            is_leap = (self.leap_labeling == "second_is_leap")
+
+        # 3. Shift to Day engine coordinates and generate the days
+        n_d = n + self.delta_k
+        raw_days = self.build_civil_month(n_d)
+        
+        # Find the absolute boundary for O(1) linear mapping
+        j_month_start_boundary = self.day.civil_jdn(30 * n_d)
+        
+        from caltib.core.time import from_jdn
+        
+        days_list = []
+        
+        for jdn in sorted(raw_days.keys()):
+            res = raw_days[jdn]
+            civil_date = from_jdn(jdn)
+            
+            # Analytical O(1) calculation. First day is exactly 1.
+            linear_day = jdn - j_month_start_boundary
+            
+            t_date = TibetanDate(
+                engine=self.id,
+                year=year,
+                month=month,
+                is_leap_month=is_leap,
+                tithi=res["day"],
+                occ=2 if res["repeated"] else 1,
+                previous_tithi_skipped=res["skipped"],
+                linear_day=linear_day
+            )
+            
+            days_list.append(DayInfo(
+                civil_date=civil_date, 
+                engine=self.id, 
+                tibetan=t_date, 
+                status="duplicated" if res["repeated"] else "normal"
+            ))
+
+        tib_m = TibetanMonth(
+            engine=self.id, 
+            year=year, 
+            month=month, 
+            is_leap_month=is_leap, 
+            linear_month=linear_month
+        )
+        
+        return MonthInfo(
+            tibetan=tib_m,
+            gregorian_start=days_list[0].civil_date if days_list else None,
+            gregorian_end=days_list[-1].civil_date if days_list else None,
+            days=days_list
+        )
+    
+    def month_info(self, year: int, month: int, is_leap: bool = False) -> MonthInfo:
+        """
+        Generates a fully populated MonthInfo object using absolute lunation lookup.
+        """
+        lunations = self.month.get_lunations(year, month)
+        
+        # 1. Skipped Month Check
+        if not lunations:
+            tib_m = TibetanMonth(self.id, year, month, is_leap, previous_month_skipped=True)
+            return MonthInfo(tib_m, None, None, [], status="skipped")
+            
+        # 2. Match Leap Request to the correct lunation index
+        if len(lunations) == 1:
+            if is_leap:
+                raise ValueError(f"Month {month} in year {year} is not a leap month.")
+            n = lunations[0]
+        else:
+            if self.leap_labeling == "first_is_leap":
+                n = lunations[0] if is_leap else lunations[1]
+            else:
+                n = lunations[1] if is_leap else lunations[0]
+                
+        return self._build_month_info_from_n(n)
+
+
+    def year_info(self, year: int) -> YearInfo:
+        """
+        Generates a complete YearInfo object by iterating continuously through 
+        the exact mathematical lunations (n) that exist in the year.
+        """
+        months_list = []
+        
+        start_n = self.month.first_lunation(year)
+        end_n = self.month.first_lunation(year + 1)
+        
+        prev_month_no = None
+        
+        # Iterate n strictly over the existing lunations
+        for n in range(start_n, end_n):
+            m_info = self._build_month_info_from_n(n)
+            
+            # Dynamically detect if a month was skipped prior to this one
+            # by checking if the month number jumped by more than 1
+            curr_month_no = m_info.tibetan.month
+            prev_skipped = False
+            
+            if prev_month_no is not None:
+                diff = curr_month_no - prev_month_no
+                if diff > 1 or (diff < 0 and curr_month_no > 1):
+                    prev_skipped = True
+            else:
+                # If the first month we encounter in the year is not Month 1 (or 12 from late prev year)
+                if curr_month_no > 1 and curr_month_no != 12:
+                    prev_skipped = True
+                    
+            if prev_skipped:
+                import dataclasses
+                new_tib_m = dataclasses.replace(m_info.tibetan, previous_month_skipped=True)
+                m_info = dataclasses.replace(m_info, tibetan=new_tib_m)
+                
+            months_list.append(m_info)
+            prev_month_no = curr_month_no
+                
+        tib_y = TibetanYear(self.id, year)
+        
+        return YearInfo(
+            tibetan=tib_y,
+            gregorian_start=months_list[0].gregorian_start if months_list else None,
+            gregorian_end=months_list[-1].gregorian_end if months_list else None,
+            months=months_list
+        )
