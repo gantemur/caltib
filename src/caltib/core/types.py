@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from fractions import Fraction
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -13,13 +13,14 @@ class EngineId:
 
 @dataclass(frozen=True)
 class TibetanDate:
+    """Pure mathematical coordinate of a Tibetan day."""
     engine: EngineId
     year: int
     month: int
     is_leap_month: bool
     tithi: int
     occ: int = 1  # 1 or 2
-    previous_tithi_skipped: bool = False  # Crystal clear nomenclature
+    previous_tithi_skipped: bool = False 
     linear_day: int = 0
 
     @property
@@ -28,40 +29,44 @@ class TibetanDate:
 
 @dataclass(frozen=True)
 class DayInfo:
+    """Rich UI container for a specific civil day."""
     civil_date: date
     engine: EngineId
     tibetan: TibetanDate
     status: Literal["normal", "duplicated"]
     festival_tags: Tuple[str, ...] = ()
-    attributes: Optional[Dict[str, Any]] = None
+    lunar_attributes: Optional[Dict[str, Any]] = None  # <-- Lunar elements, animals, etc.
+    civil_attributes: Optional[Dict[str, Any]] = None  # <-- Solar/JD elements, animals, etc.
     planets: Optional[Dict[str, Any]] = None
     debug: Optional[Dict[str, Any]] = None
 
 @dataclass(frozen=True)
 class TibetanMonth:
+    """Pure mathematical coordinate of a Tibetan month."""
     engine: EngineId
     year: int
     month: int
     is_leap_month: bool
     occ: int = 1
-    previous_month_skipped: bool = False  # Symmetric with previous_tithi_skipped
-    linear_month: int = 0     # Absolute civil month index of this year (1 to 12/13)
+    previous_month_skipped: bool = False 
+    linear_month: int = 0     
 
 @dataclass(frozen=True)
 class MonthInfo:
+    """Rich UI container for a lunar month."""
     tibetan: TibetanMonth
-    gregorian_start: Optional[date]  # None if the month is skipped
-    gregorian_end: Optional[date]    # None if the month is skipped
-    days: List[DayInfo] = field(default_factory=list) # Exactly length 29 or 30 for valid months
+    gregorian_start: Optional[date]  
+    gregorian_end: Optional[date]    
+    days: List[DayInfo] = field(default_factory=list) 
     status: Literal["normal", "duplicated", "skipped"] = "normal"
-    attributes: Optional[Dict[str, Any]] = None
+    attributes: Optional[Dict[str, Any]] = None  # <-- Month attributes live here!
 
 @dataclass(frozen=True)
 class TibetanYear:
+    """Pure mathematical coordinate of a Tibetan year."""
     engine: EngineId
     year: int
     
-    # 60-Year Sexagenary Cycle (Starts 1027 AD)
     @property
     def rabjung_cycle(self) -> int:
         return (self.year - 1027) // 60 + 1
@@ -72,11 +77,12 @@ class TibetanYear:
 
 @dataclass(frozen=True)
 class YearInfo:
+    """Rich UI container for a Tibetan year."""
     tibetan: TibetanYear
-    gregorian_start: date
-    gregorian_end: date
-    months: List[MonthInfo] = field(default_factory=list) # Length 12 or 13 (leap year)
-    attributes: Optional[Dict[str, Any]] = None
+    gregorian_start: Optional[date] = None
+    gregorian_end: Optional[date] = None
+    months: List[MonthInfo] = field(default_factory=list) 
+    attributes: Optional[Dict[str, Any]] = None  # <-- Year attributes live here!
 
 @dataclass(frozen=True)
 class LocationSpec:

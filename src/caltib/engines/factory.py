@@ -40,12 +40,16 @@ def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
     else:
         raise TypeError(f"Unknown Day Params type: {type(spec.day_params)}")
 
-    # 3. Orchestrate
-    # We only need to pass spec, month, and day. CalendarEngine handles the rest internally!
+    # 3. Build the Attribute Engine
+    attr_engine = TraditionalAttributeEngine(engine_id=spec.id.calculator)
+    
+    # 4. Orchestrate
+    # We only need to pass spec, month, day, and attribute. CalendarEngine handles the rest internally!
     return CalendarEngine(
         spec=spec,
-        month=month_engine, 
-        day=day_engine
+        month=month_engine,
+        day=day_engine,
+        attr=attr_engine
     )
 
 def make_engine(spec: CalendarSpec) -> CalendarEngine:

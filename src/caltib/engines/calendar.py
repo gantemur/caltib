@@ -12,7 +12,7 @@ from fractions import Fraction
 from typing import Any, Dict
 
 from caltib.core.types import EngineId, DayInfo, TibetanDate, MonthInfo, TibetanMonth, YearInfo, TibetanYear, LocationSpec, CalendarSpec
-from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol
+from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol, AttributeEngineProtocol
 
 # J2000.0 TT base for absolute Julian Day conversion
 JD_J2000 = Fraction(2451545, 1)
@@ -27,6 +27,7 @@ class CalendarEngine:
         spec: 'CalendarSpec',
         month: MonthEngineProtocol, 
         day: DayEngineProtocol, 
+        attr: AttributeEngineProtocol,
     ):
         self.spec = spec
         self.id = spec.id
@@ -35,6 +36,7 @@ class CalendarEngine:
         
         self.month = month
         self.day = day
+        self.attr = attr
         
         if self.leap_labeling not in ("first_is_leap", "second_is_leap"):
             raise ValueError("leap_labeling must be 'first_is_leap' or 'second_is_leap'")
@@ -184,6 +186,9 @@ class CalendarEngine:
         n_d = n_m + self.delta_k
         j_month_start_boundary = self.day.civil_jdn(30 * n_d)
         linear_day = jdn - j_month_start_boundary
+
+        lunar_attrs = self.attr.get_lunar_day_attributes(res["year"], res["month"], res["day"])
+        civil_attrs = self.attr.get_civil_day_attributes(jdn)
         
         tib_date = TibetanDate(
             engine=self.id,
@@ -193,7 +198,7 @@ class CalendarEngine:
             tithi=res["day"],
             occ=2 if res["repeated"] else 1,
             previous_tithi_skipped=res["skipped"],
-            linear_day=linear_day  # Injected here!
+            linear_day=linear_day,
         )
         
         return DayInfo(
@@ -201,6 +206,8 @@ class CalendarEngine:
             engine=self.id,
             tibetan=tib_date,
             status="duplicated" if res["repeated"] else "normal",
+            lunar_attributes=lunar_attrs,
+            civil_attributes=civil_attrs,
             debug=res if debug else None
         )
     
@@ -269,7 +276,7 @@ class CalendarEngine:
         
         # Find the absolute boundary for O(1) linear mapping
         j_month_start_boundary = self.day.civil_jdn(30 * n_d)
-        
+
         from caltib.core.time import from_jdn
         
         days_list = []
@@ -280,6 +287,9 @@ class CalendarEngine:
             
             # Analytical O(1) calculation. First day is exactly 1.
             linear_day = jdn - j_month_start_boundary
+
+            lunar_attrs = self.attr.get_lunar_day_attributes(year, month, res["day"])
+            civil_attrs = self.attr.get_civil_day_attributes(jdn)
             
             t_date = TibetanDate(
                 engine=self.id,
@@ -289,14 +299,16 @@ class CalendarEngine:
                 tithi=res["day"],
                 occ=2 if res["repeated"] else 1,
                 previous_tithi_skipped=res["skipped"],
-                linear_day=linear_day
+                linear_day=linear_day,
             )
             
             days_list.append(DayInfo(
                 civil_date=civil_date, 
                 engine=self.id, 
                 tibetan=t_date, 
-                status="duplicated" if res["repeated"] else "normal"
+                status="duplicated" if res["repeated"] else "normal",
+                lunar_attributes=lunar_attrs,
+                civil_attributes=civil_attrs 
             ))
 
         tib_m = TibetanMonth(
@@ -306,12 +318,15 @@ class CalendarEngine:
             is_leap_month=is_leap, 
             linear_month=linear_month
         )
-        
+
+        m_attrs = self.attr.get_month_attributes(year, month)
+                
         return MonthInfo(
             tibetan=tib_m,
             gregorian_start=days_list[0].civil_date if days_list else None,
             gregorian_end=days_list[-1].civil_date if days_list else None,
-            days=days_list
+            days=days_list,
+            attributes=m_attrs
         )
     
     def month_info(self, year: int, month: int, is_leap: bool = False) -> MonthInfo:
@@ -378,10 +393,13 @@ class CalendarEngine:
             prev_month_no = curr_month_no
                 
         tib_y = TibetanYear(self.id, year)
+        y_attrs = self.attr.get_year_attributes(year)
         
         return YearInfo(
             tibetan=tib_y,
             gregorian_start=months_list[0].gregorian_start if months_list else None,
             gregorian_end=months_list[-1].gregorian_end if months_list else None,
-            months=months_list
+            months=months_list,
+            attributes=y_attrs
         )
+

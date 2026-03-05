@@ -182,6 +182,21 @@ LOC_MONTREAL = LocationSpec(
 )
 
 # ============================================================
+# Data constants for attributes and calendar specifications.
+# ============================================================
+
+# Standard 0-indexed arrays for modular lookups
+ANIMALS: Tuple[str, ...] = ("Mouse", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Sheep", "Monkey", "Bird", "Dog", "Pig")
+ELEMENTS: Tuple[str, ...] = ("Wood", "Fire", "Earth", "Iron", "Water")
+GENDERS: Tuple[str, ...] = ("Male", "Female") # 0 = Yang (Pho), 1 = Yin (Mo)
+TRIGRAMS: Tuple[str, ...] = ("Li", "Khon", "Dwa", "Khen", "Kham", "Gin", "Zin", "Zon")
+DIRECTIONS: Tuple[str, ...] = ("S", "SW", "W", "NW", "N", "NE", "E", "SE")
+
+# Mewa numbers are 1-9 mathematically. This array matches Mewa 1 to index 0.
+MEWA_COLORS: Tuple[str, ...] = ("White", "Black", "Blue", "Green", "Yellow", "White", "Red", "White", "Red")
+
+
+# ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 

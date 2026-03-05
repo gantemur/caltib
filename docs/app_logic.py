@@ -158,6 +158,7 @@ def update_static_ui():
     js.document.querySelector("#day-val-tithi").previousElementSibling.innerText = _t("tithi")
     js.document.querySelector("#day-val-weekday").previousElementSibling.innerText = _t("weekday_lbl")
     js.document.getElementById("lbl-greg-date").innerText = _t("greg_date_lbl")
+    js.document.getElementById("lbl-ext-attr").innerText = _t("attr_title")
     
     # Toggle Buttons
     js.document.getElementById("tog-m-greg").innerText = _t("greg_grid")
@@ -466,6 +467,35 @@ def render_day_view(cur_date, engine):
     if getattr(tib, 'previous_tithi_skipped', False): meta_str = _t("skipped_day")
     js.document.getElementById("day-val-tithi-meta").innerText = meta_str
 
+    # --- ASTROLOGICAL ATTRIBUTES INJECTION ---
+    # Fetch the lunar attributes dictionary attached to the DayInfo object
+    l_attrs = getattr(info, 'lunar_attributes', {})
+    
+    attr_grid = js.document.getElementById("day-attr-grid")
+    if attr_grid and l_attrs:
+        # Extract the integer indices safely
+        elem_idx = l_attrs.get("element", 0)
+        anim_idx = l_attrs.get("animal", 0)
+        mewa_idx = l_attrs.get("mewa", 1)
+        trig_idx = l_attrs.get("trigram", 0)
+        
+        # Translate the indices into localized strings
+        elem_str = _t("elements")[elem_idx] if isinstance(_t("elements"), list) else ""
+        anim_str = _t("animals")[anim_idx] if isinstance(_t("animals"), list) else ""
+        mewa_col = _t("mewa_colors")[mewa_idx - 1] if isinstance(_t("mewa_colors"), list) else ""
+        trig_str = _t("trigrams")[trig_idx] if isinstance(_t("trigrams"), list) else ""
+        
+        # Build the HTML badges
+        badges_html = f'''
+            <span class="ext-badge">{_t("attr_element")}: {elem_str}</span>
+            <span class="ext-badge">{_t("attr_animal")}: {anim_str}</span>
+            <span class="ext-badge">{_t("attr_mewa")}: {mewa_idx} {mewa_col}</span>
+            <span class="ext-badge">{_t("attr_trigram")}: {trig_str}</span>
+        '''
+        attr_grid.innerHTML = badges_html
+    else:
+        if attr_grid: attr_grid.innerHTML = f'<span class="ext-badge">No attributes available</span>'
+
 
 def render_month_view(cur_date, engine):
     mode = APP_STATE.get("month_mode", "gregorian")
@@ -514,7 +544,7 @@ def render_month_view(cur_date, engine):
                     elif getattr(cell_tib, 'previous_tithi_skipped', False): t_mark = "-"
                         
                     m_mark_html = f'<sup style="font-size: 0.75em;">{m_mark}</sup>' if m_mark else ""
-                    month_sup = f'<sup style="font-size: 0.7em; margin-right: 2px; opacity: 0.75;">{m_num}{m_mark_html}</sup>'
+                    month_sup = f'<sup style="font-size: 0.7em; margin-right: 2px; opacity: 0.75;">{m_mark_html}{m_num}</sup>'
                     tithi_sup = f'<sup style="font-size: 0.7em; margin-left: 2px;">{t_mark}</sup>'
                     combo_str = f"{month_sup}{t_num}{tithi_sup}"
                     

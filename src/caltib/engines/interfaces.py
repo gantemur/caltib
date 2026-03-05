@@ -141,25 +141,36 @@ class DayEngineProtocol(Protocol):
         """
         ...
 
+class AttributeEngineProtocol(Protocol):
+    """
+    Calculates astrological attributes. 
+    Returns a flexible dictionary of indices/values defined by the specific tradition.
+    """
+    def get_year_attributes(self, tib_year: int) -> Dict[str, Any]:
+        ...
+        
+    def get_month_attributes(self, tib_year: int, month_no: int) -> Dict[str, Any]:
+        ...
+        
+    def get_lunar_day_attributes(self, tib_year: int, month_no: int, tithi: int) -> Dict[str, Any]:
+        ...
+        
+    def get_civil_day_attributes(self, jdn: int) -> Dict[str, Any]:
+        ...
+
 
 class CalendarEngineProtocol(Protocol):
     """
-    The orchestrator. Binds a MonthEngine and a DayEngine together.
-    Translates full human dates to local Julian Day Numbers (JDN) and vice versa,
-    hiding all internal continuous time (t2000) and time zone kinematics.
+    The orchestrator. Binds Month, Day, and Attribute engines together.
     """
     month: MonthEngineProtocol
     day: DayEngineProtocol
-    leap_labeling: str  # "first_is_leap" or "second_is_leap"
+    attr: AttributeEngineProtocol
+    leap_labeling: str
 
     def from_jdn(self, jdn: int) -> Dict[str, Any]:
-        """
-        Translates a local Julian Day Number (integer day) into a human calendar date.
-        """
         ...
 
     def to_jdn(self, year: int, month: int, is_leap: bool, day: int) -> int:
-        """
-        Translates a full human calendar date into a local Julian Day Number (integer).
-        """
         ...
+
