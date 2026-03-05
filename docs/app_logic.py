@@ -975,7 +975,7 @@ def generate_losar_list(event=None):
         '''
         
         # 3. Build the Table Header
-        html += f'<table class="data-table"><tr><th style="text-align:center;">{_t("alignment")}</th><th>Date</th></tr>'
+        html += f'<table class="data-table"><tr><th style="text-align:center;">{_t("alignment")}</th><th>{_t("date_col")}</th></tr>'
         
         for y in range(start_y, end_y + 1):
             eng_str = js.document.getElementById("engine-select").value
