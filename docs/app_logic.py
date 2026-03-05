@@ -469,7 +469,7 @@ def render_day_view(cur_date, engine):
 
     # --- ASTROLOGICAL ATTRIBUTES INJECTION ---
     # Fetch the lunar attributes dictionary attached to the DayInfo object
-    l_attrs = getattr(info, 'lunar_attributes', {})
+    l_attrs = getattr(info, 'civil_attributes', {})
     
     attr_grid = js.document.getElementById("day-attr-grid")
     if attr_grid and l_attrs:
