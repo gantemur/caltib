@@ -130,6 +130,12 @@ def _n(num):
     if num == "--": return num
     return i18n.localize_num(num, APP_STATE["lang"])
 
+def _cap(text):
+    """Universally capitalizes the first letter of a string, ignoring numbers/Tibetan."""
+    if text and not text[0].isdigit():
+        return text[0].upper() + text[1:]
+    return text
+
 def get_rabjung_string(tib_year):
     """Calculates the Rabjung cycle and year, returning a localized string."""
     if not isinstance(tib_year, int):
@@ -472,37 +478,37 @@ def render_day_view(cur_date, engine):
     js.document.getElementById("day-title").innerText = f"{cur_date.year}/{cur_date.month:02d}/{cur_date.day:02d}"
 
     # 2. Gregorian Box
-    greg_months = _t("greg_months")
-    greg_m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
-    
-    # STRIP redundant "сар" for Mongolian before injecting into the format string
-    if lang == "mn" and " сар" in greg_m_name:
-        greg_m_name = greg_m_name.replace(" сар", "")
+    # Smart Lookup: Use Genitive array for specific dates if the language provides it!
+    greg_months_gen = _t("greg_months_genitive")
+    if isinstance(greg_months_gen, list) and len(greg_months_gen) > cur_date.month:
+        greg_m_name = greg_months_gen[cur_date.month]
+    else:
+        greg_months = _t("greg_months")
+        greg_m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
     
     day_fmt = _t("day_card_greg_fmt")
     if day_fmt and day_fmt != "day_card_greg_fmt":
         greg_val_str = day_fmt.replace("{year}", str(cur_date.year)).replace("{month}", greg_m_name).replace("{day}", str(cur_date.day))
     else:
         greg_val_str = f"{greg_m_name} {cur_date.day}, {cur_date.year}"
+        
     js.document.getElementById("day-val-greg").innerText = greg_val_str
 
     # 3. Weekday Box
     weekdays_long = _t("weekdays_long")
     js.document.getElementById("day-val-weekday").innerText = weekdays_long[cur_date.weekday()] if isinstance(weekdays_long, list) else cur_date.strftime("%A")
-
+    js.document.getElementById("day-val-weekday").style.color = "var(--text-main)"
+    
     # 4. Rabjung & Year Boxes
     if y_info:
         r_cyc = _n(getattr(y_info.tibetan, 'rabjung_cycle', ''))
         r_yr = _n(getattr(y_info.tibetan, 'rabjung_year', ''))
         js.document.getElementById("day-val-rabjung").innerText = f"{r_cyc}-{r_yr}"
 
-        # Inject ONLY Element-Animal into Year box (Nominative a_base)
+        # Inject ONLY Element-Animal into Year box
         _, y_a_base, _, _, y_elem, _, _, _ = _get_attrs(y_attrs)
-        y_str = f"{y_elem} {y_a_base}"
-        if lang in ("mn", "ru"): 
-            y_str = y_str.capitalize()
-            
-        js.document.getElementById("day-val-year").innerHTML = y_str
+        # Apply the universal capitalization helper!
+        js.document.getElementById("day-val-year").innerHTML = _cap(f"{y_elem} {y_a_base}")
 
     # 5. Month Box
     leap_str = _t("leap_suffix") if is_leap else ""
@@ -514,27 +520,15 @@ def render_day_view(cur_date, engine):
     else:
         m_base = f"{_n(m_val)}{leap_str}"
 
-    # Apply format string (No Year Number)
-    long_month = _t("tib_month_long_fmt").replace("{month}", m_base).replace("{element}", m_elem).replace("{animal}", m_anim)
-    
-    # STRIP redundant "сар" since the box label already says "Lunar Month"
-    if lang == "mn":
-        long_month = long_month.replace(" сар", "").strip()
-        
-    if lang in ("mn", "ru") and not long_month[0].isdigit():
-        long_month = long_month[0].upper() + long_month[1:]
-        
-    js.document.getElementById("day-val-month").innerText = long_month
+    # Use the dedicated BOX formatter (which lacks "сар") and the universal capitalization!
+    long_month = _t("tib_month_box_fmt").replace("{month}", m_base).replace("{element}", m_elem).replace("{animal}", m_anim)
+    js.document.getElementById("day-val-month").innerText = _cap(long_month)
 
     # 6. Tithi Box & Title
     d_e_base, _, _, d_anim, d_elem, d_m_idx, d_m_col, d_t_str = _get_attrs(l_attrs)
     
-    # Custom format handles Mongolian "Улаагчин хонь өдөр шинийн" seamlessly
     tithi_title = _t("tithi_title_fmt").replace("{element}", d_elem).replace("{animal}", d_anim)
-    if lang in ("mn", "ru"):
-        tithi_title = tithi_title.capitalize()
-
-    js.document.getElementById("lbl-tithi-title").innerText = tithi_title
+    js.document.getElementById("lbl-tithi-title").innerText = _cap(tithi_title)
     js.document.getElementById("day-val-tithi").innerText = str(t_val)
     
     meta_str = ""
@@ -731,6 +725,7 @@ def render_month_view(cur_date, engine):
         if m_attrs:
             html += f'''
             <div style="text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <span class="ext-badge">{_t("attr_element")}: {elem_base}</span>
                 <span class="ext-badge">{_t("attr_mewa")}: {mewa_idx} {mewa_col}</span>
             </div>'''
             
@@ -901,6 +896,7 @@ def render_year_view(cur_date, engine):
         if y_attrs:
             y_html += f'''
             <div style="grid-column: 1 / -1; text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <span class="ext-badge">{_t("attr_element")}: {elem_base}</span>
                 <span class="ext-badge">{_t("attr_mewa")}: {_n(mewa_idx)} {mewa_col}</span>
             </div>'''
             
