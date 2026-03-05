@@ -12,6 +12,7 @@ from caltib.engines.arithmetic_day import ArithmeticDayParams, ArithmeticDayEngi
 from caltib.engines.rational_month import RationalMonthParams, RationalMonthEngine
 from caltib.engines.trad_day import TraditionalDayParams, TraditionalDayEngine
 from caltib.engines.rational_day import RationalDayParams, RationalDayEngine
+from caltib.engines.trad_attr import TraditionalAttributeEngine
 
     
 def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
@@ -41,7 +42,7 @@ def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
         raise TypeError(f"Unknown Day Params type: {type(spec.day_params)}")
 
     # 3. Build the Attribute Engine
-    attr_engine = TraditionalAttributeEngine(engine_id=spec.id.calculator)
+    attr_engine = TraditionalAttributeEngine(engine_id=spec.id.name)
     
     # 4. Orchestrate
     # We only need to pass spec, month, day, and attribute. CalendarEngine handles the rest internally!
