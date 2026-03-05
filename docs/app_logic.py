@@ -468,14 +468,11 @@ def render_day_view(cur_date, engine):
     l_attrs = getattr(info, 'lunar_attributes', {}) or {}
 
     # --- TRANSLATE UI LABELS ---
-    lbl_rabjung = js.document.getElementById("lbl-rabjung")
-    if lbl_rabjung: lbl_rabjung.innerText = _t("rabjung_title")
-
     lbl_tib_year = js.document.getElementById("lbl-tib-year")
     if lbl_tib_year: lbl_tib_year.innerText = _t("tib_year_title")
 
     # 1. Compact Blue Title
-    js.document.getElementById("day-title").innerText = f"{cur_date.year}/{cur_date.month:02d}/{cur_date.day:02d}"
+    js.document.getElementById("day-title").innerText = f"{cur_date.year}.{cur_date.month:02d}.{cur_date.day:02d}"
 
     # 2. Gregorian Box
     # Smart Lookup: Use Genitive array for specific dates if the language provides it!
@@ -499,18 +496,23 @@ def render_day_view(cur_date, engine):
     js.document.getElementById("day-val-weekday").innerText = weekdays_long[cur_date.weekday()] if isinstance(weekdays_long, list) else cur_date.strftime("%A")
     js.document.getElementById("day-val-weekday").style.color = "var(--text-main)"
     
-    # 4. Rabjung & Year Boxes
+    # 4. Combined Rabjung & Tibetan Year Box
     if y_info:
         r_cyc = _n(getattr(y_info.tibetan, 'rabjung_cycle', ''))
         r_yr = _n(getattr(y_info.tibetan, 'rabjung_year', ''))
-        js.document.getElementById("day-val-rabjung").innerText = f"{r_cyc}-{r_yr}"
 
-        _, y_a_base, _, _, y_elem, _, _, _ = _get_attrs(y_attrs)
-        combo_str = f"{y_elem} {y_a_base}"
-        if lang in ("mn", "ru"):
-            combo_str = combo_str.lower()
-        # Apply the universal capitalization helper!
-        js.document.getElementById("day-val-year").innerHTML = _cap(combo_str)
+        # Extract the grammatical Element and Year-Animal (e.g., 'морин')
+        # _get_attrs returns: e_base, a_base, a_year, a_month, d_elem, m_idx, m_col, t_str
+        _, _, y_a_yr, _, y_elem, _, _, _ = _get_attrs(y_attrs)
+        
+        # Build the full string using the rabjung_fmt template
+        rabjung_str = _t("rabjung_fmt").replace("{R}", str(r_cyc))\
+                                       .replace("{Y}", str(r_yr))\
+                                       .replace("{element}", y_elem)\
+                                       .replace("{animal}", y_a_yr)
+                                       
+        # Apply the universal capitalization helper safely
+        js.document.getElementById("day-val-year").innerHTML = _cap(rabjung_str)
 
     # 5. Month Box
     leap_str = _t("leap_suffix") if is_leap else ""
@@ -523,7 +525,7 @@ def render_day_view(cur_date, engine):
         m_base = f"{_n(m_val)}{leap_str}"
 
     # Use the dedicated BOX formatter (which lacks "сар") and the universal capitalization!
-    long_month = _t("tib_month_box_fmt").replace("{month}", m_base).replace("{element}", m_elem).replace("{animal}", m_anim)
+    long_month = _t("tib_month_long_fmt").replace("{month}", m_base).replace("{element}", m_elem).replace("{animal}", m_anim)
     js.document.getElementById("day-val-month").innerText = _cap(long_month)
 
     # 6. Tithi Box & Title
@@ -562,7 +564,7 @@ def render_month_view(cur_date, engine):
         y, m = cur_date.year, cur_date.month
         
         # Compact Blue Title
-        js.document.getElementById("month-title").innerText = f"{y}/{m:02d}"
+        js.document.getElementById("month-title").innerText = f"{y}.{m:02d}"
         
         # Long Sub-Title String
         greg_months = _t("greg_months")
@@ -976,23 +978,26 @@ def generate_losar_list(event=None):
         html += f'<table class="data-table"><tr><th style="text-align:center;">{_t("alignment")}</th><th>Date</th></tr>'
         
         for y in range(start_y, end_y + 1):
-            # Natively returns a datetime.date!
-            # FIX: Pull the active engine directly from the dropdown element
             eng_str = js.document.getElementById("engine-select").value
             losar_date = caltib.new_year_day(y, engine=eng_str)
             
             gy, gm, gd = losar_date.year, losar_date.month, losar_date.day
             
-            # Format to just Month and Day (e.g., "February 01")
-            greg_months = _t("greg_months")
-            if isinstance(greg_months, list) and len(greg_months) > gm:
-                month_name = greg_months[gm]
+            # --- THE GENITIVE UPDATE ---
+            greg_months_gen = _t("greg_months_genitive")
+            if isinstance(greg_months_gen, list) and len(greg_months_gen) > gm:
+                month_name = greg_months_gen[gm]
             else:
-                month_name = losar_date.strftime("%B")
+                greg_months = _t("greg_months")
+                month_name = greg_months[gm] if isinstance(greg_months, list) and len(greg_months) > gm else losar_date.strftime("%B")
                 
-            date_str = f"{month_name} {gd:02d}"
+            short_fmt = _t("losar_date_fmt")
+            if short_fmt and short_fmt != "losar_date_fmt":
+                date_str = short_fmt.replace("{month}", month_name).replace("{day}", str(gd))
+            else:
+                date_str = f"{month_name} {gd}" # Fallback
+            # ---------------------------
 
-            # Make the date clickable to jump to the Day Card, but keep the text normal weight
             date_link = f"<span class='clickable-link' style='color: var(--primary-color);' onclick='window.jump_to_specific_date({gy}, {gm}, {gd})'>{date_str}</span>"
             y_str = _n(y)
             
