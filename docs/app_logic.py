@@ -505,10 +505,12 @@ def render_day_view(cur_date, engine):
         r_yr = _n(getattr(y_info.tibetan, 'rabjung_year', ''))
         js.document.getElementById("day-val-rabjung").innerText = f"{r_cyc}-{r_yr}"
 
-        # Inject ONLY Element-Animal into Year box
         _, y_a_base, _, _, y_elem, _, _, _ = _get_attrs(y_attrs)
+        combo_str = f"{y_elem} {y_a_base}"
+        if lang in ("mn", "ru"):
+            combo_str = combo_str.lower()
         # Apply the universal capitalization helper!
-        js.document.getElementById("day-val-year").innerHTML = _cap(f"{y_elem} {y_a_base}")
+        js.document.getElementById("day-val-year").innerHTML = _cap(combo_str)
 
     # 5. Month Box
     leap_str = _t("leap_suffix") if is_leap else ""
