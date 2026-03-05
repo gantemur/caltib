@@ -108,53 +108,56 @@
                     </div>
                     <button class="nav-btn" py-click="nav_day_next">&#9654;</button>
                 </div>
-                
-                <div class="day-card-body" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
-    
-                    <div class="day-stat-box" style="grid-column: span 3;">
-                        <div class="day-stat-lbl" id="lbl-greg-date">Gregorian</div>
-                        <div class="day-stat-val" style="color: var(--text-main); font-size: 1.1rem;" id="day-val-greg">--</div>
-                    </div>
-                    <div class="day-stat-box" style="grid-column: span 2;">
-                        <div class="day-stat-lbl" id="lbl-weekday">Weekday</div>
-                        <div class="day-stat-val" style="color: var(--primary-color); font-size: 1.1rem;" id="day-val-weekday">--</div>
-                    </div>
-                
-                    <div class="day-stat-box" style="grid-column: span 2;">
-                        <div class="day-stat-lbl" id="lbl-rabjung">Rabjung</div>
-                        <div class="day-stat-val" style="color: var(--primary-color); font-size: 1.1rem;" id="day-val-rabjung">--</div>
-                    </div>
-                    <div class="day-stat-box" style="grid-column: span 3;">
-                        <div class="day-stat-lbl" id="lbl-tib-year">Tibetan Year</div>
-                        <div class="day-stat-val clickable-link" style="color: var(--primary-color); font-size: 1.1rem;" py-click="go_to_tib_year" id="day-val-year">--</div>
-                    </div>
+
+                <div style="padding: 15px; border: 1px solid var(--border-color); border-top: none; border-radius: 0 0 8px 8px;">
                     
-                    <div class="day-stat-box" style="grid-column: span 5;">
-                        <div class="day-stat-lbl">Lunar Month</div>
-                        <div class="day-stat-val clickable-link" style="color: var(--primary-color); font-size: 1.1rem;" py-click="go_to_tib_month" id="day-val-month">--</div>
-                    </div>
-                    
-                    <div class="day-stat-box" style="grid-column: span 5; margin-top: 5px; padding: 10px 0;">
-                        <div class="day-stat-lbl" id="lbl-tithi-title" style="font-size: 1rem; color: var(--text-muted);">Tithi (Lunar Day)</div>
-                        <div class="day-stat-val" id="day-val-tithi" style="font-size: 3.5rem; color: var(--primary-color); line-height: 1.1;">--</div>
-                        <div id="day-val-tithi-meta" style="color: #ef4444; font-weight: bold; font-size: 0.9rem; margin-top: 5px;"></div>
-                    </div>
-                    
-                    <div class="ext-section" style="grid-column: span 5; text-align: left;">
-                        <div class="ext-title" id="lbl-ext-attr">Astrological Attributes (Pending)</div>
-                        <div class="ext-grid" id="day-attr-grid">
-                            <span class="ext-badge">Loading...</span>
+                    <div class="day-card-body" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+        
+                        <div class="day-stat-box" style="grid-column: span 3;">
+                            <div class="day-stat-lbl" id="lbl-greg-date">Gregorian</div>
+                            <div class="day-stat-val" style="color: var(--text-main); font-size: 1.1rem;" id="day-val-greg">--</div>
                         </div>
-                    </div>
-                
-                    <div class="ext-section" style="grid-column: span 5; text-align: left;">
-                        <div class="ext-title" id="lbl-ext-planets">True Planetary Positions (Pending)</div>
-                        <div class="ext-grid" id="planets-grid">
-                            <span class="ext-badge">Sun: 331.2°</span>
-                            <span class="ext-badge">Moon: 12.4°</span>
-                            <span class="ext-badge">Mars: ...</span>
+                        <div class="day-stat-box" style="grid-column: span 2;">
+                            <div class="day-stat-lbl" id="lbl-weekday">Weekday</div>
+                            <div class="day-stat-val" style="color: var(--primary-color); font-size: 1.1rem;" id="day-val-weekday">--</div>
                         </div>
-                    </div>
+                    
+                        <div class="day-stat-box" style="grid-column: span 2;">
+                            <div class="day-stat-lbl" id="lbl-rabjung">Rabjung</div>
+                            <div class="day-stat-val" style="color: var(--primary-color); font-size: 1.1rem;" id="day-val-rabjung">--</div>
+                        </div>
+                        <div class="day-stat-box" style="grid-column: span 3;">
+                            <div class="day-stat-lbl" id="lbl-tib-year">Tibetan Year</div>
+                            <div class="day-stat-val clickable-link" style="color: var(--primary-color); font-size: 1.1rem;" py-click="go_to_tib_year" id="day-val-year">--</div>
+                        </div>
+
+                        <div class="day-stat-box" style="grid-column: span 5;">
+                            <div class="day-stat-lbl">Lunar Month</div>
+                            <div class="day-stat-val clickable-link" style="color: var(--primary-color); font-size: 1.1rem;" py-click="go_to_tib_month" id="day-val-month">--</div>
+                        </div>
+                        
+                        <div class="day-stat-box" style="grid-column: span 5; margin-top: 5px; padding: 10px 0;">
+                            <div class="day-stat-lbl" id="lbl-tithi-title" style="font-size: 1rem; color: var(--text-muted);">Tithi (Lunar Day)</div>
+                            <div class="day-stat-val" id="day-val-tithi" style="font-size: 3.5rem; color: var(--primary-color); line-height: 1.1;">--</div>
+                            <div id="day-val-tithi-meta" style="color: #ef4444; font-weight: bold; font-size: 0.9rem; margin-top: 5px;"></div>
+                        </div>
+                        
+                        <div class="ext-section" style="grid-column: span 5; text-align: left;">
+                            <div class="ext-title" id="lbl-ext-attr">Astrological Attributes (Pending)</div>
+                            <div class="ext-grid" id="day-attr-grid">
+                                <span class="ext-badge">Loading...</span>
+                            </div>
+                        </div>
+                    
+                        <div class="ext-section" style="grid-column: span 5; text-align: left;">
+                            <div class="ext-title" id="lbl-ext-planets">True Planetary Positions (Pending)</div>
+                            <div class="ext-grid" id="planets-grid">
+                                <span class="ext-badge">Sun: 331.2°</span>
+                                <span class="ext-badge">Moon: 12.4°</span>
+                                <span class="ext-badge">Mars: ...</span>
+                            </div>
+                        </div>
+                    </div>                
                 </div>
             </div>
 

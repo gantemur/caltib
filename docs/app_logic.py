@@ -726,9 +726,11 @@ def render_month_view(cur_date, engine):
         # --- 3. BOTTOM ATTRIBUTES INJECTION ---
         if m_attrs:
             html += f'''
-            <div style="text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 25px 0 15px 0;">
+            <div class="ext-title" style="text-align: left; margin-bottom: 10px;">{_t("attr_title")}</div>
+            <div style="display: flex; gap: 10px; justify-content: flex-start; flex-wrap: wrap;">
                 <span class="ext-badge">{_t("attr_element")}: {elem_base}</span>
-                <span class="ext-badge">{_t("attr_mewa")}: {mewa_idx} {mewa_col}</span>
+                <span class="ext-badge">{_t("attr_mewa")}: {_n(mewa_idx)} {mewa_col}</span>
             </div>'''
             
         container.innerHTML = html
@@ -897,9 +899,13 @@ def render_year_view(cur_date, engine):
         # --- 3. BOTTOM ATTRIBUTES INJECTION ---
         if y_attrs:
             y_html += f'''
-            <div style="grid-column: 1 / -1; text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <span class="ext-badge">{_t("attr_element")}: {elem_base}</span>
-                <span class="ext-badge">{_t("attr_mewa")}: {_n(mewa_idx)} {mewa_col}</span>
+            <div style="grid-column: 1 / -1; width: 100%;">
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 25px 0 15px 0;">
+                <div class="ext-title" style="text-align: left; margin-bottom: 10px;">{_t("attr_title")}</div>
+                <div style="display: flex; gap: 10px; justify-content: flex-start; flex-wrap: wrap;">
+                    <span class="ext-badge">{_t("attr_element")}: {elem_base}</span>
+                    <span class="ext-badge">{_t("attr_mewa")}: {_n(mewa_idx)} {mewa_col}</span>
+                </div>
             </div>'''
             
         container.innerHTML = y_html
