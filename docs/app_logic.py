@@ -223,26 +223,26 @@ def init_app():
 
         # If the horizontal swipe is longer than 50px AND mostly horizontal...
         if abs(diff_x) > 50 and abs(diff_x) > abs(diff_y):
-            # Figure out which tab is currently visible
-            day_panel = js.document.getElementById("view-day")
-            month_panel = js.document.getElementById("view-month")
-            year_panel = js.document.getElementById("view-year")
+            day_panel = js.document.getElementById("tab-day")
+            month_panel = js.document.getElementById("tab-month")
+            year_panel = js.document.getElementById("tab-year")
             
             if diff_x > 0:
                 # Swiped Left -> Go Next
-                if day_panel.style.display != "none": nav_day_next(None)
-                elif month_panel.style.display != "none": nav_month_next(None)
-                elif year_panel.style.display != "none": nav_year_next(None)
+                if "active" in day_panel.className: nav_day_next(None)
+                elif "active" in month_panel.className: nav_month_next(None)
+                elif "active" in year_panel.className: nav_year_next(None)
             else:
                 # Swiped Right -> Go Prev
-                if day_panel.style.display != "none": nav_day_prev(None)
-                elif month_panel.style.display != "none": nav_month_prev(None)
-                elif year_panel.style.display != "none": nav_year_prev(None)
+                if "active" in day_panel.className: nav_day_prev(None)
+                elif "active" in month_panel.className: nav_month_prev(None)
+                elif "active" in year_panel.className: nav_year_prev(None)
 
-    # Bind the touch listeners to the main app container so it doesn't break sidebar scrolling
-    main_area = js.document.querySelector(".main-content")
-    main_area.addEventListener("touchstart", create_proxy(on_touch_start), {"passive": True})
-    main_area.addEventListener("touchend", create_proxy(on_touch_end), {"passive": True})
+    # Link to your existing view-panel class!
+    main_area = js.document.querySelector(".view-panel")
+    if main_area:
+        main_area.addEventListener("touchstart", create_proxy(on_touch_start), {"passive": True})
+        main_area.addEventListener("touchend", create_proxy(on_touch_end), {"passive": True})
 
     # 3. INITIAL BOOTSTRAP
     # Set hardcoded defaults first...
