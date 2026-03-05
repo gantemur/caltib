@@ -421,45 +421,120 @@ js.window.jump_to_specific_date = pyodide.ffi.create_proxy(jump_to_specific_date
 def render_day_view(cur_date, engine):
     info = get_cached_day(engine, cur_date)
     tib = info.tibetan
+    lang = APP_STATE.get("lang", "en")
+    eng_name = engine.id.name
     
+    # --- HELPER: Extracts localized attribute strings cleanly ---
+    def _get_attrs(attrs):
+        e_idx, a_idx = attrs.get("element", 0), attrs.get("animal", 0)
+        m_idx, t_idx = attrs.get("mewa", 1), attrs.get("trigram", 0)
+
+        e_base = _t("elements")[e_idx] if isinstance(_t("elements"), list) else ""
+        a_base = _t("animals")[a_idx] if isinstance(_t("animals"), list) else ""
+        m_col = _t("mewa_colors")[m_idx - 1] if isinstance(_t("mewa_colors"), list) else ""
+        t_str = _t("trigrams")[t_idx] if isinstance(_t("trigrams"), list) else ""
+
+        a_year = _t("animals_year")[a_idx] if isinstance(_t("animals_year"), list) else a_base
+        a_month = _t("animals_month")[a_idx] if isinstance(_t("animals_month"), list) else a_base
+        e_adj = _t("elements_adj")[e_idx] if isinstance(_t("elements_adj"), list) else e_base
+
+        c_arr = _t("element_colors")
+        c_str = c_arr[e_idx][a_idx % 2] if (isinstance(c_arr, list) and len(c_arr) > e_idx) else e_adj
+        d_elem = c_str if eng_name == "mongol" else e_adj
+
+        if lang == "ru":
+            d_elem, a_year, a_month = d_elem.lower(), a_year.lower(), a_month.lower()
+
+        # Added a_base for the nominative year box!
+        return e_base, a_base, a_year, a_month, d_elem, m_idx, m_col, t_str
+
+    # --- FETCH DATA & ATTRIBUTES ---
     y_val = getattr(tib, 'year', '--')
     m_val = getattr(tib, 'month', '--')
+    is_leap = getattr(tib, 'is_leap_month', False)
     t_val = _n(getattr(tib, 'tithi', '--'))
     
-    leap_str = _t("leap_suffix") if getattr(tib, 'is_leap_month', False) else ""
+    y_info = get_cached_year(engine, y_val) if y_val != '--' else None
+    m_info = get_cached_month(engine, y_val, m_val, is_leap) if y_val != '--' else None
     
-    # 1. Compact Blue Title (YYYY/MM/DD)
-    js.document.getElementById("day-title").innerText = f"{cur_date.year}/{cur_date.month:02d}/{cur_date.day:02d}"
-    
-    # 2. Extract and translate the LONG Weekday
-    weekdays_long = _t("weekdays_long")
-    weekday_name = weekdays_long[cur_date.weekday()] if isinstance(weekdays_long, list) else cur_date.strftime("%A")
-    js.document.getElementById("day-val-weekday").innerText = weekday_name
+    y_attrs = getattr(y_info, 'attributes', {}) or {} if y_info else {}
+    m_attrs = getattr(m_info, 'attributes', {}) or {} if m_info else {}
+    l_attrs = getattr(info, 'lunar_attributes', {}) or {}
 
-    # 3. Populate Gregorian Date Box with Long Name
-    # 3. Populate Gregorian Date Box with proper localization grammar
+    # --- TRANSLATE UI LABELS ---
+    lbl_rabjung = js.document.getElementById("lbl-rabjung")
+    if lbl_rabjung: lbl_rabjung.innerText = _t("rabjung_title")
+
+    lbl_tib_year = js.document.getElementById("lbl-tib-year")
+    if lbl_tib_year: lbl_tib_year.innerText = _t("tib_year_title")
+
+    # 1. Compact Blue Title
+    js.document.getElementById("day-title").innerText = f"{cur_date.year}/{cur_date.month:02d}/{cur_date.day:02d}"
+
+    # 2. Gregorian Box
     greg_months = _t("greg_months")
     greg_m_name = greg_months[cur_date.month] if isinstance(greg_months, list) and len(greg_months) > cur_date.month else cur_date.strftime("%B")
     
+    # STRIP redundant "сар" for Mongolian before injecting into the format string
+    if lang == "mn" and " сар" in greg_m_name:
+        greg_m_name = greg_m_name.replace(" сар", "")
+    
     day_fmt = _t("day_card_greg_fmt")
     if day_fmt and day_fmt != "day_card_greg_fmt":
-        greg_val_str = day_fmt.replace("{month}", greg_m_name).replace("{day}", str(cur_date.day))
+        greg_val_str = day_fmt.replace("{year}", str(cur_date.year)).replace("{month}", greg_m_name).replace("{day}", str(cur_date.day))
     else:
-        greg_val_str = f"{greg_m_name} {cur_date.day}"
-        
+        greg_val_str = f"{greg_m_name} {cur_date.day}, {cur_date.year}"
     js.document.getElementById("day-val-greg").innerText = greg_val_str
 
-    # 4. Populate Year and Lunar Month (Handle Mongolian Seasons)
-    js.document.getElementById("day-val-year").innerText = _n(y_val)
+    # 3. Weekday Box
+    weekdays_long = _t("weekdays_long")
+    js.document.getElementById("day-val-weekday").innerText = weekdays_long[cur_date.weekday()] if isinstance(weekdays_long, list) else cur_date.strftime("%A")
+
+    # 4. Rabjung & Year Boxes
+    if y_info:
+        r_cyc = _n(getattr(y_info.tibetan, 'rabjung_cycle', ''))
+        r_yr = _n(getattr(y_info.tibetan, 'rabjung_year', ''))
+        js.document.getElementById("day-val-rabjung").innerText = f"{r_cyc}-{r_yr}"
+
+        # Inject ONLY Element-Animal into Year box (Nominative a_base)
+        _, y_a_base, _, _, y_elem, _, _, _ = _get_attrs(y_attrs)
+        y_str = f"{y_elem} {y_a_base}"
+        if lang in ("mn", "ru"): 
+            y_str = y_str.capitalize()
+            
+        js.document.getElementById("day-val-year").innerHTML = y_str
+
+    # 5. Month Box
+    leap_str = _t("leap_suffix") if is_leap else ""
+    _, _, _, m_anim, m_elem, _, _, _ = _get_attrs(m_attrs)
     
-    lang = APP_STATE.get("lang", "en")
     if lang == "mn" and isinstance(m_val, int):
         seasons = _t("mn_seasons")
-        m_name_str = seasons.get(m_val, str(m_val)) if isinstance(seasons, dict) else str(m_val)
-        js.document.getElementById("day-val-month").innerText = f"{m_name_str}{leap_str}"
+        m_base = f"{seasons.get(m_val, str(m_val))}{leap_str}" if isinstance(seasons, dict) else f"{m_val}{leap_str}"
     else:
-        js.document.getElementById("day-val-month").innerText = f"{_n(m_val)}{leap_str}"
+        m_base = f"{_n(m_val)}{leap_str}"
+
+    # Apply format string (No Year Number)
+    long_month = _t("tib_month_long_fmt").replace("{month}", m_base).replace("{element}", m_elem).replace("{animal}", m_anim)
+    
+    # STRIP redundant "сар" since the box label already says "Lunar Month"
+    if lang == "mn":
+        long_month = long_month.replace(" сар", "").strip()
         
+    if lang in ("mn", "ru") and not long_month[0].isdigit():
+        long_month = long_month[0].upper() + long_month[1:]
+        
+    js.document.getElementById("day-val-month").innerText = long_month
+
+    # 6. Tithi Box & Title
+    d_e_base, _, _, d_anim, d_elem, d_m_idx, d_m_col, d_t_str = _get_attrs(l_attrs)
+    
+    # Custom format handles Mongolian "Улаагчин хонь өдөр шинийн" seamlessly
+    tithi_title = _t("tithi_title_fmt").replace("{element}", d_elem).replace("{animal}", d_anim)
+    if lang in ("mn", "ru"):
+        tithi_title = tithi_title.capitalize()
+
+    js.document.getElementById("lbl-tithi-title").innerText = tithi_title
     js.document.getElementById("day-val-tithi").innerText = str(t_val)
     
     meta_str = ""
@@ -467,35 +542,17 @@ def render_day_view(cur_date, engine):
     if getattr(tib, 'previous_tithi_skipped', False): meta_str = _t("skipped_day")
     js.document.getElementById("day-val-tithi-meta").innerText = meta_str
 
-    # --- ASTROLOGICAL ATTRIBUTES INJECTION ---
-    # Fetch the lunar attributes dictionary attached to the DayInfo object
-    l_attrs = getattr(info, 'civil_attributes', {})
-    
+    # 7. Attributes Grid
     attr_grid = js.document.getElementById("day-attr-grid")
     if attr_grid and l_attrs:
-        # Extract the integer indices safely
-        elem_idx = l_attrs.get("element", 0)
-        anim_idx = l_attrs.get("animal", 0)
-        mewa_idx = l_attrs.get("mewa", 1)
-        trig_idx = l_attrs.get("trigram", 0)
-        
-        # Translate the indices into localized strings
-        elem_str = _t("elements")[elem_idx] if isinstance(_t("elements"), list) else ""
-        anim_str = _t("animals")[anim_idx] if isinstance(_t("animals"), list) else ""
-        mewa_col = _t("mewa_colors")[mewa_idx - 1] if isinstance(_t("mewa_colors"), list) else ""
-        trig_str = _t("trigrams")[trig_idx] if isinstance(_t("trigrams"), list) else ""
-        
-        # Build the HTML badges
         badges_html = f'''
-            <span class="ext-badge">{_t("attr_element")}: {elem_str}</span>
-            <span class="ext-badge">{_t("attr_animal")}: {anim_str}</span>
-            <span class="ext-badge">{_t("attr_mewa")}: {mewa_idx} {mewa_col}</span>
-            <span class="ext-badge">{_t("attr_trigram")}: {trig_str}</span>
+            <span class="ext-badge">{_t("attr_element")}: {d_e_base}</span>
+            <span class="ext-badge">{_t("attr_mewa")}: {_n(d_m_idx)} {d_m_col}</span>
+            <span class="ext-badge">{_t("attr_trigram")}: {d_t_str}</span>
         '''
         attr_grid.innerHTML = badges_html
-    else:
-        if attr_grid: attr_grid.innerHTML = f'<span class="ext-badge">No attributes available</span>'
-
+    elif attr_grid:
+        attr_grid.innerHTML = f'<span class="ext-badge">No attributes available</span>'
 
 def render_month_view(cur_date, engine):
     mode = APP_STATE.get("month_mode", "gregorian")
@@ -573,6 +630,34 @@ def render_month_view(cur_date, engine):
         
         m_info = get_cached_month(engine, t_year, t_month, is_leap)
         
+        # --- 1. FETCH MONTH ATTRIBUTES ---
+        m_attrs = getattr(m_info, 'attributes', {}) or {}
+        elem_idx = m_attrs.get("element", 0)
+        anim_idx = m_attrs.get("animal", 0)
+        mewa_idx = m_attrs.get("mewa", 1)
+        gender_idx = anim_idx % 2
+        
+        elem_base = _t("elements")[elem_idx] if isinstance(_t("elements"), list) else ""
+        anim_base = _t("animals")[anim_idx] if isinstance(_t("animals"), list) else ""
+        anim_month = _t("animals_month")[anim_idx] if isinstance(_t("animals_month"), list) else anim_base
+        mewa_col = _t("mewa_colors")[mewa_idx - 1] if isinstance(_t("mewa_colors"), list) else ""
+        elem_adj = _t("elements_adj")[elem_idx] if isinstance(_t("elements_adj"), list) else elem_base
+        
+        colors_arr = _t("element_colors")
+        if isinstance(colors_arr, list) and len(colors_arr) > elem_idx:
+            color_str = colors_arr[elem_idx][gender_idx]
+        else:
+            color_str = elem_adj  # Safe fallback
+            
+        if engine.id.name == "mongol":
+            display_elem = color_str
+        else:
+            display_elem = elem_adj
+        
+        # Lowercase elements/animals for Russian and Mongolian mid-sentence grammar
+        if lang in ("mn", "ru"):
+            display_elem, anim_month = display_elem.lower(), anim_month.lower()
+            
         t_year_str = _n(t_year)
         t_month_str = _n(t_month)
         leap_str = _t("leap_suffix") if is_leap else ""
@@ -581,7 +666,7 @@ def render_month_view(cur_date, engine):
         m_mark = "-" if (is_leap and getattr(engine, 'leap_labeling', 'first_is_leap') == "first_is_leap") else ("+" if is_leap else "")
         js.document.getElementById("month-title").innerHTML = f"{t_year}/{t_month}<sup>{m_mark}</sup>"
         
-        # Long Sub-Title String
+        # --- 2. ASSEMBLE LONG TITLE ---
         if lang == "mn":
             seasons = _t("mn_seasons")
             season_name = seasons.get(t_month, str(t_month)) if isinstance(seasons, dict) else str(t_month)
@@ -589,7 +674,21 @@ def render_month_view(cur_date, engine):
         else:
             m_name = f"{t_month_str}{leap_str}"
             
-        long_title = _t("tib_month_long_fmt").replace("{month}", m_name).replace("{year}", t_year_str)
+        # 2a. Build the base month string (same as Day Card)
+        long_month = _t("tib_month_long_fmt").replace("{month}", m_name)\
+                                             .replace("{element}", display_elem)\
+                                             .replace("{animal}", anim_month)
+                                             
+        # Capitalize the first letter for Mongolian/Russian grammar
+        if lang in ("mn", "ru") and not long_month[0].isdigit():
+            long_month = long_month[0].upper() + long_month[1:]
+            
+        # 2b. Wrap it with the Year for the Grid Title
+        grid_fmt = _t("month_grid_title_fmt")
+        if grid_fmt and grid_fmt != "month_grid_title_fmt":
+            long_title = grid_fmt.replace("{year}", t_year_str).replace("{month_str}", long_month)
+        else:
+            long_title = f"{t_year_str}, {long_month}" # Fallback
         
         html = f'<div style="text-align: center; font-size: 1.1rem; font-weight: bold; color: var(--primary-color); margin-bottom: 15px;">{long_title}</div>'
         html += '<div class="month-grid" style="grid-template-columns: repeat(7, 1fr);">'
@@ -613,19 +712,13 @@ def render_month_view(cur_date, engine):
                 if getattr(tib, 'occ', 1) == 2: t_mark = "+"
                 if getattr(tib, 'previous_tithi_skipped', False): t_mark = "-"
                 
-                # Combine Tithi Number + Superscript Mark
                 tithi_html = f"{t_num}{fmt_mark(t_mark)}"
-                
-                # Superscript the Gregorian month to save horizontal space!
                 greg_label = f'<sup style="font-size: 0.7em; margin-right: 2px; opacity: 0.75;">{c_date.month}</sup>{c_date.day}'
-                #greg_label = f"{c_date.month}/{c_date.day}"
 
-                # Shrunk tithi_html from 1.3rem to 1.1rem, and greg_label from 0.75rem to 0.65rem
                 html += f'''
                 <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
                     <div class="tib-tithi" style="font-size: 1.1rem; font-weight: bold; color: var(--primary-color); line-height: 1; margin-top: 2px;">{tithi_html}</div>
                     <div class="greg-date" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
-                    
                     <div class="attr-space" style="margin-top: auto; padding-top: 6px; display: flex; gap: 4px;">
                         <div style="width: 4px; height: 4px; border-radius: 50%; background: #94a3b8;"></div>
                         <div style="width: 4px; height: 4px; border-radius: 50%; background: #94a3b8;"></div>
@@ -633,8 +726,14 @@ def render_month_view(cur_date, engine):
                 </div>'''
                                 
         html += '</div>'
-        html += f'<div style="text-align: center; margin-top: 15px; font-size: 0.9rem; color: var(--text-muted);">[ Month Attributes Placeholder ]</div>'
-
+        
+        # --- 3. BOTTOM ATTRIBUTES INJECTION ---
+        if m_attrs:
+            html += f'''
+            <div style="text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <span class="ext-badge">{_t("attr_mewa")}: {mewa_idx} {mewa_col}</span>
+            </div>'''
+            
         container.innerHTML = html
 
 def render_year_view(cur_date, engine):
@@ -693,17 +792,53 @@ def render_year_view(cur_date, engine):
         container.innerHTML = y_html
 
     else:
+        # THE TIBETAN GRID
         anchor_info = get_cached_day(engine, cur_date)
         t_year = getattr(anchor_info.tibetan, 'year')
         js.document.getElementById("year-spinner").value = str(t_year)
         
         y_info = get_cached_year(engine, t_year)
-        
-        # 3. Inject the Rabjung Cycle string!
-        rabjung_str = get_rabjung_string(t_year)
-        y_html = f'<div style="grid-column: 1 / -1; width: 100%; text-align: center; margin-bottom: 15px; font-size: 1rem; font-weight: bold; color: var(--primary-color);">{rabjung_str}</div>'
-        
         lang = APP_STATE.get("lang", "en")
+        
+        # --- 1. FETCH YEAR ATTRIBUTES ---
+        y_attrs = getattr(y_info, 'attributes', {}) or {}
+        elem_idx = y_attrs.get("element", 0)
+        anim_idx = y_attrs.get("animal", 0)
+        mewa_idx = y_attrs.get("mewa", 1)
+        gender_idx = anim_idx % 2
+        
+        elem_base = _t("elements")[elem_idx] if isinstance(_t("elements"), list) else ""
+        elem_adj = _t("elements_adj")[elem_idx] if isinstance(_t("elements_adj"), list) else elem_base
+        anim_base = _t("animals")[anim_idx] if isinstance(_t("animals"), list) else ""
+        anim_year = _t("animals_year")[anim_idx] if isinstance(_t("animals_year"), list) else anim_base
+        mewa_col = _t("mewa_colors")[mewa_idx - 1] if isinstance(_t("mewa_colors"), list) else ""
+        
+        colors_arr = _t("element_colors")
+        if isinstance(colors_arr, list) and len(colors_arr) > elem_idx:
+            color_str = colors_arr[elem_idx][gender_idx]
+        else:
+            color_str = elem_adj  # Safe fallback
+            
+        if engine.id.name == "mongol":
+            display_elem = color_str
+        else:
+            display_elem = elem_adj
+        
+        # Lowercase elements/animals for Russian and Mongolian mid-sentence grammar
+        if lang in ("mn", "ru"):
+            anim_year, display_elem = anim_year.lower(), display_elem.lower()
+            
+        r_cycle = _n(getattr(y_info.tibetan, 'rabjung_cycle', ''))
+        r_year = _n(getattr(y_info.tibetan, 'rabjung_year', ''))
+        
+        # --- 2. ASSEMBLE RABJUNG TITLE ---
+        # This replaces get_rabjung_string(t_year) to include the element and animal!
+        rabjung_str = _t("rabjung_fmt").replace("{R}", str(r_cycle))\
+                                       .replace("{Y}", str(r_year))\
+                                       .replace("{element}", display_elem)\
+                                       .replace("{animal}", anim_year)
+        
+        y_html = f'<div style="grid-column: 1 / -1; width: 100%; text-align: center; margin-bottom: 15px; font-size: 1.1rem; font-weight: bold; color: var(--primary-color);">{rabjung_str}</div>'
         
         for m_info in y_info.months:
             m_tib = m_info.tibetan
@@ -761,6 +896,13 @@ def render_year_view(cur_date, engine):
                     y_html += f'<div style="{cell_style} padding: 4px 0; border-radius: 4px; text-align: center;">{tithi_val}<sup>{mark}</sup></div>'
                         
             y_html += '</div></div>'
+            
+        # --- 3. BOTTOM ATTRIBUTES INJECTION ---
+        if y_attrs:
+            y_html += f'''
+            <div style="grid-column: 1 / -1; text-align: center; margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <span class="ext-badge">{_t("attr_mewa")}: {_n(mewa_idx)} {mewa_col}</span>
+            </div>'''
             
         container.innerHTML = y_html
 
@@ -831,7 +973,8 @@ def generate_losar_list(event=None):
         
         for y in range(start_y, end_y + 1):
             # Natively returns a datetime.date!
-            eng_str = APP_STATE.get("engine", "phugpa")
+            # FIX: Pull the active engine directly from the dropdown element
+            eng_str = js.document.getElementById("engine-select").value
             losar_date = caltib.new_year_day(y, engine=eng_str)
             
             gy, gm, gd = losar_date.year, losar_date.month, losar_date.day
