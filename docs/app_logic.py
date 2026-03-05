@@ -367,8 +367,8 @@ def sync_year_spinner(e):
             set_date(APP_STATE["date"].replace(year=input_y))
         else:
             engine = get_engine()
-            # Natively returns a datetime.date!
-            new_date = caltib.new_year_day(input_y, engine=engine.id)
+            # Unpack the EngineId dataclass to pass just the string name
+            new_date = caltib.new_year_day(input_y, engine=engine.id.name)
             set_date(new_date)            
     except ValueError:
         pass
@@ -831,7 +831,8 @@ def generate_losar_list(event=None):
         
         for y in range(start_y, end_y + 1):
             # Natively returns a datetime.date!
-            losar_date = caltib.new_year_day(y, engine=engine_id)
+            eng_str = APP_STATE.get("engine", "phugpa")
+            losar_date = caltib.new_year_day(y, engine=eng_str)
             
             gy, gm, gd = losar_date.year, losar_date.month, losar_date.day
             
