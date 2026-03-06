@@ -662,7 +662,7 @@ def render_month_view(cur_date, engine):
         
         # Compact Blue Title (e.g., 2027/04-)
         m_mark = "-" if (is_leap and getattr(engine, 'leap_labeling', 'first_is_leap') == "first_is_leap") else ("+" if is_leap else "")
-        js.document.getElementById("month-title").innerHTML = f"{t_year}/{t_month}<sup>{m_mark}</sup>"
+        js.document.getElementById("month-title").innerHTML = f"{t_year}.{t_month}<sup>{m_mark}</sup>"
         
         # --- 2. ASSEMBLE LONG TITLE ---
         if lang == "mn":
