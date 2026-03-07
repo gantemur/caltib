@@ -647,6 +647,7 @@ def _eval_vsop(tau: float, series_data: dict[int, tuple[tuple[float, float, floa
         total += subtotal * tau_pow
     return total
 
+
 def heliocentric_position(
     planet: Literal["mercury", "venus", "earth", "mars", "jupiter", "saturn"], 
     jd_tt: float
@@ -654,19 +655,6 @@ def heliocentric_position(
     T = aa.T_centuries(jd_tt)
     tau = T / 10.0
     
-    if planet == "earth":
-        sm = aa.solar_mean_elements(T)
-        sun_coords = solar.solar_longitude(jd_tt)
-        
-        L_mean = aa.wrap_deg(sm.L0_deg + 180.0)
-        L_true = aa.wrap_deg(sun_coords.L_true_deg + 180.0)
-        B_true = 0.0
-        
-        R_true = _eval_vsop(tau, PLANET_DATA["earth"]["R"])
-        R_mean = PLANET_DATA["earth"]["R"].get(0, ((1.00000011, 0.0, 0.0),))[0][0]
-        
-        return HeliocentricCoords(L_mean, L_true, B_true, R_mean, R_true)
-        
     p_data = PLANET_DATA[planet]
     
     L_rad = _eval_vsop(tau, p_data["L"])
@@ -694,11 +682,13 @@ def geocentric_position(
     T = aa.T_centuries(jd_tt)
     fa = aa.fundamental_args(T)
     
+    # The Sun is just Earth viewed in reverse
     if planet == "sun":
         earth = heliocentric_position("earth", jd_tt)
-        sun_coords = solar.solar_longitude(jd_tt)
-        L_mean = aa.wrap_deg(earth.L_mean_deg - 180.0)
-        return GeocentricCoords(L_mean, sun_coords.L_true_deg, 0.0, earth.R_mean_au, earth.R_true_au)
+        L_mean = aa.wrap_deg(earth.L_mean_deg + 180.0)
+        L_true = aa.wrap_deg(earth.L_true_deg + 180.0)
+        B_true = -earth.B_true_deg  # Invert the latitude
+        return GeocentricCoords(L_mean, L_true, B_true, earth.R_mean_au, earth.R_true_au)
 
     if planet == "moon":
         moon = lunar.lunar_position(jd_tt)
@@ -715,7 +705,7 @@ def geocentric_position(
 
     earth = heliocentric_position("earth", jd_tt)
     target = heliocentric_position(planet, jd_tt)
-    
+
     def _vector_diff(L_e, B_e, R_e, L_t, B_t, R_t) -> tuple[float, float, float]:
         x0 = R_e * math.cos(math.radians(B_e)) * math.cos(math.radians(L_e))
         y0 = R_e * math.cos(math.radians(B_e)) * math.sin(math.radians(L_e))
