@@ -692,7 +692,7 @@ def geocentric_position(
 
     if planet == "moon":
         moon = lunar.lunar_position(jd_tt)
-        return GeocentricCoords(fa.Lp_deg, moon.L_true_deg, moon.B_true_deg, 0.00257, 0.00257)
+        return GeocentricCoords(fa.Lp_deg, moon.L_true_deg, moon.B_true_deg, 0.00257, moon.R_true_au)
 
     if planet == "rahu":
         mean_node = fa.Omega_deg

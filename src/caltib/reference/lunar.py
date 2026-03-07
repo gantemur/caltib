@@ -7,13 +7,13 @@ from dataclasses import dataclass
 
 from . import astro_args as aa
 
-
 @dataclass(frozen=True)
 class LunarCoordinates:
     """True and apparent lunar coordinates (degrees)."""
     L_true_deg: float
     L_app_deg: float
     B_true_deg: float
+    R_true_au: float = 0.0025695  # Default to mean distance to prevent breaking old code
 
 
 # (d, m, m', f, coefficient in microdegrees)
@@ -123,6 +123,26 @@ LUNAR_LAT_TERMS = (
     (0, 0, 0, 3, -1153),
 )
 
+# Lunar distance terms (d, m, m', f, coefficient in kilometers)
+# Evaluated using cosines. Yields accuracy to ~10 km.
+LUNAR_DIST_TERMS = (
+    (0, 0, 1, 0, -20905),
+    (2, 0, -1, 0, -3699),
+    (2, 0, 0, 0, -2956),
+    (0, 0, 2, 0, -570),
+    (0, 1, 0, 0, 246),
+    (2, 0, -2, 0, -205),
+    (2, -1, -1, 0, -171),
+    (2, 0, 1, 0, -152),
+    (2, -1, 0, 0, -130),
+    (0, 1, -1, 0, 109),
+    (1, 0, 0, 0, 105),
+    (0, 1, 1, 0, 89),
+    (2, 0, 0, -2, 49),
+    (0, 0, 1, 2, 48),
+    (0, 0, 1, -2, -31),
+)
+
 def lunar_position(jd_tt: float) -> LunarCoordinates:
     """
     Computes lunar true/apparent longitude and true latitude for a given JD(TT).
@@ -165,6 +185,22 @@ def lunar_position(jd_tt: float) -> LunarCoordinates:
         
     B_true = lat_sum_microdeg * 1e-6
     
+    # --- NEW: Lunar Distance Summation ---
+    dist_sum_km = 0.0
+    for d, m, mp, f, coef in LUNAR_DIST_TERMS:
+        term_coef = coef
+        if abs(m) == 1:
+            term_coef *= E
+        elif abs(m) == 2:
+            term_coef *= (E * E)
+            
+        arg = d * D_rad + m * M_rad + mp * Mp_rad + f * F_rad
+        dist_sum_km += term_coef * math.cos(arg)
+        
+    # Mean distance is 385000.56 km. 1 AU is 149597870.7 km.
+    R_true_km = 385000.56 + dist_sum_km
+    R_true_au = R_true_km / 149597870.7
+    
     # 3. Apparent Longitude
     Omega_rad = math.radians(fa.Omega_deg)
     nutation_lon = -0.00478 * math.sin(Omega_rad)
@@ -173,6 +209,6 @@ def lunar_position(jd_tt: float) -> LunarCoordinates:
     return LunarCoordinates(
         L_true_deg=L_true, 
         L_app_deg=L_app, 
-        B_true_deg=B_true
+        B_true_deg=B_true,
+        R_true_au=R_true_au    # <--- Add this to the return
     )
-

@@ -62,6 +62,57 @@ def equatorial_to_horizontal(eq: Equatorial, jd_utc: float, lat_deg: float, lon_
     
     return Horizontal(alt_deg=alt_deg, az_deg=az_north_deg)
 
+def geocentric_to_topocentric(
+    eq: Equatorial, 
+    R_au: float, 
+    lat_deg: float, 
+    elevation_m: float, 
+    jd_utc: float, 
+    lon_east_deg: float
+) -> Equatorial:
+    """
+    Converts Geocentric Equatorial coordinates to Topocentric (Observer) coordinates.
+    Corrects for parallax based on the WGS84 Earth ellipsoid.
+    """
+    if R_au > 1000.0:  # Ignore parallax for stars and deep space objects
+        return eq
+        
+    # WGS84 Earth ellipsoid constants
+    a = 6378137.0  # Equatorial radius in meters
+    f = 1.0 / 298.257223563  # Flattening
+    
+    # Solar equatorial horizontal parallax in degrees (~8.794 arcseconds)
+    pi_sun_deg = 8.794143 / 3600.0
+    
+    # Target's equatorial horizontal parallax
+    sin_pi = math.sin(math.radians(pi_sun_deg)) / R_au
+    
+    lat_rad = math.radians(lat_deg)
+    
+    # 1. Calculate observer's geocentric latitude and distance from center
+    u = math.atan((1.0 - f) * math.tan(lat_rad))
+    rho_sin_phi_prime = (1.0 - f) * math.sin(u) + (elevation_m / a) * math.sin(lat_rad)
+    rho_cos_phi_prime = math.cos(u) + (elevation_m / a) * math.cos(lat_rad)
+    
+    # 2. Local Sidereal Time and Hour Angle
+    lst_deg = local_sidereal_time(jd_utc, lon_east_deg)
+    H_rad = math.radians(lst_deg - eq.ra_deg)
+    dec_rad = math.radians(eq.dec_deg)
+    
+    # 3. Apply Parallax Corrections (Meeus Ch. 40)
+    num_ra = -rho_cos_phi_prime * sin_pi * math.sin(H_rad)
+    den_ra = math.cos(dec_rad) - rho_cos_phi_prime * sin_pi * math.cos(H_rad)
+    
+    delta_ra_rad = math.atan2(num_ra, den_ra)
+    ra_top_deg = aa.wrap_deg(eq.ra_deg + math.degrees(delta_ra_rad))
+    
+    num_dec = (math.sin(dec_rad) - rho_sin_phi_prime * sin_pi) * math.cos(delta_ra_rad)
+    den_dec = math.cos(dec_rad) - rho_cos_phi_prime * sin_pi * math.cos(H_rad)
+    
+    dec_top_deg = math.degrees(math.atan2(num_dec, den_dec))
+    
+    return Equatorial(ra_top_deg, dec_top_deg)
+
 # ============================================================
 # Sidereal Time & Refraction Helpers
 # ============================================================

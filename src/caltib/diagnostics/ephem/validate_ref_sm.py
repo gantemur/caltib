@@ -32,7 +32,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--year-start", type=int, default=-3000)
     p.add_argument("--year-end", type=int, default=3000)
     p.add_argument("--step-days", type=int, default=50)
-    p.add_argument("--out-png", default="reference_validation.png")
+    p.add_argument("--out-png", default="sun_moon_validation.png")
     args = p.parse_args(argv)
 
     np = _need_numpy()
@@ -65,6 +65,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     err_solar_lon = []
     err_lunar_lon = []
     err_lunar_lat = []
+    err_lunar_dist_m = []
 
     for jd in jds:
         T = aa.T_centuries(jd)
@@ -84,11 +85,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         v_moon_date = aa.apply_matrix(rot_matrix, r_em)
 
         # 3. Extract Spherical Coordinates (DE422 True of Date)
-        de_lon_sun = math.degrees(math.atan2(v_sun_date[1], v_sun_date[0])) % 360.0
+        de_lon_sun = math.degrees(math.atan2(v_sun_date[1].item(), v_sun_date[0].item())) % 360.0
         
-        de_lon_moon = math.degrees(math.atan2(v_moon_date[1], v_moon_date[0])) % 360.0
-        r_moon_xy = math.hypot(v_moon_date[0], v_moon_date[1])
-        de_lat_moon = math.degrees(math.atan2(v_moon_date[2], r_moon_xy))
+        de_lon_moon = math.degrees(math.atan2(v_moon_date[1].item(), v_moon_date[0].item())) % 360.0
+        r_moon_xy = math.hypot(v_moon_date[0].item(), v_moon_date[1].item())
+        de_lat_moon = math.degrees(math.atan2(v_moon_date[2].item(), r_moon_xy))
+
+        de_dist_moon_km = math.sqrt(sum(v.item()**2 for v in v_moon_date))
+        de_dist_moon_au = de_dist_moon_km / 149597870.7
 
         # 4. Analytical Coordinates (Mean Equinox of Date)
         sol = solar.solar_longitude(jd)
@@ -98,13 +102,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         d_sun_lon = ((sol.L_true_deg - de_lon_sun + 180.0) % 360.0 - 180.0) * 3600.0
         d_moon_lon = ((lun.L_true_deg - de_lon_moon + 180.0) % 360.0 - 180.0) * 3600.0
         d_moon_lat = (lun.B_true_deg - de_lat_moon) * 3600.0
+        d_moon_dist_m = (lun.R_true_au - de_dist_moon_au) * 149597870700.0
 
         err_solar_lon.append(d_sun_lon)
         err_lunar_lon.append(d_moon_lon)
         err_lunar_lat.append(d_moon_lat)
+        err_lunar_dist_m.append(d_moon_dist_m)
 
     # 6. Plotting
-    fig, axs = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+    fig, axs = plt.subplots(4, 1, figsize=(12, 12), sharex=True)
     
     axs[0].scatter(years, err_solar_lon, s=1, alpha=0.5, color='orange')
     axs[0].set_title("Solar True Longitude Error (Analytical - DE422)")
@@ -121,6 +127,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     axs[2].set_ylabel("Error (arcsec)")
     axs[2].set_xlabel("Year")
     axs[2].grid(True, alpha=0.3)
+
+    axs[3].scatter(years, err_lunar_dist_m, s=1, alpha=0.5, color='purple')
+    axs[3].set_title("Lunar Distance Error (Analytical - DE422)")
+    axs[3].set_ylabel("Error (meters)")
+    axs[3].set_xlabel("Year")
+    axs[3].grid(True, alpha=0.3)
 
     plt.suptitle(f"Reference Model Validation against DE422 ({years[0]:.0f} to {years[-1]:.0f})", fontsize=14)
     plt.tight_layout()
