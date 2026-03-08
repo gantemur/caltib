@@ -238,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
             "leap-months",
             "losar-scatter",
             "offsets",
+            "planets",
             "round-trip"
         ],
         help="Which unified diagnostic to run",
@@ -297,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
             "leap-months": "caltib.diagnostics.leap_months",
             "losar-scatter": "caltib.diagnostics.losar_scatter",
             "offsets": "caltib.diagnostics.offsets",
+            "planets": "caltib.diagnostics.planets",
             "round-trip": "caltib.diagnostics.round_trip",
         }
         return _run_module_main(tool_map[args.tool], rest)

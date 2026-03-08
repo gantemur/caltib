@@ -32,7 +32,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--year-start", type=int, default=-3000)
     p.add_argument("--year-end", type=int, default=3000)
     p.add_argument("--step-days", type=int, default=50)
-    p.add_argument("--out-png", default="sun_moon_validation.png")
+    p.add_argument("--out-png", default="val_sun_moon.png")
     args = p.parse_args(argv)
 
     np = _need_numpy()

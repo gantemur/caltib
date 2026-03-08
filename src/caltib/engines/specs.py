@@ -14,6 +14,7 @@ from caltib.engines.rational_month import RationalMonthParams
 from caltib.engines.arithmetic_day import ArithmeticDayParams
 from caltib.engines.trad_day import TraditionalDayParams
 from caltib.engines.rational_day import RationalDayParams
+from caltib.engines.trad_planets import TraditionalPlanetsParams
 
 # 3. Physics / Astro dependencies remain exactly the same
 from caltib.engines.astro.deltat import DeltaTRationalDef, ConstantDeltaTRationalDef, QuadraticDeltaTRationalDef
@@ -195,6 +196,50 @@ DIRECTIONS: Tuple[str, ...] = ("S", "SW", "W", "NW", "N", "NE", "E", "SE")
 # Mewa numbers are 1-9 mathematically. This array matches Mewa 1 to index 0.
 MEWA_COLORS: Tuple[str, ...] = ("White", "Black", "Blue", "Green", "Yellow", "White", "Red", "White", "Red")
 
+# ============================================================
+# Tables and constants for traditional planets.
+# ============================================================
+
+PLANETS = ("mercury", "venus", "mars", "jupiter", "saturn")
+
+# Shared across all Tibetan traditions (Table 12 & 13 from [Janson])
+TAB_MANDA = {
+    "mercury": (0, 10, 17, 20),
+    "venus": (0, 5, 9, 10),
+    "mars": (0, 25, 43, 50),
+    "jupiter": (0, 11, 20, 23),
+    "saturn": (0, 22, 37, 43)
+}
+
+TAB_SIGHRA = {
+    "mercury": (0, 16, 32, 47, 61, 74, 85, 92, 97, 97, 93, 82, 62, 34),
+    "venus": (0, 25, 50, 75, 99, 123, 145, 167, 185, 200, 208, 202, 172, 83),
+    "mars": (0, 24, 47, 70, 93, 114, 135, 153, 168, 179, 182, 171, 133, 53),
+    "jupiter": (0, 10, 20, 29, 37, 43, 49, 51, 52, 49, 43, 34, 23, 7),
+    "saturn": (0, 6, 11, 16, 20, 24, 26, 28, 28, 26, 22, 17, 11, 3)
+}
+
+#Base Rahu rate, turns in lunar-days
+RAHU_LUN = Fraction(-30, 6900)
+
+# Kālacakra specific rates (turns in solar days)
+P_RATES = {
+        "mercury": Fraction(100, 8797),
+        "venus": Fraction(10, 2247),
+        "mars": Fraction(1, 687),
+        "jupiter": Fraction(1, 4332),
+        "saturn": Fraction(1, 10766),
+        "sun": S1_TIB / M1_TIB,   
+        "rahu": RAHU_LUN / M1_TIB
+    }
+
+BIRTH_SIGNS = {
+    "mercury": Fraction(11, 18),
+    "venus": Fraction(2, 9),
+    "mars": Fraction(19, 54),
+    "jupiter": Fraction(4, 9),
+    "saturn": Fraction(2, 3)
+}
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -350,10 +395,80 @@ def make_funds(
         "F": FundArg(c0=c0_F, c1=FUND_RATES["F"]),
     }
 
+def trad_planets(
+    *,
+    m0: Fraction,           # Absolute Julian Day Epoch
+    s0: Fraction,           # Epoch Mean Sun (at m0)
+    pd0: dict[str, int],    # Elapsed days since planet was at 0 (pd0["rahu"] is Henning's rd0)
+    p_rates=P_RATES,
+    birth_signs=BIRTH_SIGNS,
+    manda_tables=TAB_MANDA,
+    sighra_tables=TAB_SIGHRA
+) -> TraditionalPlanetsParams:
+    """Builds the traditional planetary engine configuration for a given epoch."""
+    
+    # 1. Base civil epoch (integer Julian Day) which is the planetary epoch
+    jd0 = Fraction(m0.numerator // m0.denominator, 1)
+    
+    # 2. The fractional time gap between the lunar epoch and planetary epoch
+    dt_shift = m0 - jd0
+    
+    # 3. Calculate pure angular positions at m0
+    rahu0_m0 = Fraction(-30 * pd0["rahu"], 6900) % 1
+    
+    # 4. Shift Sun and Rahu from m0 backwards to jd0!
+    # This automatically derives Janson's D.9 constant from Henning's data.
+    s0_jd0 = (s0 - p_rates["sun"] * dt_shift) % 1
+    rahu0_jd0 = (rahu0_m0 - p_rates["rahu"] * dt_shift) % 1
+    
+    # 5. Build the unified p0 dictionary (all values now anchored to jd0)
+    p0 = {
+        k: Fraction(pd0[k], p_rates[k].denominator) for k in PLANETS
+    }
+    p0["sun"] = s0_jd0
+    p0["rahu"] = rahu0_jd0
+    
+    return TraditionalPlanetsParams(
+        epoch_k=k_from_epoch_jd(m0),
+        jd0=jd0,
+        m0=m0,
+        p0=p0,
+        p_rate=p_rates,
+        birth_signs=birth_signs,
+        manda_tables=manda_tables,
+        sighra_tables=sighra_tables
+    )
 
 # ============================================================
 # TRADITIONAL ENGINE SPECIFICATIONS
 # ============================================================
+
+# ------------------------------------------------------------
+# PHUGPA (E1927)
+# ------------------------------------------------------------
+PHUGPA_E1927_M0 = Fraction(13715647089, 5656)
+PHUGPA_E1927_S0 = Fraction(749,804)
+
+PHUGPA_SPEC = CalendarSpec(
+    id=EngineId("trad", "phugpa", "0.1"),
+    month_params=arith_month(
+        Y0=1927, beta_star=55, tau=48, 
+        m0=PHUGPA_E1927_M0, s0=PHUGPA_E1927_S0,
+        sgang1_deg=Fraction(308, 1)
+    ),
+    day_params=trad_day(
+        m0=PHUGPA_E1927_M0,
+        s0=PHUGPA_E1927_S0,
+        a0=Fraction(1741,3528),
+    ),
+    planets_params=trad_planets(
+        m0=PHUGPA_E1927_M0,
+        s0=PHUGPA_E1927_S0,
+        pd0={"mars": 157, "jupiter": 3964, "saturn": 6286, "mercury": 4639, "venus": 301, "rahu": 187}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1927", "tradition": "phugpa"},
+)
 
 # ------------------------------------------------------------
 # PHUGPA (E1987)
@@ -361,7 +476,7 @@ def make_funds(
 PHUGPA_E1987_M0 = Fraction(1729968333, 707)
 PHUGPA_E1987_S0 = Fraction(0, 1)
 
-PHUGPA_SPEC = CalendarSpec(
+PHUGPA_E1987_SPEC = CalendarSpec(
     id=EngineId("trad", "phugpa", "0.1"),
     month_params=arith_month(
         Y0=1987, beta_star=0, tau=48, 
@@ -372,6 +487,11 @@ PHUGPA_SPEC = CalendarSpec(
         m0=PHUGPA_E1987_M0,
         s0=PHUGPA_E1987_S0,
         a0=Fraction(38, 49),
+    ),
+    planets_params=trad_planets(
+        m0=PHUGPA_E1927_M0,
+        s0=PHUGPA_E1927_S0,
+        pd0={"mars": 157, "jupiter": 3964, "saturn": 6286, "mercury": 4639, "venus": 301, "rahu": 187}
     ),
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "tradition": "phugpa"},
@@ -394,6 +514,11 @@ TSURPHU_SPEC = CalendarSpec(
         m0=TSURPHU_E1852_M0,
         s0=TSURPHU_E1852_S0,
         a0=Fraction(1, 49),
+    ),
+    planets_params=trad_planets(
+        m0=TSURPHU_E1852_M0,
+        s0=TSURPHU_E1852_S0,
+        pd0={"mars": 262, "jupiter": 2583, "saturn": 437, "mercury": 3003, "venus": 686, "rahu": 180}
     ),
     leap_labeling="first_is_leap",
     meta={"epoch": "E1852", "tradition": "tsurphu"},
@@ -418,6 +543,11 @@ MONGOL_SPEC = CalendarSpec(
         a0=Fraction(1523, 1764),
         location=LOC_MONGOLIA_APPROX
     ),
+    planets_params=trad_planets(
+        m0=MONGOL_E1747_M0,
+        s0=MONGOL_E1747_S0,
+        pd0={"mars": 375, "jupiter": 3213, "saturn": 5147, "mercury": 2518, "venus": 1329, "rahu": 32}
+    ),
     leap_labeling="first_is_leap",
     meta={"epoch": "E1747", "tradition": "mongol"},
 )
@@ -441,6 +571,12 @@ BHUTAN_SPEC = CalendarSpec(
         a0=Fraction(17, 147),
         location=LOC_BHUTAN_APPROX
     ),
+    planets_params=trad_planets(
+        m0=BHUTAN_E1754_M0,
+        s0=BHUTAN_E1754_S0,
+        pd0={"mars": 197, "jupiter": 1448, "saturn": 7710, "mercury": 447, "venus": 65, "rahu": 118} 
+        #There is a note by Hennning on Mercury figure
+    ),
     leap_labeling="second_is_leap",
     meta={"epoch": "E1754", "tradition": "bhutan", "leap_labeling": "second_is_leap (simplified)"},
 )
@@ -450,6 +586,10 @@ BHUTAN_SPEC = CalendarSpec(
 # ------------------------------------------------------------
 KARANA_E806_M0 = Fraction(4031063, 2)
 KARANA_E806_S0 = Fraction(809, 810)
+
+KARANA_P_RATES = dict(P_RATES)
+KARANA_P_RATES["sun"] = S1_KAR / M1_KAR
+KARANA_P_RATES["rahu"] = RAHU_LUN / M1_KAR
 
 KARANA_SPEC = CalendarSpec(
     id=EngineId("trad", "karana", "0.1"),
@@ -463,6 +603,12 @@ KARANA_SPEC = CalendarSpec(
         s0=KARANA_E806_S0,
         a0=Fraction(53, 252),
         m1=M1_KAR, s1=S1_KAR, a1=A1_KAR,
+    ),
+    planets_params=trad_planets(
+        m0=KARANA_E806_M0,
+        s0=KARANA_E806_S0,
+        pd0={"mars": 167, "jupiter": 1732, "saturn": 5946, "mercury": 1674, "venus": 2163, "rahu": 122},
+        p_rates=KARANA_P_RATES
     ),
     leap_labeling="second_is_leap",
     meta={"epoch": "E806", "tradition": "karana"},

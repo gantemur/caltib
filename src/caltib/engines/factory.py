@@ -13,6 +13,7 @@ from caltib.engines.rational_month import RationalMonthParams, RationalMonthEngi
 from caltib.engines.trad_day import TraditionalDayParams, TraditionalDayEngine
 from caltib.engines.rational_day import RationalDayParams, RationalDayEngine
 from caltib.engines.trad_attr import TraditionalAttributeEngine
+from caltib.engines.trad_planets import TraditionalPlanetsParams, TraditionalPlanetsEngine
 
     
 def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
@@ -41,16 +42,25 @@ def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
     else:
         raise TypeError(f"Unknown Day Params type: {type(spec.day_params)}")
 
-    # 3. Build the Attribute Engine
+    # 3. Build the Attribute Engine (Optional)
     attr_engine = TraditionalAttributeEngine(engine_id=spec.id.name)
     
-    # 4. Orchestrate
-    # We only need to pass spec, month, day, and attribute. CalendarEngine handles the rest internally!
+    # 4. Build Planets Engine (Optional)
+    planets_engine = None
+    if spec.planets_params is not None:
+        if isinstance(spec.planets_params, TraditionalPlanetsParams):
+            planets_engine = TraditionalPlanetsEngine(spec.planets_params)
+        else:
+            raise TypeError(f"Unknown Planets Params type: {type(spec.planets_params)}")
+
+    # 5. Orchestrate
+    # We only need to pass spec, month, day, attribute, and planets. CalendarEngine handles the rest internally!
     return CalendarEngine(
         spec=spec,
         month=month_engine,
         day=day_engine,
-        attr=attr_engine
+        attr=attr_engine,
+        planets=planets_engine
     )
 
 def make_engine(spec: CalendarSpec) -> CalendarEngine:

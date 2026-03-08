@@ -158,6 +158,30 @@ class AttributeEngineProtocol(Protocol):
     def get_civil_day_attributes(self, jdn: int) -> Dict[str, Any]:
         ...
 
+class PlanetsEngineProtocol(Protocol):
+    """
+    Calculates planetary kinematics. Maps absolute physical time (JD) 
+    to geocentric longitudes (in turns) for the visible planets, Sun, and Rahu.
+    """
+    @property
+    def epoch_k(self) -> int:
+        """The absolute Meeus lunation index deduced from the engine's m0."""
+        ...
+
+    def true_longitude(self, planet: str, jd: NumT) -> NumT:
+        """Returns the true geocentric longitude of the requested body."""
+        ...
+
+    def mean_longitude(self, planet: str, jd: NumT) -> NumT:
+        """Returns the mean longitude of the requested body."""
+        ...
+        
+    def longitudes(self, jd: NumT) -> Dict[str, Dict[str, NumT]]:
+        """
+        Convenience method to return all bodies at once.
+        Format: {"mars": {"mean": 0.5, "true": 0.51}, ...}
+        """
+        ...
 
 class CalendarEngineProtocol(Protocol):
     """
@@ -165,7 +189,8 @@ class CalendarEngineProtocol(Protocol):
     """
     month: MonthEngineProtocol
     day: DayEngineProtocol
-    attr: AttributeEngineProtocol
+    attr: AttributeEngineProtocol | None
+    planets: PlanetsEngineProtocol | None
     leap_labeling: str
 
     def from_jdn(self, jdn: int) -> Dict[str, Any]:

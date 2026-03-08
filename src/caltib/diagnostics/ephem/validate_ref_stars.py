@@ -147,7 +147,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--year-end", type=int, default=3000, help="End year for plot (default: 3000).")
     p.add_argument("--step-years", type=int, default=50, help="Step size in years (default: 50).")
     p.add_argument("--astropy", action="store_true", help="Run Astropy validation and generate plot.")
-    p.add_argument("--out-png", type=str, default="star_validation.png", help="Output plot filename.")
+    p.add_argument("--out-png", type=str, default="val_stars.png", help="Output plot filename.")
     
     args = p.parse_args(argv)
     

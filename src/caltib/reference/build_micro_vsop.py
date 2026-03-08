@@ -80,8 +80,8 @@ if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
     parser = argparse.ArgumentParser(description="Build Micro-VSOP planetary ephemeris library.")
-    parser.add_argument("--threshold", type=float, default=1.5e-5,
-                        help="Amplitude threshold in radians/AU for dropping terms (default: 1.5e-5).")
+    parser.add_argument("--threshold", type=float, default=5e-5,
+                        help="Amplitude threshold in radians/AU for dropping terms (default: 5e-5).")
     
     # 2. Anchor the default file paths to the script's directory
     parser.add_argument("--template", type=str, 

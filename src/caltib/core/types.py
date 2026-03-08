@@ -105,6 +105,7 @@ class CalendarSpec:
     day_params: Any    # TraditionalDayParams | RationalDayParams
     leap_labeling: str
     meta: dict
+    planets_params: Any = None
 
     def with_location(self, new_loc: 'LocationSpec') -> 'CalendarSpec':
         """Creates a new spec securely recalibrated for the target location."""

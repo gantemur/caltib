@@ -48,8 +48,6 @@ class ArithmeticDayParams:
     def with_location(self, new_loc: 'LocationSpec') -> 'ArithmeticDayParams':
         """Rebuilds the parameters for a new location, shifting the local time."""
         import dataclasses
-        import math
-        from fractions import Fraction
 
         # Calculate the exact longitudinal shift between the old and new location
         lon_diff = new_loc.lon_turn - self.location.lon_turn
@@ -58,7 +56,10 @@ class ArithmeticDayParams:
         # Recompute the delta_star phase shift for the new local dawn
         jdn_floor = new_m0_loc.numerator // new_m0_loc.denominator
         f_loc = new_m0_loc - Fraction(jdn_floor, 1)
-        new_delta_star = math.floor(f_loc * self.U) - 1
+        
+        # Calculate the exact phase shift fraction and extract the integer floor
+        shift_frac = f_loc * self.U
+        new_delta_star = (shift_frac.numerator // shift_frac.denominator) - 1
         
         return dataclasses.replace(
             self, 

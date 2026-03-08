@@ -25,10 +25,10 @@ def _need_matplotlib():
 
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Validate Analytical Rahu against DE422 Osculating Node.")
-    p.add_argument("--year-start", type=int, default=1000)
+    p.add_argument("--year-start", type=int, default=0)
     p.add_argument("--year-end", type=int, default=3000)
     p.add_argument("--step-days", type=int, default=5)
-    p.add_argument("--out-png", default="rahu_validation.png")
+    p.add_argument("--out-png", default="val_rahu.png")
     args = p.parse_args(argv)
 
     np = _need_numpy()

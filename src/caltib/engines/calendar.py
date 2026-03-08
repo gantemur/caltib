@@ -12,7 +12,7 @@ from fractions import Fraction
 from typing import Any, Dict
 
 from caltib.core.types import EngineId, DayInfo, TibetanDate, MonthInfo, TibetanMonth, YearInfo, TibetanYear, LocationSpec, CalendarSpec
-from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol, AttributeEngineProtocol
+from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol, AttributeEngineProtocol, PlanetsEngineProtocol, NumT
 
 # J2000.0 TT base for absolute Julian Day conversion
 JD_J2000 = Fraction(2451545, 1)
@@ -27,7 +27,8 @@ class CalendarEngine:
         spec: 'CalendarSpec',
         month: MonthEngineProtocol, 
         day: DayEngineProtocol, 
-        attr: AttributeEngineProtocol,
+        attr: AttributeEngineProtocol = None,
+        planets: PlanetsEngineProtocol = None,
     ):
         self.spec = spec
         self.id = spec.id
@@ -37,6 +38,7 @@ class CalendarEngine:
         self.month = month
         self.day = day
         self.attr = attr
+        self.planets = planets
         
         if self.leap_labeling not in ("first_is_leap", "second_is_leap"):
             raise ValueError("leap_labeling must be 'first_is_leap' or 'second_is_leap'")
@@ -189,6 +191,13 @@ class CalendarEngine:
 
         lunar_attrs = self.attr.get_lunar_day_attributes(res["year"], res["month"], res["day"])
         civil_attrs = self.attr.get_civil_day_attributes(jdn)
+
+        # Calculate Planetary Longitudes strictly at Civil Dawn JDN
+        planet_data = None
+        if self.planets is not None:
+            planet_data = self.planets.longitudes(jdn)
+            # If you want float outputs for the UI, you can convert the Fractions here:
+            # planet_data = {k: {"mean": float(v["mean"]), "true": float(v["true"])} for k, v in planet_data.items()}
         
         tib_date = TibetanDate(
             engine=self.id,
@@ -208,6 +217,7 @@ class CalendarEngine:
             status="duplicated" if res["repeated"] else "normal",
             lunar_attributes=lunar_attrs,
             civil_attributes=civil_attrs,
+            planets=planet_data,
             debug=res if debug else None
         )
     
@@ -403,3 +413,15 @@ class CalendarEngine:
             attributes=y_attrs
         )
 
+    # ---------------------------------------------------------
+    # Direct passthroughs for tests/debugging
+    # ---------------------------------------------------------
+
+    def get_planet_longitudes(self, jd: NumT) -> Dict[str, Dict[str, NumT]] | None:
+        """
+        Directly evaluates planetary longitudes for a given Julian Date (Local JD for traditional calendars) 
+        or continuous physical time. Useful for debugging or isolated kinematic testing.
+        """
+        if self.planets is None:
+            return None
+        return self.planets.longitudes(jd)
