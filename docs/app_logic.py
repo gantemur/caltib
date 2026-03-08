@@ -748,10 +748,6 @@ def render_month_view(cur_date, engine):
                 <div class="month-cell {today_class}" style="background:{bg}; border-color:{border}; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;" onclick="window.jump_to_specific_date({c_date.year}, {c_date.month}, {c_date.day})">
                     <div class="tib-tithi" style="font-size: 1.1rem; font-weight: bold; color: var(--primary-color); line-height: 1; margin-top: 2px;">{tithi_html}</div>
                     <div class="greg-date" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; white-space: nowrap;">{greg_label}</div>
-                    <div class="attr-space" style="margin-top: auto; padding-top: 6px; display: flex; gap: 4px;">
-                        <div style="width: 4px; height: 4px; border-radius: 50%; background: #94a3b8;"></div>
-                        <div style="width: 4px; height: 4px; border-radius: 50%; background: #94a3b8;"></div>
-                    </div>
                 </div>'''
                                 
         html += '</div>'
