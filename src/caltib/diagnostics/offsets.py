@@ -5,6 +5,7 @@ import argparse
 import csv
 import math
 import datetime
+from fractions import Fraction
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -111,7 +112,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             m = lunar_position(jd)
             return (m.L_true_deg - s.L_true_deg) % 360.0
 
-    eng = get_calendar(args.engine)
+    # Parse the custom month suffix
+    base_engine = args.engine
+    use_month = False
+    if base_engine.endswith("-m"):
+        base_engine = base_engine[:-2]
+        use_month = True
+
+    eng = get_calendar(base_engine)
 
     # Calculate approximate JD bounds for the requested years
     jd_start = datetime.date(args.year_start, 1, 1).toordinal() + 1721425.5
@@ -137,7 +145,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             continue
 
         # 1. Engine's Physical Estimate
-        if args.time == "civil":
+        if use_month:
+            if not hasattr(eng, "month") or not hasattr(eng.month, "true_date"):
+                raise SystemExit(f"Engine '{base_engine}' does not support month-level evaluation.")
+            # Evaluate the month engine at exactly 1/30th of a lunation
+            t_engine_tt = float(eng.month.true_date(Fraction(x, 30))) + 2451545.0
+        elif args.time == "civil":
             t_engine_tt = float(eng.day.local_civil_date(x)) + 2451545.0
         else:
             try:
@@ -194,7 +207,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     
     # Assign specific colors if testing reform engines, else default
     color_map = {"l4": "gold", "l3": "tab:olive", "l2": "tab:cyan", "l1": "tab:pink", "l0": "tab:brown", "phugpa": "tab:blue"}
-    c = color_map.get(args.engine, "tab:blue")
+    c = color_map.get(base_engine, "tab:blue")
 
     plt.hist(arr_final, bins=args.bins, alpha=0.75, color=c, edgecolor="black")
     plt.axvline(mean_h, linestyle="--", color="red", label=f"Mean: {mean_h:.2f}h")

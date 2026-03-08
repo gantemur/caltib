@@ -47,7 +47,7 @@ def detrended_anomaly(np, times: "np.ndarray", angles_deg: "np.ndarray") -> "np.
     return anom
 
 
-def forward_anomaly_series(np, engine: str, jd_start: float, jd_end: float, step_days: float) -> Optional[SeriesData]:
+def forward_anomaly_series(np, engine: str, jd_start: float, jd_end: float, step_days: float, use_month: bool = False, label: str = "") -> Optional[SeriesData]:
     """
     Evaluates the pure forward kinematic anomaly: True Elongation - Mean Elongation.
     """
@@ -60,13 +60,17 @@ def forward_anomaly_series(np, engine: str, jd_start: float, jd_end: float, step
         # Cast the float JD directly to a pure Fraction to satisfy the math layer
         t2000_frac = Fraction(jd) - Fraction(2451545)
         
-        # Safely handle the 'treu' typo if it hasn't been fixed yet
-        try:
-            true_e = float(eng.day.true_elong_tt(t2000_frac))
-        except AttributeError:
-            true_e = float(eng.day.treu_elong_tt(t2000_frac))
-            
-        mean_e = float(eng.day.mean_elong_tt(t2000_frac))
+        if use_month:
+            if not hasattr(eng, "month") or not hasattr(eng.month, "true_elong_tt"):
+                return None
+            true_e = float(eng.month.true_elong_tt(t2000_frac))
+            mean_e = float(eng.month.mean_elong_tt(t2000_frac))
+        else:
+            try:
+                true_e = float(eng.day.true_elong_tt(t2000_frac))
+            except AttributeError:
+                true_e = float(eng.day.treu_elong_tt(t2000_frac))
+            mean_e = float(eng.day.mean_elong_tt(t2000_frac))
         
         # Difference in turns, converted to degrees
         anom_deg = (true_e - mean_e) * 360.0
@@ -76,11 +80,11 @@ def forward_anomaly_series(np, engine: str, jd_start: float, jd_end: float, step
         return None
 
     a_arr = np.array(angles, dtype=float)
-    
-    # Center to exactly zero-mean to align perfectly with the detrending algorithm
     a_arr -= float(np.mean(a_arr))
     
-    return SeriesData(engine, ts, a_arr)
+    # Use the custom label if provided, otherwise default to the engine name
+    final_label = label if label else engine
+    return SeriesData(final_label, ts, a_arr)
 
 
 def reference_anomaly_series(np, jd_start: float, jd_end: float, step_days: float) -> SeriesData:
@@ -130,11 +134,9 @@ def de422_anomaly_series(np, jd_start: float, jd_end: float, step_days: float) -
     anom = detrended_anomaly(np, ts, ang_unw)
     return SeriesData("DE422", ts, anom)
 
-
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Forward kinematic anomaly vs Truth Ephemeris.")
-    p.add_argument("--engines", default="l1,l2,l3,l4",
-                   help="Comma list of reform engines to plot.")
+    p.add_argument("--engines", default="l1,l2,l3,l4", help="Comma list of reform engines to plot.")
     p.add_argument("--ephem", choices=("ref", "de422"), default="ref", help="Reference Ephemeris or DE422")
     p.add_argument("--jd-start", type=float, default=None, help="Start JD (TT-like) as float.")
     p.add_argument("--jd-end", type=float, default=None, help="End JD (TT-like) as float.")
@@ -169,16 +171,26 @@ def main(argv: Optional[List[str]] = None) -> int:
     series: List[SeriesData] = []
 
     # Forward proxy series for requested engines
-    for eng in engines:
+    for eng_str in engines:
+        is_month = False
+        base_eng = eng_str
+        label = eng_str
+        
+        # Parse the custom suffix!
+        if eng_str.endswith("-m"):
+            base_eng = eng_str[:-2]
+            is_month = True
+            label = f"{base_eng} (Month)"
+            
         try:
-            s = forward_anomaly_series(np, eng, jd_start, jd_end, float(args.step))
+            s = forward_anomaly_series(np, base_eng, jd_start, jd_end, float(args.step), use_month=is_month, label=label)
             if s is None:
-                print(f"  {eng}: no samples in interval")
+                print(f"  {eng_str}: no samples in interval or missing component")
             else:
-                print(f"  {eng}: {len(s.times)} samples")
+                print(f"  {eng_str}: {len(s.times)} samples")
                 series.append(s)
         except Exception as e:
-            print(f"  {eng}: ERROR: {e}")
+            print(f"  {eng_str}: ERROR: {e}")
 
     # Truth Ephemeris Series
     if args.ephem == "de422":
@@ -211,12 +223,20 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     for s in series:
         x_rel = s.times - center
-        c = colors.get(s.label, "tab:blue")
+        
+        # Strip " (Month)" to find the correct base color in the dictionary
+        base_name = s.label.replace(" (Month)", "")
+        c = colors.get(base_name, "tab:blue")
+        
         if s.label in ("Reference", "DE422"):
             label_name = "Reference (ELP2000)" if s.label == "Reference" else "DE422 Ephemeris"
             plt.plot(x_rel, s.anomaly_deg, linestyle="--", color=c, linewidth=1.5, alpha=0.9, label=label_name)
         else:
-            plt.plot(x_rel, s.anomaly_deg, linestyle="-", color=c, linewidth=1.2, alpha=0.8, label=s.label)
+            # Dotted line for Month engines, solid line for Day engines
+            l_style = ":" if " (Month)" in s.label else "-"
+            l_width = 1.8 if " (Month)" in s.label else 1.2
+            
+            plt.plot(x_rel, s.anomaly_deg, linestyle=l_style, color=c, linewidth=l_width, alpha=0.8, label=s.label)
 
     plt.title(f"Forward Kinematic Anomaly (True - Mean Elongation)\nContinuous Physical Time vs {args.ephem.upper()} Ephemeris")
     plt.xlabel("Days relative to interval center")

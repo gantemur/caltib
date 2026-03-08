@@ -49,6 +49,13 @@ class CalendarEngine:
         self.delta_k = self.month.epoch_k - self.day.epoch_k
 
     @property
+    def sgang_base(self) -> Fraction:
+        """Returns the continuous zodiac offset [0, 1) turns for the first Sgang."""
+        if hasattr(self, "month") and hasattr(self.month, "sgang_base"):
+            return self.month.sgang_base
+        return Fraction(0, 1) # Default to Aries 0° if the engine has no month component
+
+    @property
     def trad(self):
         """Convenience accessor for traditional almanac methods, if available."""
         if hasattr(self.month, "intercalation_index_traditional"):

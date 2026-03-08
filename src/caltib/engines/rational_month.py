@@ -261,3 +261,25 @@ class RationalMonthEngine(MonthEngineProtocol):
             n += 1
             
         return results
+
+    # ---------------------------------------------------------
+    # Astronomy / Debug
+    # ---------------------------------------------------------
+    
+    def mean_sun_tt(self, t2000: NumT) -> Fraction:
+        return self.solar_series.base(t2000)
+
+    def true_sun_tt(self, t2000: NumT) -> Fraction:
+        return self.solar_series.eval(t2000)
+
+    def mean_elong_tt(self, t2000: NumT) -> Fraction:
+        return self.elong_series.base(t2000)
+
+    def true_elong_tt(self, t2000: NumT) -> Fraction:
+        return self.elong_series.eval(t2000)
+
+    def mean_moon_tt(self, t2000: NumT) -> Fraction:
+        return self.elong_series.base(t2000) + self.solar_series.base(t2000)
+
+    def true_moon_tt(self, t2000: NumT) -> Fraction:
+        return self.elong_series.eval(t2000) + self.solar_series.eval(t2000)

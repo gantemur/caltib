@@ -210,3 +210,35 @@ class TraditionalDayEngine(DayEngineProtocol):
             x_est += 1
             
         return x_est
+
+    # ---------------------------------------------------------
+    # Astronomy / Debug (TT Time-based continuous evaluation)
+    # ---------------------------------------------------------
+    def mean_elong_tt(self, t2000: NumT) -> Fraction:
+        """Rough mean elongation in unwrapped turns at time t2000."""
+        x = self.get_x_from_t2000(t2000)
+        return Fraction(x, 30)
+
+    def true_elong_tt(self, t2000: NumT) -> Fraction:
+        """Rough true elongation in unwrapped turns at time t2000."""
+        # For a rough approximation, we treat true and mean elongation as equivalent
+        x = self.get_x_from_t2000(t2000)
+        return Fraction(x, 30)
+
+    def mean_sun_tt(self, t2000: NumT) -> Fraction:
+        """Rough mean sun in turns at time t2000."""
+        x = self.get_x_from_t2000(t2000)
+        return self.mean_sun(x)
+
+    def true_sun_tt(self, t2000: NumT) -> Fraction:
+        """Rough true sun in turns at time t2000."""
+        x = self.get_x_from_t2000(t2000)
+        return self.true_sun(x)
+
+    def mean_moon_tt(self, t2000: NumT) -> Fraction:
+        """Rough mean moon in turns at time t2000 (Elongation + Sun)."""
+        return self.mean_elong_tt(t2000) + self.mean_sun_tt(t2000)
+
+    def true_moon_tt(self, t2000: NumT) -> Fraction:
+        """Rough true moon in turns at time t2000 (Elongation + Sun)."""
+        return self.true_elong_tt(t2000) + self.true_sun_tt(t2000)

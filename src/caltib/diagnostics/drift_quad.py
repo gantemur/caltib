@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import math
+from fractions import Fraction
 from dataclasses import dataclass
 from typing import List, Tuple, Optional
 
@@ -169,7 +170,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             m = lunar_position(jd)
             return (m.L_true_deg - s.L_true_deg) % 360.0
 
-    eng = get_calendar(args.engine)
+    # Parse the custom month suffix
+    base_engine = args.engine
+    use_month = False
+    if base_engine.endswith("-m"):
+        base_engine = base_engine[:-2]
+        use_month = True
+
+    eng = get_calendar(base_engine)
     
     jd_start = datetime.date(y0 if y0 > 0 else 1, 1, 1).toordinal() + 1721425.5
     if y0 <= 0: jd_start += (y0 - 1) * 365.25
@@ -195,7 +203,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             
         x_year = Y + (M - 0.5) / 12.0
         
-        if args.time == "civil":
+        # 1. Engine's Physical Estimate
+        if use_month:
+            if not hasattr(eng, "month") or not hasattr(eng.month, "true_date"):
+                raise SystemExit(f"Engine '{base_engine}' does not support month-level evaluation.")
+            t_engine_tt = float(eng.month.true_date(Fraction(x, 30))) + 2451545.0
+        elif args.time == "civil":
             t_engine_utc = float(eng.day.local_civil_date(x)) + 2451545.0
             t_engine_tt = jd_utc_to_jd_tt(t_engine_utc)
         else:
@@ -204,13 +217,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             except AttributeError:
                 t_engine_tt = float(eng.day.treu_date(x)) + 2451545.0
                 
+        # 2. Exact Ephemeris Truth
         t_truth_tt = find_exact_syzygy(x, t_engine_tt, evaluator)
         
-        if args.time == "civil":
+        # 3. Delta (Bypass civil offset if using continuous month engine)
+        if args.time == "civil" and not use_month:
             t_truth_utc = jd_tt_to_jd_utc(t_truth_tt)
             off_h = 24.0 * (t_engine_utc - t_truth_utc)
         else:
-            off_h = 24.0 * (t_engine_tt - t_truth_tt)
+            off_h = 24.0 * (t_engine_tt - t_truth_tt)        
             
         x_year_list.append(x_year)
         offsets_list.append(off_h)
@@ -280,7 +295,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "bhutan": "tab:green", "karana": "tab:red", "l0": "tab:brown", 
         "l1": "tab:pink", "l2": "tab:cyan", "l3": "tab:olive", "l4": "gold"
     }
-    c = color_map.get(args.engine, "tab:blue")
+    c = color_map.get(base_engine, "tab:blue")
 
     # Raw scatter
     k = max(1, int(args.plot_subsample))
@@ -307,13 +322,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             label=f"±1σ Spread (rolling {args.window_years:g}y)",
         )
 
-    # Mark vertices
-    if math.isfinite(drift_vertex_x):
-        plt.axvline(drift_vertex_x, linestyle="--", color="black", linewidth=1.5, alpha=0.7, label=f"Drift Vertex (~{drift_vertex_x:.0f})")
-    if math.isfinite(var_vertex_x):
-        plt.axvline(var_vertex_x, linestyle=":", color="red", linewidth=2.0, alpha=0.8, label=f"Sigma Minimum (~{var_vertex_x:.0f})")
+    # Grab the exact boundaries of your plotted data
+    min_year = float(years_f.min())
+    max_year = float(years_f.max())
 
-    plt.title(f"Quadratic Fit & Variance Spread ({args.year_start}-{args.year_end}) — {args.engine.upper()} [{args.time} time]")
+    # Mark vertices only if they fall within the plotted range
+    if math.isfinite(drift_vertex_x) and min_year <= drift_vertex_x <= max_year:
+        plt.axvline(drift_vertex_x, linestyle="--", color="black", linewidth=1.5, alpha=0.7, label=f"Drift Vertex (~{drift_vertex_x:.0f})")
+        
+    if math.isfinite(var_vertex_x) and min_year <= var_vertex_x <= max_year:
+        plt.axvline(var_vertex_x, linestyle=":", color="red", linewidth=2.0, alpha=0.8, label=f"Sigma Minimum (~{var_vertex_x:.0f})")
+        
+    engine_display = f"{base_engine.upper()} (Month Engine)" if use_month else f"{base_engine.upper()} [{args.time} time]"
+    plt.title(f"Quadratic Fit & Variance Spread ({args.year_start}-{args.year_end}) — {engine_display}")
     plt.xlabel("Lunar Year Coordinate: Y + (M-0.5)/12")
     plt.ylabel(f"Offset (hours)")
     plt.grid(True, alpha=0.3)

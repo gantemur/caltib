@@ -326,3 +326,32 @@ class ArithmeticMonthEngine(MonthEngineProtocol):
                 "I_trad_mod": I_trad_mod,
             },
         }
+
+    # ---------------------------------------------------------
+    # Astronomy / Debug (TT Time-based continuous evaluation)
+    # ---------------------------------------------------------
+    def mean_elong_tt(self, t2000: NumT) -> Fraction:
+        """Mean elongation in unwrapped turns at time t2000."""
+        return self.get_l_from_t2000(t2000)
+
+    def true_elong_tt(self, t2000: NumT) -> Fraction:
+        """True elongation. (True = Mean for pure arithmetic engines)."""
+        return self.mean_elong_tt(t2000)
+
+    def mean_sun_tt(self, t2000: NumT) -> Fraction:
+        """Mean sun in turns at time t2000."""
+        # Find the exact fractional lunation at this time, then find the sun
+        l_t = self.get_l_from_t2000(t2000)
+        return self.mean_sun(l_t)
+
+    def true_sun_tt(self, t2000: NumT) -> Fraction:
+        """True sun. (True = Mean for pure arithmetic engines)."""
+        return self.mean_sun_tt(t2000)
+
+    def mean_moon_tt(self, t2000: NumT) -> Fraction:
+        """Mean moon in turns at time t2000 (Elongation + Sun)."""
+        return self.mean_elong_tt(t2000) + self.mean_sun_tt(t2000)
+
+    def true_moon_tt(self, t2000: NumT) -> Fraction:
+        """True moon. (True = Mean for pure arithmetic engines)."""
+        return self.mean_moon_tt(t2000)

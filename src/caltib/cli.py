@@ -232,6 +232,9 @@ def main(argv: list[str] | None = None) -> int:
             "analysis",
             "anomaly",
             "anomaly-forward",
+            "anomaly-sun",
+            "assign-day",
+            "assign-month",
             "drift",
             "drift-quad",
             "equinox",
@@ -239,7 +242,8 @@ def main(argv: list[str] | None = None) -> int:
             "losar-scatter",
             "offsets",
             "planets",
-            "round-trip"
+            "round-trip",
+            "solar-lon"
         ],
         help="Which unified diagnostic to run",
     )
@@ -292,6 +296,9 @@ def main(argv: list[str] | None = None) -> int:
             "analysis": "caltib.diagnostics.analysis",
             "anomaly": "caltib.diagnostics.anomaly",
             "anomaly-forward": "caltib.diagnostics.anomaly_forward",
+            "anomaly-sun": "caltib.diagnostics.anomaly_sun",
+            "assign-day": "caltib.diagnostics.assign_day",
+            "assign-month": "caltib.diagnostics.assign_month",
             "drift": "caltib.diagnostics.drift",
             "drift-quad": "caltib.diagnostics.drift_quad",
             "equinox": "caltib.diagnostics.equinox",
@@ -300,6 +307,7 @@ def main(argv: list[str] | None = None) -> int:
             "offsets": "caltib.diagnostics.offsets",
             "planets": "caltib.diagnostics.planets",
             "round-trip": "caltib.diagnostics.round_trip",
+            "solar-lon": "caltib.diagnostics.solar_lon"
         }
         return _run_module_main(tool_map[args.tool], rest)
 
