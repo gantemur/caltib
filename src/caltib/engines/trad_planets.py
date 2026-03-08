@@ -56,7 +56,7 @@ class TraditionalPlanetsEngine(PlanetsEngineProtocol):
         
         bases = {}
         # Sun, Rahu, and Heliocentric Planets (Mean)
-        for p in ("sun", "rahu") + PLANETS:
+        for p in PLANETS + ("sun", "rahu"):
             bases[p] = frac_turn(self.p.p0[p] + self.p.p_rate[p] * gen_day)
             
         return bases
@@ -110,7 +110,7 @@ class TraditionalPlanetsEngine(PlanetsEngineProtocol):
         # Pre-compute all linear bases once
         bases = self._get_base_longitudes(jd)
         
-        for p in ("sun", "rahu") + PLANETS:
+        for p in PLANETS + ("sun", "rahu"):
             
             # Extract mean longitude directly from pre-computed bases
             if p in ("mercury", "venus"):

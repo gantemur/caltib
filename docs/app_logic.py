@@ -552,6 +552,37 @@ def render_day_view(cur_date, engine):
     elif attr_grid:
         attr_grid.innerHTML = f'<span class="ext-badge">No attributes available</span>'
 
+    # --- 8. PLANETS GRID ---
+    lbl_planets = js.document.getElementById("lbl-ext-planets")
+    if lbl_planets: 
+        lbl_planets.innerText = _cap(_t("planets_title"))
+
+    planets_grid = js.document.getElementById("planets-grid")
+    p_data = getattr(info, 'planets', None)
+
+    if planets_grid and p_data:
+        p_html = ""
+        p_names = _t("planet_names")
+        
+        # Loop through whatever planets the engine calculated
+        for p_key, p_vals in p_data.items():
+            # Translate the planet name safely
+            p_name = p_names.get(p_key, p_key.capitalize()) if isinstance(p_names, dict) else p_key.capitalize()
+            
+            # Extract the true longitude (Fraction of a turn) and convert to degrees
+            # (If the dictionary only contains mean, use .get("mean"))
+            true_turn = float(p_vals.get("true", 0.0))
+            degrees = (true_turn * 360.0) % 360.0
+            
+            # Format to 1 decimal place (e.g., 331.2) and translate numbers if necessary
+            deg_str = f"{degrees:.1f}°"
+            
+            p_html += f'<span class="ext-badge">{p_name}: {_n(deg_str)}</span>'
+            
+        planets_grid.innerHTML = p_html
+    elif planets_grid:
+        planets_grid.innerHTML = '<span class="ext-badge">Engine does not support planetary data</span>'
+
 def render_month_view(cur_date, engine):
     mode = APP_STATE.get("month_mode", "gregorian")
     container = js.document.getElementById("month-grid-container")
