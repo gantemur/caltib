@@ -11,7 +11,7 @@
 </head>
 <body>
 
-    <h2 data-i18n="diag_title">caltib Diagnostics Dashboard</h2>
+    <h2 id="page-title" data-i18n="diag_title">caltib Diagnostics Dashboard</h2>
     
     <button id="mobile-toggle" onclick="toggleControls()">⚙️ Controls</button>
 
@@ -19,7 +19,7 @@
         
         <div class="control-group">
             <label>🌐 Language</label>
-            <select id="lang-select" onchange="applyTranslations()">
+            <select id="lang-select" onchange="handleLangChange()">
                 <option value="en" selected>English</option>
                 <option value="bo">བོད་ཡིག (Tibetan)</option>
                 <option value="mn">Монгол (Mongolian)</option>
@@ -34,36 +34,36 @@
         </div>
 
         <div class="control-group">
-            <label data-i18n="diag_tool">Tool</label>
+            <label id="lbl-tool" data-i18n="diag_tool">Tool</label>
             <select id="tool-select" onchange="updateInputModes()">
-                <option value="anomaly" data-i18n="diag_tool_anomaly">Angular Anomaly</option>
-                <option value="solar_lon" data-i18n="diag_tool_solar">Solar Longitude Error</option>
-                <option value="assign_month" data-i18n="diag_tool_month">Assign Month (Sgang)</option>
+                <option value="anomaly" id="opt-anomaly" data-i18n="diag_tool_anomaly">Angular Anomaly</option>
+                <option value="solar_lon" id="opt-solar" data-i18n="diag_tool_solar">Solar Longitude Error</option>
+                <option value="assign_month" id="opt-month" data-i18n="diag_tool_month">Assign Month (Sgang)</option>
             </select>
         </div>
 
         <div id="single-engine-group" class="control-group" style="display: none;">
-            <label data-i18n="diag_engine">Engine</label>
+            <label id="lbl-single-eng" data-i18n="diag_engine">Engine</label>
             <select id="single-engine">
-                <option value="phugpa">Phugpa</option>
-                <option value="mongol">Mongol</option>
+                <option value="phugpa">PH</option>
+                <option value="mongol">MN</option>
                 <option value="l1">L1</option>
                 <option value="l4" selected>L4</option>
             </select>
         </div>
 
         <div id="multi-engine-group" class="control-group">
-            <label data-i18n="diag_engines_compare">Compare Engines</label>
+            <label id="lbl-multi-eng" data-i18n="diag_engines_compare">Compare Engines</label>
             <div class="checkbox-group">
-                <label><input type="checkbox" class="multi-eng" value="mongol" checked> Mongol</label>
-                <label><input type="checkbox" class="multi-eng" value="phugpa" checked> Phugpa</label>
+                <label><input type="checkbox" class="multi-eng" value="mongol" checked> MN</label>
+                <label><input type="checkbox" class="multi-eng" value="phugpa" checked> PH</label>
                 <label><input type="checkbox" class="multi-eng" value="l1"> L1</label>
                 <label><input type="checkbox" class="multi-eng" value="l4" checked> L4</label>
             </div>
         </div>
 
         <div class="control-group">
-            <label data-i18n="diag_location">Location</label>
+            <label id="lbl-loc" data-i18n="diag_location">Location</label>
             <select id="location-select" onchange="updateLocationMode()">
                 <option value="29.65,91.1" selected>Lhasa</option>
                 <option value="47.92,106.92">Ulaanbaatar</option>
@@ -81,12 +81,12 @@
         </div>
 
         <div class="control-group">
-            <label data-i18n="diag_start">Start</label>
-            <input type="date" id="date-start" value="2020-01-01">
+            <label id="lbl-start" data-i18n="diag_start">Start</label>
+            <input type="date" id="date-start">
         </div>
         <div class="control-group">
-            <label data-i18n="diag_end">End</label>
-            <input type="date" id="date-end" value="2030-01-01">
+            <label id="lbl-end" data-i18n="diag_end">End</label>
+            <input type="date" id="date-end">
         </div>
 
         <button id="plot-btn" disabled data-i18n="diag_btn_update">Loading...</button>
@@ -100,6 +100,18 @@
     <script>
         let pyodide;
         let translations = {};
+
+        function initDefaults() {
+            const today = new Date();
+            const start = new Date(today);
+            start.setMonth(start.getMonth() - 1);
+            const end = new Date(today);
+            end.setMonth(end.getMonth() + 1);
+            
+            document.getElementById('date-start').value = start.toISOString().split('T')[0];
+            document.getElementById('date-end').value = end.toISOString().split('T')[0];
+        }
+        initDefaults();
 
         function updateInputModes() {
             const tool = document.getElementById('tool-select').value;
@@ -128,15 +140,27 @@
         function applyTranslations() {
             const lang = document.getElementById('lang-select').value;
             const dict = translations[lang] || translations['en'];
-            
             if (!dict) return;
 
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (dict[key]) {
-                    el.innerText = dict[key];
-                }
+            const keys = ["diag_title", "diag_tool", "diag_engine", "diag_engines_compare", "diag_location", "diag_start", "diag_end", "diag_btn_update", "diag_tool_anomaly", "diag_tool_solar", "diag_tool_month"];
+            
+            keys.forEach(k => {
+                const els = document.querySelectorAll(`[data-i18n="${k}"]`);
+                els.forEach(el => {
+                    if (dict[k]) { el.innerText = dict[k]; }
+                });
             });
+
+            // Update button text explicitly if it's currently enabled
+            const btn = document.getElementById("plot-btn");
+            if (!btn.disabled) {
+                btn.innerText = dict["diag_btn_update"] || "Update Plot";
+            }
+        }
+        
+        function handleLangChange() {
+            applyTranslations();
+            updatePlot(); // Automatically redraws plot with new language
         }
 
         async function initPyodide() {
@@ -145,26 +169,26 @@
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 
-                await micropip.install(["numpy", "./caltib-0.1.0-py3-none-any.whl"]);
+                // Cache-buster added to the wheel URL! Forces browser to download your latest build.
+                await micropip.install(["numpy", "./caltib-0.1.0-py3-none-any.whl?v=" + new Date().getTime()]);
                 
-                // The timestamp forces the browser to download a fresh copy every single time!
                 const response = await fetch('./diag_logic.py?v=' + new Date().getTime());
                 const pythonCode = await response.text();
                 pyodide.FS.writeFile('diag_logic.py', pythonCode);
 
-                // Fetch Translations directly from the python wheel!
                 const transJson = pyodide.runPython(`
 import json
 from caltib.i18n import TRANSLATIONS
 json.dumps(TRANSLATIONS)
                 `);
                 translations = JSON.parse(transJson);
-                applyTranslations();
-
+                
                 document.getElementById("status").innerText = "Ready.";
                 const plotBtn = document.getElementById("plot-btn");
                 plotBtn.disabled = false;
-                plotBtn.innerText = "Update Plot";
+                
+                // Apply translations NOW that the dict is loaded, turning "Loading..." into "Update Plot"
+                applyTranslations(); 
                 plotBtn.onclick = updatePlot;
                 
                 updatePlot();
@@ -183,12 +207,13 @@ json.dumps(TRANSLATIONS)
             
             btn.disabled = true;
             status.innerText = "Calculating...";
-            errorLog.style.display = "none"; // Hide previous errors
+            errorLog.style.display = "none"; 
             errorLog.innerText = "";
 
             const tool = document.getElementById('tool-select').value;
             const start = document.getElementById("date-start").value;
             const end = document.getElementById("date-end").value;
+            const lang = document.getElementById("lang-select").value;
             
             let engines = [];
             if (tool === 'assign_month') {
@@ -211,12 +236,37 @@ json.dumps(TRANSLATIONS)
                 const rawJson = pyodide.runPython(`
 import diag_logic
 import importlib
-importlib.reload(diag_logic) # Ensures fresh file load if you edited it
+importlib.reload(diag_logic)
 diag_logic.handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat}, ${lon})
                 `);
                 
                 const plotData = JSON.parse(rawJson);
-                Plotly.newPlot('chart-container', plotData.traces, plotData.layout);
+                
+                const dict = translations[lang] || translations['en'];
+                let titleStr = "Plot";
+                if (tool === "anomaly") titleStr = dict["diag_tool_anomaly"] || "Angular Anomaly";
+                if (tool === "solar_lon") titleStr = dict["diag_tool_solar"] || "Solar Longitude Error";
+                if (tool === "assign_month") titleStr = dict["diag_tool_month"] || "Assign Month (Sgang)";
+                
+                const dateStr = dict["date_col"] || "Date";
+
+                const layout = {
+                    title: titleStr,
+                    xaxis: { 
+                        title: dateStr,
+                        tickformat: '%m/%d', // Forces strict MM/DD format
+                        hoverformat: '%Y-%m-%d'
+                    },
+                    yaxis: { title: titleStr },
+                    hovermode: "closest",
+                    margin: { t: 50, b: 50, l: 50, r: 30 }
+                };
+                
+                if (window.innerWidth <= 768) {
+                    layout.legend = { orientation: "h", y: -0.2 };
+                }
+                
+                Plotly.newPlot('chart-container', plotData.traces, layout, {responsive: true});
                 
                 status.innerText = "Plot updated.";
                 if (window.innerWidth <= 768) {
@@ -225,12 +275,12 @@ diag_logic.handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat
             } catch (err) {
                 console.error(err);
                 status.innerText = "Error calculating data.";
-                // EXPOSE THE PYTHON TRACEBACK TO THE UI
                 errorLog.style.display = "block";
                 errorLog.innerText = err.message || err;
             }
 
             btn.disabled = false;
+            applyTranslations(); // Ensure button text is reset properly
         }
 
         initPyodide();

@@ -12,7 +12,6 @@ from caltib.reference.lunar import lunar_position
 # =====================================================================
 
 def detrended_anomaly(times, angles_deg):
-    """Subtracts the linear trend and zero-centers the anomaly data."""
     coeffs = np.polyfit(times, angles_deg, 1)
     mean_line = np.polyval(coeffs, times)
     anom = angles_deg - mean_line
@@ -20,16 +19,19 @@ def detrended_anomaly(times, angles_deg):
     return anom
 
 def jd_to_date_str(jd):
-    """Formats Julian Days into standard string format for Plotly."""
     dt = datetime.datetime(2000, 1, 1, 12, 0, 0) + datetime.timedelta(days=(jd - 2451545.0))
     return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+def get_abbr(eng_name):
+    """Maps full engine names to compact abbreviations."""
+    abbrs = {"phugpa": "PH", "mongol": "MN", "tsurphu": "TS", "bhutan": "BH", "karana": "KA"}
+    return abbrs.get(eng_name.lower(), eng_name.upper())
 
 # =====================================================================
 # TOOL 1: ANGULAR ANOMALY
 # =====================================================================
 
 def get_anomaly_reference_trace(jd_start, jd_end, step_days=1.0):
-    """Calculates the ELP2000 reference anomaly using caltib internal ephemeris."""
     ts = np.arange(jd_start, jd_end + 1e-12, step_days, dtype=float)
     angles = []
     
@@ -48,17 +50,15 @@ def get_anomaly_reference_trace(jd_start, jd_end, step_days=1.0):
         "y": list(anom),
         "type": "scatter",
         "mode": "lines",
-        "name": "Reference (ELP2000)",
+        "name": "REF",  # Compact Reference Name
         "line": {"color": "black", "dash": "dash", "width": 2}
     }
 
 def get_anomaly_engine_trace(engine_name, jd_start, jd_end):
-    """Calculates the kinematic anomaly for a specific calendar engine."""
     eng = get_calendar(engine_name)
     t2000_start = jd_start - 2451545.0
     t2000_end = jd_end - 2451545.0
     
-    # Get absolute bounds
     x_lo = eng.day.get_x_from_t2000(t2000_start) - 2
     x_hi = eng.day.get_x_from_t2000(t2000_end) + 2
 
@@ -79,7 +79,6 @@ def get_anomaly_engine_trace(engine_name, jd_start, jd_end):
     t_arr = np.array(times, dtype=float)
     a_arr = np.array(angles, dtype=float)
     
-    # Sort arrays by time
     idx = np.argsort(t_arr)
     t_arr = t_arr[idx]
     a_arr = a_arr[idx]
@@ -91,37 +90,25 @@ def get_anomaly_engine_trace(engine_name, jd_start, jd_end):
         "y": list(anom),
         "type": "scatter",
         "mode": "lines",
-        "name": engine_name.upper(),
+        "name": get_abbr(engine_name),  # Uses compact abbreviation
         "line": {"width": 1.5}
     }
 
 # =====================================================================
-# MAIN ROUTER (Called by WebAssembly/JavaScript)
+# MAIN ROUTER
 # =====================================================================
 
 def handle_request(tool, engine_str, start_str, end_str, lat, lon):
-    """
-    Receives request from the UI, executes the correct mathematical tool,
-    and returns a Plotly-compatible JSON payload.
-    """
-    # 1. Parse dates into Julian Days
     dt_start = datetime.datetime.strptime(start_str, "%Y-%m-%d")
     dt_end = datetime.datetime.strptime(end_str, "%Y-%m-%d")
     jd_start = dt_start.toordinal() + 1721424.5
     jd_end = dt_end.toordinal() + 1721424.5
 
-    # 2. Parse engines
     engines = [e.strip() for e in engine_str.split(",") if e.strip()]
-    
     traces = []
-    layout = {}
 
-    # 3. Route to the correct tool
     if tool == "anomaly":
-        # Add the black dashed reference line (sampled every 1 day for browser speed)
         traces.append(get_anomaly_reference_trace(jd_start, jd_end, step_days=1.0))
-        
-        # Add requested engine lines
         for eng_name in engines:
             try:
                 trace = get_anomaly_engine_trace(eng_name, jd_start, jd_end)
@@ -129,27 +116,6 @@ def handle_request(tool, engine_str, start_str, end_str, lat, lon):
                     traces.append(trace)
             except Exception as e:
                 print(f"Skipping {eng_name}: {e}")
-                
-        layout = {
-            "title": "Universal Angular Anomaly (Elongation Proxy)",
-            "xaxis": {"title": "Gregorian Date (TT)"},
-            "yaxis": {"title": "Anomaly (Degrees)"},
-            "hovermode": "closest"
-        }
-        
-    elif tool == "solar_lon":
-        # Placeholder for the next tool we build
-        layout = {"title": "Solar Longitude Error (Not Implemented Yet)"}
-        
-    elif tool == "assign_month":
-        # Placeholder for the next tool we build
-        layout = {"title": "Assign Month (Not Implemented Yet)"}
-        
-    else:
-        layout = {"title": "Unknown Tool"}
 
-    # 4. Return the complete package to Javascript
-    return json.dumps({
-        "traces": traces,
-        "layout": layout
-    })
+    # We now ONLY return the traces. JS handles the layout.
+    return json.dumps({"traces": traces})
