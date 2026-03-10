@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Dict, List, Optional
@@ -16,14 +17,17 @@ def need_numpy():
     except ImportError as e:
         raise RuntimeError('Need numpy. Install: pip install "caltib[tools]"') from e
 
-
 def need_matplotlib():
     try:
         import matplotlib.pyplot as plt
-        return plt
+        import matplotlib.dates as mdates
+        return plt, mdates
     except ImportError as e:
         raise RuntimeError('Need matplotlib. Install: pip install "caltib[tools]"') from e
 
+def jd_to_datetime(jd: float) -> datetime.datetime:
+    """Rough conversion from JD to Gregorian datetime for plotting."""
+    return datetime.datetime(2000, 1, 1, 12, 0, 0) + datetime.timedelta(days=(jd - 2451545.0))
 
 def parse_engine_list(s: str) -> List[str]:
     return [x.strip() for x in s.split(",") if x.strip()]
@@ -138,6 +142,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Forward kinematic anomaly vs Truth Ephemeris.")
     p.add_argument("--engines", default="l1,l2,l3,l4", help="Comma list of reform engines to plot.")
     p.add_argument("--ephem", choices=("ref", "de422"), default="ref", help="Reference Ephemeris or DE422")
+    p.add_argument("--date-start", type=str, default=None, help="Start date (YYYY-MM-DD) or (YYYY.MM.DD)")
+    p.add_argument("--date-end", type=str, default=None, help="End date (YYYY-MM-DD) or (YYYY.MM.DD)")
     p.add_argument("--jd-start", type=float, default=None, help="Start JD (TT-like) as float.")
     p.add_argument("--jd-end", type=float, default=None, help="End JD (TT-like) as float.")
     p.add_argument("--center-jd", type=float, default=2461072.5, help="Center JD if start/end not given.")
@@ -147,20 +153,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = p.parse_args(argv)
 
     np = need_numpy()
-    plt = need_matplotlib()
+    plt, mdates = need_matplotlib()
 
-    if (args.jd_start is None) != (args.jd_end is None):
-        raise SystemExit("Provide both --jd-start and --jd-end, or neither (then center/window is used).")
-
-    if args.jd_start is None:
-        jd_start = float(args.center_jd) - float(args.window)
-        jd_end = float(args.center_jd) + float(args.window)
-    else:
+    if args.date_start and args.date_end:
+        ds_clean = args.date_start.replace(".", "-").replace("/", "-")
+        de_clean = args.date_end.replace(".", "-").replace("/", "-")
+        dt_start = datetime.datetime.strptime(ds_clean, "%Y-%m-%d")
+        dt_end = datetime.datetime.strptime(de_clean, "%Y-%m-%d")
+        jd_start = dt_start.toordinal() + 1721424.5
+        jd_end = dt_end.toordinal() + 1721424.5
+    elif args.jd_start is not None and args.jd_end is not None:
         jd_start = float(args.jd_start)
         jd_end = float(args.jd_end)
-
-    if jd_end <= jd_start:
-        raise SystemExit("--jd-end must be > --jd-start")
+    else:
+        jd_start = float(args.center_jd) - float(args.window)
+        jd_end = float(args.center_jd) + float(args.window)
 
     engines = parse_engine_list(args.engines)
 
@@ -219,27 +226,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         "DE422": "black",
     }
 
-    plt.figure(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(12, 5))
 
     for s in series:
-        x_rel = s.times - center
+        x_dates = [jd_to_datetime(jd) for jd in s.times]
         
-        # Strip " (Month)" to find the correct base color in the dictionary
         base_name = s.label.replace(" (Month)", "")
         c = colors.get(base_name, "tab:blue")
         
-        if s.label in ("Reference", "DE422"):
-            label_name = "Reference (ELP2000)" if s.label == "Reference" else "DE422 Ephemeris"
-            plt.plot(x_rel, s.anomaly_deg, linestyle="--", color=c, linewidth=1.5, alpha=0.9, label=label_name)
+        if s.label in ("Reference", "DE422", "Reference (ELP2000)"):
+            label_name = "Reference (ELP2000)" if "Reference" in s.label else "DE422 Ephemeris"
+            ax.plot(x_dates, s.anomaly_deg, linestyle="--", color=c, linewidth=1.5, alpha=0.9, label=label_name)
         else:
-            # Dotted line for Month engines, solid line for Day engines
             l_style = ":" if " (Month)" in s.label else "-"
             l_width = 1.8 if " (Month)" in s.label else 1.2
-            
-            plt.plot(x_rel, s.anomaly_deg, linestyle=l_style, color=c, linewidth=l_width, alpha=0.8, label=s.label)
+            ax.plot(x_dates, s.anomaly_deg, linestyle=l_style, color=c, linewidth=l_width, alpha=0.8, label=s.label)
+
+    # Clean, horizontal, uncluttered Concise Date Formatter
+    locator = mdates.AutoDateLocator()
+    formatter = mdates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
 
     plt.title(f"Forward Kinematic Anomaly (True - Mean Elongation)\nContinuous Physical Time vs {args.ephem.upper()} Ephemeris")
-    plt.xlabel("Days relative to interval center")
+    plt.xlabel("Gregorian Date (TT)")
     plt.ylabel("Anomaly (degrees)")
     plt.grid(True, alpha=0.3)
     plt.legend(loc="best")

@@ -17,14 +17,17 @@ def need_numpy():
     except ImportError as e:
         raise RuntimeError('Need numpy. Install: pip install "caltib[tools]"') from e
 
-
 def need_matplotlib():
     try:
         import matplotlib.pyplot as plt
-        return plt
+        import matplotlib.dates as mdates
+        return plt, mdates
     except ImportError as e:
         raise RuntimeError('Need matplotlib. Install: pip install "caltib[tools]"') from e
 
+def jd_to_datetime(jd: float) -> datetime.datetime:
+    """Rough conversion from JD to Gregorian datetime for plotting."""
+    return datetime.datetime(2000, 1, 1, 12, 0, 0) + datetime.timedelta(days=(jd - 2451545.0))
 
 def parse_engine_list(s: str) -> List[str]:
     return [x.strip() for x in s.split(",") if x.strip()]
@@ -84,10 +87,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--engines", default="phugpa,mongol,l1,l3,l4",
                    help="Comma list of reform engines to plot.")
     p.add_argument("--ephem", choices=("ref", "de422"), default="ref", help="Reference Ephemeris or DE422")
-    
-    # Time window arguments
     p.add_argument("--year-start", type=int, default=None, help="Start year (e.g., 1500). Overrides center/window.")
     p.add_argument("--year-end", type=int, default=None, help="End year (e.g., 2100).")
+    p.add_argument("--date-start", type=str, default=None, help="Start date (YYYY-MM-DD) or (YYYY.MM.DD)")
+    p.add_argument("--date-end", type=str, default=None, help="End date (YYYY-MM-DD) or (YYYY.MM.DD)")
     p.add_argument("--jd-start", type=float, default=None, help="Start JD (TT-like) as float.")
     p.add_argument("--jd-end", type=float, default=None, help="End JD (TT-like) as float.")
     p.add_argument("--center-jd", type=float, default=2461072.5, help="Center JD if start/end not given.")
@@ -98,19 +101,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = p.parse_args(argv)
 
     np = need_numpy()
-    plt = need_matplotlib()
+    plt, mdates = need_matplotlib()
 
-    # Determine time bounds
-    if args.year_start is not None and args.year_end is not None:
-        y0, y1 = args.year_start, args.year_end
-        if y1 < y0: raise SystemExit("--year-end must be >= --year-start")
-        jd_start = datetime.date(y0 if y0 > 0 else 1, 1, 1).toordinal() + 1721425.5
-        if y0 <= 0: jd_start += (y0 - 1) * 365.25
-        jd_end = datetime.date(y1, 12, 31).toordinal() + 1721425.5
+    if args.date_start and args.date_end:
+        ds_clean = args.date_start.replace(".", "-").replace("/", "-")
+        de_clean = args.date_end.replace(".", "-").replace("/", "-")
+        dt_start = datetime.datetime.strptime(ds_clean, "%Y-%m-%d")
+        dt_end = datetime.datetime.strptime(de_clean, "%Y-%m-%d")
+        jd_start = dt_start.toordinal() + 1721424.5
+        jd_end = dt_end.toordinal() + 1721424.5
     elif args.jd_start is not None and args.jd_end is not None:
         jd_start = float(args.jd_start)
         jd_end = float(args.jd_end)
-        if jd_end <= jd_start: raise SystemExit("--jd-end must be > --jd-start")
     else:
         jd_start = float(args.center_jd) - float(args.window)
         jd_end = float(args.center_jd) + float(args.window)
@@ -178,12 +180,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     ref_label = "Reference (ELP2000)" if args.ephem == "ref" else "DE422 Ephemeris"
     plt.axhline(0, color="black", linestyle="--", linewidth=1.5, alpha=0.9, label=f"{ref_label} (0 Error)")
 
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    # Add a bold dashed line exactly at Y=0 to represent the Reference Ephemeris Truth
+    ref_label = "Reference (ELP2000)" if args.ephem == "ref" else "DE422 Ephemeris"
+    ax.axhline(0, color="black", linestyle="--", linewidth=1.5, alpha=0.9, label=f"{ref_label} (0 Error)")
+
     for s in series:
-        if use_years_axis:
-            # Convert JD to J2000 Epoch Years for clean long-term plotting
-            x_plot = (s.times - 2451545.0) / 365.25 + 2000.0
-        else:
-            x_plot = s.times - (0.5 * (jd_start + jd_end))
+        # Convert JD to datetimes for Matplotlib's auto-formatter
+        x_dates = [jd_to_datetime(jd) for jd in s.times]
         
         base_name = s.label.replace(" (Month)", "")
         c = colors.get(base_name, "tab:blue")
@@ -191,16 +196,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         l_style = ":" if " (Month)" in s.label else "-"
         l_width = 2.0 if " (Month)" in s.label else 1.2
         
-        plt.plot(x_plot, s.error_deg, linestyle=l_style, color=c, linewidth=l_width, alpha=0.8, label=s.label)
+        ax.plot(x_dates, s.error_deg, linestyle=l_style, color=c, linewidth=l_width, alpha=0.8, label=s.label)
+
+    # Clean, horizontal, uncluttered Concise Date Formatter
+    locator = mdates.AutoDateLocator()
+    formatter = mdates.ConciseDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
 
     engine_types = "Month Engines" if any("-m" in eng for eng in args.engines) else "Day Engines"
     plt.title(f"Raw True Solar Longitude Error ({engine_types} − Reference)\nContinuous Physical Time vs {args.ephem.upper()} Ephemeris")
-    
-    if use_years_axis:
-        plt.xlabel("Year")
-    else:
-        plt.xlabel("Days relative to interval center")
-        
+    plt.xlabel("Gregorian Date (TT)")
     plt.ylabel("Error (degrees)")
     plt.grid(True, alpha=0.3)
     plt.legend(loc="best")

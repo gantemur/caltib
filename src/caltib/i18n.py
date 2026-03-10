@@ -652,6 +652,85 @@ TRANSLATIONS = {
     },    
 }
 
+# =====================================================================
+# DYNAMIC DIAGNOSTICS TRANSLATION INJECTION
+# =====================================================================
+# This block automatically merges the Diagnostics dashboard terminology
+# into the main TRANSLATIONS dictionary above.
+
+DIAG_TRANSLATIONS = {
+    "en": {
+        "diag_title": "caltib Diagnostics Dashboard",
+        "diag_tool": "Tool",
+        "diag_tool_anomaly": "Angular Anomaly",
+        "diag_tool_solar": "Solar Longitude Error",
+        "diag_tool_month": "Assign Month (Sgang)",
+        "diag_engine": "Engine",
+        "diag_engines_compare": "Compare Engines",
+        "diag_location": "Location",
+        "diag_start": "Start",
+        "diag_end": "End",
+        "diag_btn_update": "Update Plot",
+    },
+    "bo": {
+        "diag_title": "བརྟག་དཔྱད་ལྟེ་གནས།",
+        "diag_tool": "ལག་ཆ།",
+        "diag_tool_anomaly": "ཟུར་གྱི་ཧེ་བག",
+        "diag_tool_solar": "ཉི་མའི་གནས་སྟངས་ཧེ་བག",
+        "diag_tool_month": "ཟླ་བའི་སྒྲིག་བཀོད། (སྒང་)",
+        "diag_engine": "རྩིས་ལུགས།",
+        "diag_engines_compare": "རྩིས་ལུགས་བསྡུར་བ།",
+        "diag_location": "ས་གནས།",
+        "diag_start": "འགོ་འཛུགས།",
+        "diag_end": "མཇུག་བསྡུ།",
+        "diag_btn_update": "རི་མོ་གསར་བཅོས་བྱེད་པ།",
+    },
+    "mn": {
+        "diag_title": "Оношилгооны самбар",
+        "diag_tool": "Хэрэгсэл",
+        "diag_tool_anomaly": "Өнцгийн гажилт",
+        "diag_tool_solar": "Нарны уртрагийн алдаа",
+        "diag_tool_month": "Сар хуваарилалт (Сган)",
+        "diag_engine": "Зурхай",
+        "diag_engines_compare": "Зурхайнуудыг харьцуулах",
+        "diag_location": "Байршил",
+        "diag_start": "Эхлэх",
+        "diag_end": "Дуусах",
+        "diag_btn_update": "График шинэчлэх",
+    },
+    "ru": {
+        "diag_title": "Панель диагностики",
+        "diag_tool": "Инструмент",
+        "diag_tool_anomaly": "Угловая аномалия",
+        "diag_tool_solar": "Ошибка солнечной долготы",
+        "diag_tool_month": "Назначение месяца (Сганг)",
+        "diag_engine": "Система",
+        "diag_engines_compare": "Сравнить системы",
+        "diag_location": "Локация",
+        "diag_start": "Начало",
+        "diag_end": "Конец",
+        "diag_btn_update": "Обновить график",
+    },
+    "zh": {
+        "diag_title": "诊断控制台",
+        "diag_tool": "工具",
+        "diag_tool_anomaly": "角异常",
+        "diag_tool_solar": "太阳黄经误差",
+        "diag_tool_month": "分配月份 (Sgang)",
+        "diag_engine": "历法",
+        "diag_engines_compare": "对比历法",
+        "diag_location": "地点",
+        "diag_start": "开始",
+        "diag_end": "结束",
+        "diag_btn_update": "更新图表",
+    }
+}
+
+# Automatically inject keys if the language exists in the main dictionary
+for lang, new_terms in DIAG_TRANSLATIONS.items():
+    if lang in TRANSLATIONS:
+        TRANSLATIONS[lang].update(new_terms)
+
 # Fast numeral translator mapping Arabic to Tibetan Unicode digits
 TIBETAN_DIGITS = str.maketrans("0123456789", "༠༡༢༣༤༥༦༧༨༩")
 

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>caltib Diagnostics</title>
+    
+    <link rel="stylesheet" href="diag.css">
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+</head>
+<body>
+
+    <h2 data-i18n="diag_title">caltib Diagnostics Dashboard</h2>
+    
+    <button id="mobile-toggle" onclick="toggleControls()">⚙️ Controls</button>
+
+    <div id="control-panel" class="controls">
+        
+        <div class="control-group">
+            <label data-i18n="diag_tool">Tool</label>
+            <select id="tool-select" onchange="updateInputModes()">
+                <option value="anomaly" data-i18n="diag_tool_anomaly">Angular Anomaly</option>
+                <option value="solar_lon" data-i18n="diag_tool_solar">Solar Longitude Error</option>
+                <option value="assign_month" data-i18n="diag_tool_month">Assign Month (Sgang)</option>
+            </select>
+        </div>
+
+        <div id="single-engine-group" class="control-group" style="display: none;">
+            <label data-i18n="diag_engine">Engine</label>
+            <select id="single-engine">
+                <option value="phugpa">Phugpa</option>
+                <option value="mongol">Mongol</option>
+                <option value="l1">L1</option>
+                <option value="l4" selected>L4</option>
+            </select>
+        </div>
+
+        <div id="multi-engine-group" class="control-group">
+            <label data-i18n="diag_engines_compare">Compare Engines</label>
+            <div class="checkbox-group">
+                <label><input type="checkbox" class="multi-eng" value="mongol" checked> Mongol</label>
+                <label><input type="checkbox" class="multi-eng" value="phugpa" checked> Phugpa</label>
+                <label><input type="checkbox" class="multi-eng" value="l1"> L1</label>
+                <label><input type="checkbox" class="multi-eng" value="l4" checked> L4</label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label data-i18n="diag_location">Location</label>
+            <select id="location-select" onchange="updateLocationMode()">
+                <option value="29.65,91.1" selected>Lhasa</option>
+                <option value="47.92,106.92">Ulaanbaatar</option>
+                <option value="27.47,89.63">Thimphu</option>
+                <option value="custom">Custom Lat/Lon...</option>
+            </select>
+        </div>
+
+        <div id="custom-loc-group" class="control-group" style="display: none;">
+            <label>Lat / Lon</label>
+            <div class="lat-lon-inputs">
+                <input type="number" id="custom-lat" placeholder="Lat" step="0.01">
+                <input type="number" id="custom-lon" placeholder="Lon" step="0.01">
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label data-i18n="diag_start">Start</label>
+            <input type="date" id="date-start" value="2020-01-01">
+        </div>
+        <div class="control-group">
+            <label data-i18n="diag_end">End</label>
+            <input type="date" id="date-end" value="2030-01-01">
+        </div>
+
+        <button id="plot-btn" disabled data-i18n="diag_btn_update">Loading...</button>
+        <span id="status">Downloading Pyodide...</span>
+    </div>
+
+    <div id="chart-container"></div>
+
+    <script>
+        let pyodide;
+
+        // UI Toggles
+        function updateInputModes() {
+            const tool = document.getElementById('tool-select').value;
+            const singleGroup = document.getElementById('single-engine-group');
+            const multiGroup = document.getElementById('multi-engine-group');
+            
+            if (tool === 'assign_month') {
+                singleGroup.style.display = 'flex';
+                multiGroup.style.display = 'none';
+            } else {
+                singleGroup.style.display = 'none';
+                multiGroup.style.display = 'flex';
+            }
+        }
+
+        function updateLocationMode() {
+            const loc = document.getElementById('location-select').value;
+            document.getElementById('custom-loc-group').style.display = (loc === 'custom') ? 'flex' : 'none';
+        }
+
+        function toggleControls() {
+            const panel = document.getElementById('control-panel');
+            panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'flex' : 'none';
+        }
+
+        async function initPyodide() {
+            pyodide = await loadPyodide();
+            await pyodide.loadPackage("micropip");
+            const micropip = pyodide.pyimport("micropip");
+            
+            await micropip.install(["numpy", "./caltib-0.1.0-py3-none-any.whl"]);
+            
+            const response = await fetch('./diag_logic.py');
+            const pythonCode = await response.text();
+            pyodide.runPython(pythonCode);
+
+            document.getElementById("status").innerText = "Ready.";
+            const plotBtn = document.getElementById("plot-btn");
+            plotBtn.disabled = false;
+            plotBtn.innerText = "Update Plot";
+            plotBtn.onclick = updatePlot;
+            
+            updatePlot();
+        }
+
+        async function updatePlot() {
+            const btn = document.getElementById("plot-btn");
+            const status = document.getElementById("status");
+            btn.disabled = true;
+            status.innerText = "Calculating...";
+
+            // Gather inputs
+            const tool = document.getElementById('tool-select').value;
+            const start = document.getElementById("date-start").value;
+            const end = document.getElementById("date-end").value;
+            
+            // Get Engine(s)
+            let engines = [];
+            if (tool === 'assign_month') {
+                engines.push(document.getElementById('single-engine').value);
+            } else {
+                document.querySelectorAll('.multi-eng:checked').forEach(cb => engines.push(cb.value));
+            }
+            const engineStr = engines.join(',');
+
+            // Get Location
+            let lat, lon;
+            const locVal = document.getElementById('location-select').value;
+            if (locVal === 'custom') {
+                lat = document.getElementById('custom-lat').value || 0;
+                lon = document.getElementById('custom-lon').value || 0;
+            } else {
+                [lat, lon] = locVal.split(',');
+            }
+
+            // Execute Python payload logic (Requires diag_logic.py to handle routing)
+            try {
+                // Example call routing to a master handler in Python
+                const rawJson = pyodide.runPython(`
+                    import diag_logic
+                    diag_logic.handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat}, ${lon})
+                `);
+                
+                const plotData = JSON.parse(rawJson);
+                Plotly.newPlot('chart-container', plotData.traces, plotData.layout);
+                
+                status.innerText = "Plot updated.";
+                
+                // Auto-close drawer on mobile after plot updates
+                if (window.innerWidth <= 768) {
+                    document.getElementById('control-panel').style.display = 'none';
+                }
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Error calculating data.";
+            }
+
+            btn.disabled = false;
+        }
+
+        initPyodide();
+    </script>
+</body>
+</html>

@@ -17,7 +17,6 @@ def need_numpy():
     except ImportError as e:
         raise RuntimeError('Need numpy. Install: pip install "caltib[tools]"') from e
 
-
 def need_matplotlib():
     try:
         import matplotlib.pyplot as plt
@@ -26,22 +25,18 @@ def need_matplotlib():
     except ImportError as e:
         raise RuntimeError('Need matplotlib. Install: pip install "caltib[tools]"') from e
 
-
 def parse_engine_list(s: str) -> List[str]:
     return [x.strip() for x in s.split(",") if x.strip()]
-
 
 def jd_to_datetime(jd: float) -> datetime.datetime:
     """Rough conversion from JD to Gregorian datetime for plotting."""
     return datetime.datetime(2000, 1, 1, 12, 0, 0) + datetime.timedelta(days=(jd - 2451545.0))
-
 
 @dataclass(frozen=True)
 class SeriesData:
     label: str
     times: "np.ndarray"  # Julian Dates
     anomaly_deg: "np.ndarray"
-
 
 def elong_anomaly_series(np, engine: str, jd_start: float, jd_end: float, step_x: float, use_month: bool = False, label: str = "") -> Optional[SeriesData]:
     eng = get_calendar(engine)
@@ -97,7 +92,7 @@ def elong_anomaly_series(np, engine: str, jd_start: float, jd_end: float, step_x
     return SeriesData(final_label, np.array(filtered_times), e_arr)
 
 
-def ref_elong_anomaly_series(np, jd_start: float, jd_end: float, step_days: float) -> SeriesData:
+def ref_elong_anomaly_series(np, jd_start: float, jd_end: float, step_days: float, ephem_evaluator=None) -> SeriesData:
     from caltib.reference.lunar import lunar_position
     from caltib.reference.solar import solar_longitude
     from caltib.reference.astro_args import fundamental_args, T_centuries
@@ -106,10 +101,14 @@ def ref_elong_anomaly_series(np, jd_start: float, jd_end: float, step_days: floa
     anomalies: List[float] = []
 
     for jd in ts:
-        moon = lunar_position(jd).L_true_deg
-        sun = solar_longitude(jd).L_true_deg
-        true_elong = (moon - sun) % 360.0
-        
+        if ephem_evaluator:
+            # Use your custom DE422 loader directly!
+            true_elong = ephem_evaluator.elong_deg(float(jd))
+        else:
+            moon = lunar_position(jd).L_true_deg
+            sun = solar_longitude(jd).L_true_deg
+            true_elong = (moon - sun) % 360.0
+            
         T = T_centuries(jd)
         mean_elong = fundamental_args(T).D_deg
         
@@ -117,14 +116,16 @@ def ref_elong_anomaly_series(np, jd_start: float, jd_end: float, step_days: floa
         if diff > 180.0: diff -= 360.0
         anomalies.append(diff)
         
-    # Removed dynamic np.mean() subtraction to preserve absolute drift values
     e_arr = np.array(anomalies, dtype=float)
-    return SeriesData("Reference (ELP2000)", ts, e_arr)
+    label = "DE422 Ephemeris" if ephem_evaluator else "Reference (ELP2000)"
+    return SeriesData(label, ts, e_arr)
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     p = argparse.ArgumentParser(description="Absolute Angular Anomaly via Time Inversion.")
     p.add_argument("--engines", default="phugpa,mongol,l1,l3,l4", help="Comma list of reform engines.")
+    p.add_argument("--ephem", choices=["ref", "de422"], default="ref", help="Reference ephemeris (ref=ELP2000, de422=JPL DE422).")
+    
     p.add_argument("--date-start", type=str, default=None, help="Start date (YYYY-MM-DD) or (YYYY.MM.DD)")
     p.add_argument("--date-end", type=str, default=None, help="End date (YYYY-MM-DD) or (YYYY.MM.DD)")
     p.add_argument("--jd-start", type=float, default=None, help="Start JD as float.")
@@ -152,15 +153,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         jd_start = float(args.center_jd) - float(args.window)
         jd_end = float(args.center_jd) + float(args.window)
 
+    ephem_evaluator = None
+    if args.ephem == "de422":
+        try:
+            from caltib.ephemeris.de422 import DE422Elongation
+            ephem_evaluator = DE422Elongation.load()
+        except Exception as e:
+            raise SystemExit(f"\n[!] Failed to load DE422 Ephemeris: {e}\nDid you download the ephemeris files?")
+
     engines = parse_engine_list(args.engines)
 
-    print(f"Evaluating inverted elongation anomaly for {engines}...")
+    print(f"Evaluating inverted elongation anomaly for {engines} against {args.ephem.upper()}...")
 
     series: List[SeriesData] = []
     
-    ref_s = ref_elong_anomaly_series(np, jd_start, jd_end, float(args.step))
+    ref_s = ref_elong_anomaly_series(np, jd_start, jd_end, float(args.step), ephem_evaluator=ephem_evaluator)
     series.append(ref_s)
-    print(f"  Reference: {len(ref_s.times)} samples")
+    print(f"  Reference ({args.ephem.upper()}): {len(ref_s.times)} samples")
 
     for eng_str in engines:
         is_month = False
@@ -191,7 +200,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     for s in series:
         x_dates = [jd_to_datetime(jd) for jd in s.times]
         
-        if s.label == "Reference (ELP2000)":
+        if s.label in ("Reference (ELP2000)", "DE422 Ephemeris"):
             ax.plot(x_dates, s.anomaly_deg, color="black", linestyle="--", linewidth=1.5, alpha=0.9, label=s.label)
             continue
             
@@ -206,7 +215,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     ax.xaxis.set_major_locator(locator)
     ax.xaxis.set_major_formatter(formatter)
 
-    plt.title("Absolute Angular Anomaly via Engine Inversion\nREF Ephemeris vs caltib Unified Architecture")
+    ephem_str = "DE422" if args.ephem == "de422" else "ELP2000"
+    plt.title(f"Absolute Angular Anomaly via Engine Inversion\n{ephem_str} Ephemeris vs caltib Unified Architecture")
+    plt.xlabel("Gregorian Date (TT)")
     plt.ylabel("Anomaly (degrees)")
     plt.grid(True, alpha=0.3)
     plt.legend(loc="best")
