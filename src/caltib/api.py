@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from fractions import Fraction
 
 from .core.engine import CalendarEngine, EngineRegistry
-from .core.types import DayInfo, TibetanDate, LocationSpec, CalendarSpec 
+from .core.types import DayInfo, TibetanDate, MonthInfo, YearInfo, LocationSpec, CalendarSpec 
 from .core.time import from_jdn
 from .attributes.registry import compute_attributes
 from .engines.factory import make_engine as _make_engine

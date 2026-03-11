@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Optional
 
 from . import astro_args as aa
 from . import lunar

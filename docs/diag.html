@@ -19,7 +19,7 @@
         
         <div class="control-group">
             <label>🌐 Language</label>
-            <select id="lang-select" onchange="handleLangChange()">
+            <select id="lang-select" onchange="applyTranslations()">
                 <option value="en" selected>English</option>
                 <option value="bo">བོད་ཡིག (Tibetan)</option>
                 <option value="mn">Монгол (Mongolian)</option>
@@ -36,33 +36,92 @@
         <div class="control-group">
             <label id="lbl-tool" data-i18n="diag_tool">Tool</label>
             <select id="tool-select" onchange="updateInputModes()">
-                <option value="anomaly" id="opt-anomaly" data-i18n="diag_tool_anomaly">Angular Anomaly</option>
+                <option value="anomaly" id="opt-anomaly" data-i18n="diag_tool_anomaly">Angular Anomaly (Proxy)</option>
+                <option value="anomaly_forward" id="opt-anomaly-fwd" data-i18n="diag_tool_anomaly_forward">Forward Kinematic Anomaly</option>
+                <option value="anomaly_sun" id="opt-anomaly-sun" data-i18n="diag_tool_anomaly_sun">Solar Equation of Center</option>
                 <option value="solar_lon" id="opt-solar" data-i18n="diag_tool_solar">Solar Longitude Error</option>
+                <option value="planets" id="opt-planets" data-i18n="diag_tool_planets">Planetary Longitude</option>
                 <option value="assign_month" id="opt-month" data-i18n="diag_tool_month">Assign Month (Sgang)</option>
+                <option value="assign_day" id="opt-day" data-i18n="diag_tool_day">Assign Day (Tithi)</option>
+                <option value="losar_scatter" id="opt-scatter" data-i18n="diag_tool_scatter">Losar / Tsagaan Sar Scatter</option>
+                <option value="offsets" id="opt-offsets" data-i18n="diag_tool_offsets">Physical Offsets (Histogram)</option>
+                <option value="drift" id="opt-drift" data-i18n="diag_tool_drift">Long-term Drift (Quadratic)</option>
+                <option value="multi_drift" id="opt-multi-drift" data-i18n="diag_tool_multi_drift">Compare Drifts & Spread</option>
             </select>
+        </div>
+
+        <div id="metric-group" class="control-group" style="display: none;">
+            <label data-i18n="diag_metric">Metric</label>
+            <select id="metric-select">
+                <option value="since-solstice" data-i18n="diag_metric_solstice">Days since Dec 22</option>
+                <option value="doy" data-i18n="diag_metric_doy">Day of Year</option>
+            </select>
+        </div>
+
+        <div id="planet-group" class="control-group" style="display: none;">
+            <label data-i18n="diag_planet">Planet</label>
+            <select id="planet-select">
+                <option value="sun" data-i18n="diag_planet_sun">Sun</option>
+                <option value="mercury" data-i18n="diag_planet_mercury">Mercury</option>
+                <option value="venus" data-i18n="diag_planet_venus">Venus</option>
+                <option value="mars" data-i18n="diag_planet_mars">Mars</option>
+                <option value="jupiter" data-i18n="diag_planet_jupiter">Jupiter</option>
+                <option value="saturn" data-i18n="diag_planet_saturn">Saturn</option>
+                <option value="rahu" data-i18n="diag_planet_rahu">Rahu</option>
+            </select>
+        </div>
+        
+        <div id="planet-mode-group" class="control-group" style="display: none;">
+            <label data-i18n="diag_planet_mode">Mode</label>
+            <select id="planet-mode" onchange="syncPlanetUI()">
+                <option value="tropical" data-i18n="diag_planet_tropical">Tropical (Raw)</option>
+                <option value="sidereal" data-i18n="diag_planet_sidereal">Sidereal (Ayanamsha)</option>
+                <option value="detrended" data-i18n="diag_planet_detrended">Detrended (Epicycle)</option>
+            </select>
+        </div>
+        
+        <div id="planet-zero-group" class="control-group" style="display: none;">
+            <label data-i18n="diag_planet_zero">Ayanamsha Zero Yr</label>
+            <input type="number" id="planet-zero" value="499" style="width: 80px;">
+        </div>
+
+        <div id="time-group" class="control-group" style="display: none;">
+            <label data-i18n="diag_offset_time">Time Source</label>
+            <select id="offset-time">
+                <option value="civil" data-i18n="diag_offset_civil">Civil (Snapped)</option>
+                <option value="true" data-i18n="diag_offset_true">True (Continuous)</option>
+            </select>
+        </div>
+
+        <div id="phase-group" class="control-group" style="display: none;">
+            <label data-i18n="diag_offset_mode">Phase Target</label>
+            <select id="offset-mode">
+                <option value="newmoon" data-i18n="diag_offset_newmoon">New Moons Only</option>
+                <option value="tithi" data-i18n="diag_offset_tithi">All Tithis (1-30)</option>
+            </select>
+        </div>
+
+        <div id="drift-delta-group" class="control-group" style="display: none; flex-direction: row; align-items: center; gap: 8px;">
+            <input type="checkbox" id="apply-delta-t" style="width: auto;">
+            <label for="apply-delta-t" data-i18n="diag_drift_delta_t" style="margin: 0;">Apply Rigorous ΔT</label>
         </div>
 
         <div id="single-engine-group" class="control-group" style="display: none;">
             <label id="lbl-single-eng" data-i18n="diag_engine">Engine</label>
-            <select id="single-engine">
-                <option value="phugpa">PH</option>
-                <option value="mongol">MN</option>
-                <option value="l1">L1</option>
-                <option value="l4" selected>L4</option>
-            </select>
+            <select id="single-engine" onchange="syncLocationUI()"></select>
         </div>
 
         <div id="multi-engine-group" class="control-group">
             <label id="lbl-multi-eng" data-i18n="diag_engines_compare">Compare Engines</label>
-            <div class="checkbox-group">
-                <label><input type="checkbox" class="multi-eng" value="mongol" checked> MN</label>
-                <label><input type="checkbox" class="multi-eng" value="phugpa" checked> PH</label>
-                <label><input type="checkbox" class="multi-eng" value="l1"> L1</label>
-                <label><input type="checkbox" class="multi-eng" value="l4" checked> L4</label>
+            <div style="display: flex; gap: 5px;">
+                <select id="multi-eng-1" style="padding: 6px; font-size: 13px; width: 60px;" onchange="syncLocationUI()"></select>
+                <select id="multi-eng-2" style="padding: 6px; font-size: 13px; width: 60px;" onchange="syncLocationUI()"></select>
+                <select id="multi-eng-3" style="padding: 6px; font-size: 13px; width: 60px;" onchange="syncLocationUI()"></select>
+                <select id="multi-eng-4" style="padding: 6px; font-size: 13px; width: 60px;" onchange="syncLocationUI()"></select>
             </div>
         </div>
 
-        <div class="control-group">
+        <div id="loc-group" class="control-group">
             <label id="lbl-loc" data-i18n="diag_location">Location</label>
             <select id="location-select" onchange="updateLocationMode()">
                 <option value="29.65,91.1" selected>Lhasa</option>
@@ -80,17 +139,49 @@
             </div>
         </div>
 
-        <div class="control-group">
-            <label id="lbl-start" data-i18n="diag_start">Start</label>
-            <input type="date" id="date-start">
+        <div id="exact-date-group" style="display: flex; gap: 20px;">
+            <div class="control-group">
+                <label data-i18n="diag_start">Start</label>
+                <input type="date" id="date-start">
+            </div>
+            <div class="control-group">
+                <label data-i18n="diag_end">End</label>
+                <input type="date" id="date-end">
+            </div>
         </div>
-        <div class="control-group">
-            <label id="lbl-end" data-i18n="diag_end">End</label>
-            <input type="date" id="date-end">
+
+        <div id="month-date-group" style="display: none; gap: 20px;">
+            <div class="control-group">
+                <label data-i18n="diag_start">Start</label>
+                <input type="month" id="month-start">
+            </div>
+            <div class="control-group">
+                <label data-i18n="diag_end">End</label>
+                <input type="month" id="month-end">
+            </div>
+        </div>
+
+        <div id="year-date-group" style="display: none; gap: 20px;">
+            <div class="control-group">
+                <label data-i18n="diag_start">Start Year</label>
+                <input type="number" id="year-start" style="width: 70px;">
+            </div>
+            <div class="control-group">
+                <label data-i18n="diag_end">End Year</label>
+                <input type="number" id="year-end" style="width: 70px;">
+            </div>
+        </div>
+
+        <div class="control-group" style="justify-content: flex-end;">
+            <label>&nbsp;</label>
+            <div style="display: flex; gap: 5px;">
+                <button onclick="shiftWindow(-1)" title="Shift Left">◀</button>
+                <button onclick="shiftWindow(1)" title="Shift Right">▶</button>
+            </div>
         </div>
 
         <button id="plot-btn" disabled data-i18n="diag_btn_update">Loading...</button>
-        <span id="status">Downloading Pyodide...</span>
+        <span id="status" data-i18n="diag_status_calc">Downloading Pyodide...</span>
     </div>
 
     <pre id="error-log" style="display: none; background: #fee; color: #c00; padding: 15px; border-radius: 5px; border: 1px solid #f99; overflow-x: auto; white-space: pre-wrap; font-size: 13px;"></pre>
@@ -101,30 +192,227 @@
         let pyodide;
         let translations = {};
 
-        function initDefaults() {
-            const today = new Date();
-            const start = new Date(today);
-            start.setMonth(start.getMonth() - 1);
-            const end = new Date(today);
-            end.setMonth(end.getMonth() + 1);
+        const baseEngines = [
+            {v: "phugpa", t: "PH"}, {v: "tsurphu", t: "TS"}, {v: "mongol", t: "MN"},
+            {v: "bhutan", t: "BH"}, {v: "karana", t: "KA"}, {v: "l0", t: "L0"},
+            {v: "l1", t: "L1"}, {v: "l2", t: "L2"}, {v: "l3", t: "L3"},
+            {v: "l4", t: "L4"}, {v: "l5", t: "L5"}, {v: "l6", t: "L6"}
+        ];
+        
+        const monthEngines = [
+            {v: "l6-m", t: "L6-M"}, {v: "l5-m", t: "L5-M"}, {v: "l4-m", t: "L4-M"},
+            {v: "l3-m", t: "L3-M"}, {v: "l2-m", t: "L2-M"}, {v: "l1-m", t: "L1-M"},
+            {v: "l0-m", t: "L0-M"}, {v: "karana-m", t: "KA-M"}, {v: "bhutan-m", t: "BH-M"},
+            {v: "mongol-m", t: "MN-M"}, {v: "tsurphu-m", t: "TS-M"}, {v: "phugpa-m", t: "PH-M"}
+        ];
+
+        let currentEngineMode = null;
+
+        function renderEngineDropdowns(tool) {
+            const needsExtended = (tool === 'anomaly' || tool === 'anomaly_forward' || tool === 'anomaly_sun' || tool === 'offsets' || tool === 'solar_lon' || tool === 'drift' || tool === 'multi_drift');
+            const targetMode = needsExtended ? 'extended' : 'full';
             
-            document.getElementById('date-start').value = start.toISOString().split('T')[0];
-            document.getElementById('date-end').value = end.toISOString().split('T')[0];
+            if (currentEngineMode === targetMode) return;
+            currentEngineMode = targetMode;
+
+            const options = [...baseEngines];
+            if (needsExtended) options.push(...monthEngines);
+
+            let selSingle = document.getElementById('single-engine');
+            let valSingle = selSingle.value;
+            selSingle.innerHTML = options.map(o => `<option value="${o.v}">${o.t}</option>`).join('');
+            if (valSingle && options.some(o => o.v === valSingle)) selSingle.value = valSingle;
+            else selSingle.value = 'l4';
+
+            for (let i = 1; i <= 4; i++) {
+                let selMulti = document.getElementById(`multi-eng-${i}`);
+                let valMulti = selMulti.value;
+                
+                if (!valMulti) {
+                    if (i===1) valMulti = 'mongol';
+                    else if (i===2) valMulti = 'phugpa';
+                    else if (i===3) valMulti = 'none';
+                    else if (i===4) valMulti = 'l4';
+                }
+                
+                let html = `<option value="none">--</option>`;
+                html += options.map(o => `<option value="${o.v}">${o.t}</option>`).join('');
+                selMulti.innerHTML = html;
+                
+                if (valMulti === 'none' || options.some(o => o.v === valMulti)) {
+                    selMulti.value = valMulti;
+                } else {
+                    selMulti.value = 'none'; 
+                }
+            }
+        }
+
+        function initDefaults() {
+            renderEngineDropdowns('anomaly'); 
+            
+            const today = new Date();
+            const exactStart = new Date(today);
+            exactStart.setMonth(exactStart.getMonth() - 1);
+            const exactEnd = new Date(today);
+            exactEnd.setMonth(exactEnd.getMonth() + 1);
+            document.getElementById('date-start').value = exactStart.toISOString().split('T')[0];
+            document.getElementById('date-end').value = exactEnd.toISOString().split('T')[0];
+
+            const monthStart = new Date(today);
+            monthStart.setMonth(monthStart.getMonth() - 6);
+            const monthEnd = new Date(today);
+            monthEnd.setMonth(monthEnd.getMonth() + 6);
+            document.getElementById('month-start').value = monthStart.toISOString().slice(0, 7);
+            document.getElementById('month-end').value = monthEnd.toISOString().slice(0, 7);
+
+            document.getElementById('year-start').value = 1500;
+            document.getElementById('year-end').value = 2100;
         }
         initDefaults();
 
+        function syncLocationUI() {
+            const tool = document.getElementById('tool-select').value;
+            let engines = [];
+            
+            if (tool === 'assign_month' || tool === 'assign_day' || tool === 'offsets' || tool === 'drift') {
+                engines.push(document.getElementById('single-engine').value);
+            } else {
+                for (let i = 1; i <= 4; i++) {
+                    let val = document.getElementById(`multi-eng-${i}`).value;
+                    if (val !== 'none') engines.push(val);
+                }
+            }
+            
+            let hasReformed = engines.some(e => /^l\d/.test(e));
+            
+            const locGroup = document.getElementById('loc-group');
+            const customLocGroup = document.getElementById('custom-loc-group');
+            
+            if (hasReformed) {
+                locGroup.style.display = 'flex';
+                updateLocationMode();
+            } else {
+                locGroup.style.display = 'none';
+                customLocGroup.style.display = 'none';
+            }
+        }
+        
+        function syncPlanetUI() {
+            const mode = document.getElementById('planet-mode').value;
+            const tool = document.getElementById('tool-select').value;
+            if (tool === 'planets' && mode === 'sidereal') {
+                document.getElementById('planet-zero-group').style.display = 'flex';
+            } else {
+                document.getElementById('planet-zero-group').style.display = 'none';
+            }
+        }
+
         function updateInputModes() {
             const tool = document.getElementById('tool-select').value;
+            renderEngineDropdowns(tool); 
+            
             const singleGroup = document.getElementById('single-engine-group');
             const multiGroup = document.getElementById('multi-engine-group');
+            const exactDateGroup = document.getElementById('exact-date-group');
+            const monthDateGroup = document.getElementById('month-date-group');
+            const yearDateGroup = document.getElementById('year-date-group');
             
+            const metricGroup = document.getElementById('metric-group');
+            const timeGroup = document.getElementById('time-group');
+            const phaseGroup = document.getElementById('phase-group');
+            const driftDeltaGroup = document.getElementById('drift-delta-group');
+            
+            const planetGroup = document.getElementById('planet-group');
+            const planetModeGroup = document.getElementById('planet-mode-group');
+            const planetZeroGroup = document.getElementById('planet-zero-group');
+            
+            singleGroup.style.display = 'none';
+            multiGroup.style.display = 'none';
+            exactDateGroup.style.display = 'none';
+            monthDateGroup.style.display = 'none';
+            yearDateGroup.style.display = 'none';
+            metricGroup.style.display = 'none';
+            timeGroup.style.display = 'none';
+            phaseGroup.style.display = 'none';
+            driftDeltaGroup.style.display = 'none';
+            planetGroup.style.display = 'none';
+            planetModeGroup.style.display = 'none';
+            planetZeroGroup.style.display = 'none';
+
             if (tool === 'assign_month') {
                 singleGroup.style.display = 'flex';
-                multiGroup.style.display = 'none';
-            } else {
-                singleGroup.style.display = 'none';
+                monthDateGroup.style.display = 'flex';
+            } else if (tool === 'assign_day') {
+                singleGroup.style.display = 'flex';
+                exactDateGroup.style.display = 'flex';
+            } else if (tool === 'losar_scatter') {
                 multiGroup.style.display = 'flex';
+                yearDateGroup.style.display = 'flex';
+                metricGroup.style.display = 'flex';
+            } else if (tool === 'offsets') {
+                singleGroup.style.display = 'flex';
+                yearDateGroup.style.display = 'flex';
+                timeGroup.style.display = 'flex';
+                phaseGroup.style.display = 'flex';
+            } else if (tool === 'drift') {
+                singleGroup.style.display = 'flex';
+                yearDateGroup.style.display = 'flex';
+                timeGroup.style.display = 'flex';
+                driftDeltaGroup.style.display = 'flex';
+            } else if (tool === 'multi_drift') {
+                multiGroup.style.display = 'flex';
+                yearDateGroup.style.display = 'flex';
+                timeGroup.style.display = 'flex';
+                driftDeltaGroup.style.display = 'flex';
+            } else if (tool === 'planets') {
+                multiGroup.style.display = 'flex';
+                yearDateGroup.style.display = 'flex';
+                planetGroup.style.display = 'flex';
+                planetModeGroup.style.display = 'flex';
+                syncPlanetUI();
+            } else {
+                multiGroup.style.display = 'flex';
+                exactDateGroup.style.display = 'flex';
             }
+            
+            syncLocationUI();
+        }
+
+        function shiftWindow(direction) {
+            const tool = document.getElementById('tool-select').value;
+            
+            if (tool === 'losar_scatter' || tool === 'offsets' || tool === 'drift' || tool === 'multi_drift' || tool === 'planets') {
+                let startEl = document.getElementById("year-start");
+                let endEl = document.getElementById("year-end");
+                let y1 = parseInt(startEl.value);
+                let y2 = parseInt(endEl.value);
+                let shift = Math.round((y2 - y1) / 4) * direction;
+                if (shift === 0) shift = direction;
+                
+                startEl.value = y1 + shift;
+                endEl.value = y2 + shift;
+            } else {
+                let startEl = tool === 'assign_month' ? document.getElementById("month-start") : document.getElementById("date-start");
+                let endEl = tool === 'assign_month' ? document.getElementById("month-end") : document.getElementById("date-end");
+                
+                let d1 = new Date(startEl.value);
+                let d2 = new Date(endEl.value);
+                
+                let diffMs = d2.getTime() - d1.getTime();
+                let shiftMs = (diffMs / 4) * direction;
+                
+                d1.setTime(d1.getTime() + shiftMs);
+                d2.setTime(d2.getTime() + shiftMs);
+                
+                if (tool === 'assign_month') {
+                    startEl.value = d1.toISOString().slice(0, 7);
+                    endEl.value = d2.toISOString().slice(0, 7);
+                } else {
+                    startEl.value = d1.toISOString().split('T')[0];
+                    endEl.value = d2.toISOString().split('T')[0];
+                }
+            }
+            updatePlot(); 
         }
 
         function updateLocationMode() {
@@ -142,7 +430,18 @@
             const dict = translations[lang] || translations['en'];
             if (!dict) return;
 
-            const keys = ["diag_title", "diag_tool", "diag_engine", "diag_engines_compare", "diag_location", "diag_start", "diag_end", "diag_btn_update", "diag_tool_anomaly", "diag_tool_solar", "diag_tool_month"];
+            const keys = [
+                "diag_title", "diag_tool", "diag_engine", "diag_engines_compare", "diag_location", 
+                "diag_start", "diag_end", "diag_btn_update", "diag_tool_anomaly", "diag_tool_anomaly_forward", 
+                "diag_tool_anomaly_sun", "diag_tool_solar", "diag_tool_month", "diag_tool_day", 
+                "diag_tool_scatter", "diag_tool_offsets", "diag_tool_drift", "diag_tool_multi_drift", 
+                "diag_tool_planets", "diag_metric", "diag_metric_doy", "diag_metric_solstice", 
+                "diag_offset_time", "diag_offset_civil", "diag_offset_true", "diag_offset_mode", 
+                "diag_offset_newmoon", "diag_offset_tithi", "diag_drift_delta_t", "diag_planet", 
+                "diag_planet_sun", "diag_planet_mercury", "diag_planet_venus", "diag_planet_mars", 
+                "diag_planet_jupiter", "diag_planet_saturn", "diag_planet_rahu", "diag_planet_mode", 
+                "diag_planet_tropical", "diag_planet_sidereal", "diag_planet_detrended", "diag_planet_zero"
+            ];
             
             keys.forEach(k => {
                 const els = document.querySelectorAll(`[data-i18n="${k}"]`);
@@ -151,7 +450,6 @@
                 });
             });
 
-            // Update button text explicitly if it's currently enabled
             const btn = document.getElementById("plot-btn");
             if (!btn.disabled) {
                 btn.innerText = dict["diag_btn_update"] || "Update Plot";
@@ -160,7 +458,6 @@
         
         function handleLangChange() {
             applyTranslations();
-            updatePlot(); // Automatically redraws plot with new language
         }
 
         async function initPyodide() {
@@ -169,12 +466,7 @@
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 
-                // Cache-buster added to the wheel URL! Forces browser to download your latest build.
-                await micropip.install(["numpy", "./caltib-0.1.0-py3-none-any.whl?v=" + new Date().getTime()]);
-                
-                const response = await fetch('./diag_logic.py?v=' + new Date().getTime());
-                const pythonCode = await response.text();
-                pyodide.FS.writeFile('diag_logic.py', pythonCode);
+                await micropip.install(["./caltib-0.1.0-py3-none-any.whl?v=" + new Date().getTime()]);
 
                 const transJson = pyodide.runPython(`
 import json
@@ -183,14 +475,17 @@ json.dumps(TRANSLATIONS)
                 `);
                 translations = JSON.parse(transJson);
                 
-                document.getElementById("status").innerText = "Ready.";
+                const lang = document.getElementById('lang-select').value;
+                const dict = translations[lang] || translations['en'];
+                document.getElementById("status").innerText = dict["diag_status_ready"] || "Ready.";
+                
                 const plotBtn = document.getElementById("plot-btn");
                 plotBtn.disabled = false;
                 
-                // Apply translations NOW that the dict is loaded, turning "Loading..." into "Update Plot"
                 applyTranslations(); 
                 plotBtn.onclick = updatePlot;
                 
+                updateInputModes(); 
                 updatePlot();
             } catch (err) {
                 console.error(err);
@@ -205,62 +500,183 @@ json.dumps(TRANSLATIONS)
             const status = document.getElementById("status");
             const errorLog = document.getElementById("error-log");
             
+            const lang = document.getElementById("lang-select").value;
+            const dict = translations[lang] || translations['en'];
+            
             btn.disabled = true;
-            status.innerText = "Calculating...";
+            status.innerText = dict["diag_status_calc"] || "Calculating...";
             errorLog.style.display = "none"; 
             errorLog.innerText = "";
 
             const tool = document.getElementById('tool-select').value;
-            const start = document.getElementById("date-start").value;
-            const end = document.getElementById("date-end").value;
-            const lang = document.getElementById("lang-select").value;
+            
+            let start, end;
+            if (tool === 'assign_month') {
+                start = document.getElementById("month-start").value;
+                end = document.getElementById("month-end").value;
+            } else if (tool === 'losar_scatter' || tool === 'offsets' || tool === 'drift' || tool === 'multi_drift' || tool === 'planets') {
+                start = document.getElementById("year-start").value;
+                end = document.getElementById("year-end").value;
+            } else {
+                start = document.getElementById("date-start").value;
+                end = document.getElementById("date-end").value;
+            }
             
             let engines = [];
-            if (tool === 'assign_month') {
+            if (tool === 'assign_month' || tool === 'assign_day' || tool === 'offsets' || tool === 'drift') {
                 engines.push(document.getElementById('single-engine').value);
             } else {
-                document.querySelectorAll('.multi-eng:checked').forEach(cb => engines.push(cb.value));
+                for (let i = 1; i <= 4; i++) {
+                    let val = document.getElementById(`multi-eng-${i}`).value;
+                    if (val !== 'none') engines.push(val);
+                }
+                engines = [...new Set(engines)];
             }
             const engineStr = engines.join(',');
 
-            let lat, lon;
+            let lat = 0, lon = 0;
             const locVal = document.getElementById('location-select').value;
             if (locVal === 'custom') {
-                lat = document.getElementById('custom-lat').value || 0;
-                lon = document.getElementById('custom-lon').value || 0;
+                lat = parseFloat(document.getElementById('custom-lat').value) || 0;
+                lon = parseFloat(document.getElementById('custom-lon').value) || 0;
             } else {
-                [lat, lon] = locVal.split(',');
+                [lat, lon] = locVal.split(',').map(parseFloat);
+            }
+
+            let opt1 = document.getElementById('metric-select').value;
+            let opt2 = 'newmoon';
+            let opt3 = 'sun';
+            
+            if (tool === 'offsets') {
+                opt1 = document.getElementById('offset-time').value;
+                opt2 = document.getElementById('offset-mode').value;
+            } else if (tool === 'drift' || tool === 'multi_drift') {
+                opt1 = document.getElementById('offset-time').value;
+                opt2 = document.getElementById('apply-delta-t').checked ? "true" : "false";
+            } else if (tool === 'planets') {
+                opt1 = document.getElementById('planet-select').value;
+                opt2 = document.getElementById('planet-mode').value;
+                opt3 = document.getElementById('planet-zero').value || "499";
             }
 
             try {
                 const rawJson = pyodide.runPython(`
-import diag_logic
-import importlib
-importlib.reload(diag_logic)
-diag_logic.handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat}, ${lon})
+from caltib.web_diag.api import handle_request
+handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat}, ${lon}, '${opt1}', '${opt2}', '${opt3}')
                 `);
                 
                 const plotData = JSON.parse(rawJson);
                 
-                const dict = translations[lang] || translations['en'];
                 let titleStr = "Plot";
-                if (tool === "anomaly") titleStr = dict["diag_tool_anomaly"] || "Angular Anomaly";
+                if (tool === "anomaly") titleStr = dict["diag_tool_anomaly"] || "Angular Anomaly (Proxy)";
+                if (tool === "anomaly_forward") titleStr = dict["diag_tool_anomaly_forward"] || "Forward Kinematic Anomaly";
+                if (tool === "anomaly_sun") titleStr = dict["diag_tool_anomaly_sun"] || "Solar Equation of Center";
                 if (tool === "solar_lon") titleStr = dict["diag_tool_solar"] || "Solar Longitude Error";
+                if (tool === "planets") titleStr = dict["diag_tool_planets"] || "Planetary Longitude";
                 if (tool === "assign_month") titleStr = dict["diag_tool_month"] || "Assign Month (Sgang)";
-                
-                const dateStr = dict["date_col"] || "Date";
+                if (tool === "assign_day") titleStr = dict["diag_tool_day"] || "Assign Day (Tithi)";
+                if (tool === "losar_scatter") titleStr = dict["diag_tool_scatter"] || "Losar / Tsagaan Sar Scatter";
+                if (tool === "offsets") titleStr = dict["diag_tool_offsets"] || "Physical Offsets";
+                if (tool === "drift") titleStr = dict["diag_tool_drift"] || "Long-term Drift (Quadratic)";
+                if (tool === "multi_drift") titleStr = dict["diag_tool_multi_drift"] || "Compare Drifts & Spread";
 
-                const layout = {
+                let layout = {
                     title: titleStr,
                     xaxis: { 
-                        title: dateStr,
-                        tickformat: '%m/%d', // Forces strict MM/DD format
-                        hoverformat: '%Y-%m-%d'
+                        title: dict["date_col"] || "Date",
+                        showgrid: false
                     },
-                    yaxis: { title: titleStr },
+                    yaxis: { 
+                        title: titleStr,
+                        automargin: true 
+                    },
                     hovermode: "closest",
-                    margin: { t: 50, b: 50, l: 50, r: 30 }
+                    margin: { t: 50, b: 50, l: 80, r: 60 }
                 };
+
+                // === 1. MERGE PYTHON LAYOUT EXTRAS FIRST ===
+                if (plotData.layout_extras) {
+                    if (plotData.layout_extras.shapes) layout.shapes = plotData.layout_extras.shapes;
+                    if (plotData.layout_extras.annotations) layout.annotations = plotData.layout_extras.annotations;
+                    if (plotData.layout_extras.yaxis) {
+                        layout.yaxis = Object.assign(layout.yaxis, plotData.layout_extras.yaxis);
+                    }
+                    if (plotData.layout_extras.yaxis2) {
+                        layout.yaxis2 = Object.assign({}, plotData.layout_extras.yaxis2);
+                    }
+                    if (plotData.layout_extras.xaxis) {
+                        layout.xaxis = Object.assign(layout.xaxis, plotData.layout_extras.xaxis);
+                    }
+                }
+
+                // === 2. TRANSLATE AXES (OVERWRITING PYTHON'S ENGLISH DEFAULTS) ===
+                if (tool === "assign_month") {
+                    layout.yaxis.title = dict["diag_yaxis_solar_lon"] || "Solar Longitude";
+                } else if (tool === "assign_day") {
+                    layout.yaxis.title = dict["diag_yaxis_lunar_phase"] || "Lunar Phase (Tithi)";
+                } else if (tool === "losar_scatter") {
+                    layout.yaxis.title = opt1 === "doy" ? (dict["diag_metric_doy"] || "Day of Year") : (dict["diag_metric_solstice"] || "Days since Dec 22");
+                    layout.xaxis.title = dict["greg_year"] || "Gregorian Year";
+                } else if (tool === "solar_lon") {
+                    layout.yaxis.title = dict["diag_yaxis_solar_error"] || "Error (Degrees)";
+                } else if (tool.startsWith("anomaly")) {
+                    layout.yaxis.title = dict["diag_yaxis_anomaly"] || "Anomaly (Degrees)";
+                } else if (tool === "offsets") {
+                    layout.xaxis.title = dict["diag_yaxis_offset_hours"] || "Offset (hours)";
+                    layout.yaxis.title = dict["diag_yaxis_count"] || "Count";
+                } else if (tool === "drift") {
+                    layout.xaxis.title = dict["diag_xaxis_lunar_year"] || "Lunar Year Coordinate";
+                    layout.yaxis.title = dict["diag_yaxis_offset_hours"] || "Offset (hours)";
+                } else if (tool === "multi_drift") {
+                    layout.xaxis.title = dict["diag_xaxis_lunar_year"] || "Lunar Year Coordinate";
+                    layout.yaxis.title = dict["diag_yaxis_mean_drift"] || "Mean Offset Drift (hours)";
+                    if (layout.yaxis2) {
+                        layout.yaxis2.title = dict["diag_yaxis_spread"] || "Spread / Sigma (hours)";
+                    }
+                } else if (tool === "planets") {
+                    layout.xaxis.title = dict["greg_year"] || "Gregorian Year";
+                    layout.yaxis.title = dict["diag_yaxis_solar_error"] || "Error (Degrees)";
+                }
+
+                // === 3. FORMAT AXES TICKS ===
+                if (tool === "assign_month") {
+                    layout.xaxis.tickformat = '%Y/%m'; 
+                    layout.xaxis.hoverformat = '%Y/%m';
+                } else if (tool === "losar_scatter" || tool === "offsets" || tool === "drift" || tool === "multi_drift" || tool === "planets") {
+                    layout.xaxis.tickformat = 'd'; 
+                    layout.xaxis.showgrid = true;
+                } else if (tool === "solar_lon" || tool.startsWith("anomaly")) {
+                    layout.xaxis.tickformat = ''; 
+                    layout.xaxis.hoverformat = '%Y-%m-%d';
+                } else {
+                    layout.xaxis.tickformat = '%m/%d'; 
+                    layout.xaxis.hoverformat = '%Y-%m-%d';
+                }
+
+                // === 4. TRANSLATE LEGENDS ===
+                plotData.traces.forEach(trace => {
+                    if (trace.name === "Mean Drift Fit") {
+                        trace.name = dict["diag_legend_mean_drift"] || "Mean Drift Fit";
+                    } else if (trace.name && trace.name.includes("Spread")) {
+                        trace.name = dict["diag_legend_spread"] || "±1σ Spread";
+                    } else if (trace.name && trace.name.includes("(Drift)")) {
+                        trace.name = trace.name.replace("(Drift)", dict["diag_legend_drift_suffix"] || "(Drift)");
+                    } else if (trace.name && trace.name.includes("(Sigma)")) {
+                        trace.name = trace.name.replace("(Sigma)", dict["diag_legend_sigma_suffix"] || "(Sigma)");
+                    }
+                });
+
+                // === 5. TRANSLATE ANNOTATION BOXES ===
+                if (layout.annotations) {
+                    layout.annotations.forEach(ann => {
+                        if (ann.text && ann.text.includes("<b>Mean:</b>")) {
+                            ann.text = ann.text
+                                .replace("<b>Mean:</b>", `<b>${dict["diag_stat_mean"] || "Mean"}:</b>`)
+                                .replace("<b>Median:</b>", `<b>${dict["diag_stat_median"] || "Median"}:</b>`)
+                                .replace("<b>Std Dev:</b>", `<b>${dict["diag_stat_std"] || "Std Dev"}:</b>`);
+                        }
+                    });
+                }
                 
                 if (window.innerWidth <= 768) {
                     layout.legend = { orientation: "h", y: -0.2 };
@@ -268,7 +684,7 @@ diag_logic.handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat
                 
                 Plotly.newPlot('chart-container', plotData.traces, layout, {responsive: true});
                 
-                status.innerText = "Plot updated.";
+                status.innerText = dict["diag_status_updated"] || "Plot updated.";
                 if (window.innerWidth <= 768) {
                     document.getElementById('control-panel').style.display = 'none';
                 }
@@ -280,7 +696,6 @@ diag_logic.handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat
             }
 
             btn.disabled = false;
-            applyTranslations(); // Ensure button text is reset properly
         }
 
         initPyodide();
