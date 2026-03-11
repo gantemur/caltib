@@ -180,3 +180,54 @@ footer {
     font-size: 0.9rem;
     border-top: 1px solid var(--border-color);
 }
+
+.app-showcase {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 30px;
+    margin: 0px auto 60px auto;
+    max-width: 900px;
+}
+.app-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.app-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    border-color: var(--primary-color);
+}
+.app-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    display: block;
+}
+.app-card h3 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+.app-card p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.btn-gray {
+    background-color: #64748b; /* Lighter slate gray */
+    color: white;
+    border: 1px solid #64748b; /* Overrides the blue border! */
+}
+.btn-gray:hover {
+    background-color: #475569; /* Slightly darker gray on hover */
+    border-color: #475569;
+}

@@ -728,6 +728,9 @@ DIAG_TRANSLATIONS = {
         "diag_stat_mean": "Mean",
         "diag_stat_median": "Median",
         "diag_stat_std": "Std Dev",        
+        "diag_group_grid": "Grid Assignments",
+        "diag_group_ephem": "Ephemeris Comparisons",
+        "diag_group_core": "Core Diagnostics"
     },
     "bo": {
         "diag_title": "བརྟག་དཔྱད་ལྟེ་གནས།",
@@ -794,7 +797,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(སིག་མ)",
         "diag_stat_mean": "ཆ་སྙོམས",
         "diag_stat_median": "དཀྱིལ་ཐང",
-        "diag_stat_std": "ཚད་ལྡན་ཧེ་བག"
+        "diag_stat_std": "ཚད་ལྡན་ཧེ་བག",
+        "diag_group_grid": "རེའུ་མིག་བཀོད་སྒྲིག",
+        "diag_group_ephem": "ཟླ་ཐོ་བསྡུར་བ།",
+        "diag_group_core": "རྩ་བའི་བརྟག་དཔྱད།"
     },
     "mn": {
         "diag_title": "Оношилгооны самбар",
@@ -861,7 +867,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(Сигма)",
         "diag_stat_mean": "Дундаж",
         "diag_stat_median": "Медиан",
-        "diag_stat_std": "Стандарт хазайлт"
+        "diag_stat_std": "Стандарт хазайлт",
+        "diag_group_grid": "Хүснэгтийн хуваарилалт",
+        "diag_group_ephem": "Эфемеридийн харьцуулалт",
+        "diag_group_core": "Үндсэн оношилгоо"
     },
     "ru": {
         "diag_title": "Панель диагностики",
@@ -928,7 +937,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(Сигма)",
         "diag_stat_mean": "Среднее",
         "diag_stat_median": "Медиана",
-        "diag_stat_std": "Ст. отклон."
+        "diag_stat_std": "Ст. отклон.",
+        "diag_group_grid": "Распределения по сетке",
+        "diag_group_ephem": "Сравнения эфемерид",
+        "diag_group_core": "Основная диагностика"
     },
     "zh": {
         "diag_title": "诊断控制台",
@@ -995,7 +1007,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(西格玛)",
         "diag_stat_mean": "平均值",
         "diag_stat_median": "中位数",
-        "diag_stat_std": "标准差"
+        "diag_stat_std": "标准差",
+        "diag_group_grid": "网格分配",
+        "diag_group_ephem": "星历比较",
+        "diag_group_core": "核心诊断"
     },
     "dz": {
         "diag_title": "caltib བརྟག་དཔྱད་མ་ལག",
@@ -1062,7 +1077,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(སིག་མ)",
         "diag_stat_mean": "ཆ་སྙོམས",
         "diag_stat_median": "དཀྱིལ་ཐང",
-        "diag_stat_std": "ཚད་ལྡན་ཧེ་བག"
+        "diag_stat_std": "ཚད་ལྡན་ཧེ་བག",
+        "diag_group_grid": "རེའུ་མིག་བཀོད་སྒྲིག",
+        "diag_group_ephem": "ཟླ་ཐོ་བསྡུར་བ།",
+        "diag_group_core": "རྩ་བའི་བརྟག་དཔྱད།"
     },
     "ja": {
         "diag_title": "caltib 診断ダッシュボード",
@@ -1129,7 +1147,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(シグマ)",
         "diag_stat_mean": "平均",
         "diag_stat_median": "中央値",
-        "diag_stat_std": "標準偏差"
+        "diag_stat_std": "標準偏差",
+        "diag_group_grid": "グリッド割り当て",
+        "diag_group_ephem": "天体暦の比較",
+        "diag_group_core": "コア診断"
     },
     "ko": {
         "diag_title": "caltib 진단 대시보드",
@@ -1196,7 +1217,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(시그마)",
         "diag_stat_mean": "평균",
         "diag_stat_median": "중앙값",
-        "diag_stat_std": "표준편차"
+        "diag_stat_std": "표준편차",
+        "diag_group_grid": "그리드 할당",
+        "diag_group_ephem": "천체력 비교",
+        "diag_group_core": "핵심 진단"
     },
     "de": {
         "diag_title": "caltib Diagnose-Dashboard",
@@ -1263,7 +1287,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(Sigma)",
         "diag_stat_mean": "Mittelwert",
         "diag_stat_median": "Median",
-        "diag_stat_std": "Std-Abw"
+        "diag_stat_std": "Std-Abw",
+        "diag_group_grid": "Rasterzuweisungen",
+        "diag_group_ephem": "Ephemeriden-Vergleiche",
+        "diag_group_core": "Kern-Diagnostik"
     },
     "nl": {
         "diag_title": "caltib Diagnose Dashboard",
@@ -1330,7 +1357,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(Sigma)",
         "diag_stat_mean": "Gemiddelde",
         "diag_stat_median": "Mediaan",
-        "diag_stat_std": "Standaardafw"
+        "diag_stat_std": "Standaardafw",
+        "diag_group_grid": "Rastertoewijzingen",
+        "diag_group_ephem": "Efehmeridenvergelijkingen",
+        "diag_group_core": "Kerndiagnostiek"
     },
     "fr": {
         "diag_title": "Tableau de bord de diagnostic caltib",
@@ -1397,7 +1427,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(Sigma)",
         "diag_stat_mean": "Moyenne",
         "diag_stat_median": "Médiane",
-        "diag_stat_std": "Écart-type"
+        "diag_stat_std": "Écart-type",
+        "diag_group_grid": "Attributions de grille",
+        "diag_group_ephem": "Comparaisons d'éphémérides",
+        "diag_group_core": "Diagnostics de base"
     },
     "es": {
         "diag_title": "Panel de diagnóstico de caltib",
@@ -1464,7 +1497,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(Sigma)",
         "diag_stat_mean": "Media",
         "diag_stat_median": "Mediana",
-        "diag_stat_std": "Desv. Est."
+        "diag_stat_std": "Desv. Est.",
+        "diag_group_grid": "Asignaciones de cuadrícula",
+        "diag_group_ephem": "Comparaciones de efemérides",
+        "diag_group_core": "Diagnósticos principales"
     },
     "hi": {
         "diag_title": "caltib डायग्नोस्टिक्स डैशबोर्ड",
@@ -1531,7 +1567,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(सिग्मा)",
         "diag_stat_mean": "माध्य",
         "diag_stat_median": "माध्यिका",
-        "diag_stat_std": "मानक विचलन"
+        "diag_stat_std": "मानक विचलन",
+        "diag_group_grid": "ग्रिड असाइनमेंट",
+        "diag_group_ephem": "पंचांग तुलना",
+        "diag_group_core": "मूल निदान"
     },
     "ar": {
         "diag_title": "لوحة معلومات تشخيص caltib",
@@ -1598,7 +1637,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(سيغما)",
         "diag_stat_mean": "المتوسط",
         "diag_stat_median": "الوسيط",
-        "diag_stat_std": "الانحراف المعياري"
+        "diag_stat_std": "الانحراف المعياري",
+        "diag_group_grid": "تعيينات الشبكة",
+        "diag_group_ephem": "مقارنات التقويم الفلكي",
+        "diag_group_core": "التشخيصات الأساسية"
     },
     "tr": {
         "diag_title": "caltib Teşhis Panosu",
@@ -1665,7 +1707,10 @@ DIAG_TRANSLATIONS = {
         "diag_legend_sigma_suffix": "(Sigma)",
         "diag_stat_mean": "Ortalama",
         "diag_stat_median": "Medyan",
-        "diag_stat_std": "Standart Sapma"
+        "diag_stat_std": "Standart Sapma",
+        "diag_group_grid": "Izgara Atamaları",
+        "diag_group_ephem": "Efemeris Karşılaştırmaları",
+        "diag_group_core": "Temel Teşhisler"
     }
 }
 

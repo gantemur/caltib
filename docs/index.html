@@ -13,12 +13,13 @@
             <div class="logo">caltib</div>
             <nav>
                 <a href="index.html" style="font-weight: bold; color: var(--text-main);">Home</a>
-                <a href="traditions.html">Traditions & Drift</a>
-                <a href="reforms.html">The Reforms</a>
+                <a href="traditions.html">Traditions</a>
+                <a href="reforms.html">Reforms</a>
                 <a href="library.html">Architecture</a>
-                <a href="tools.html">Design & Diagnostics</a>
+                <a href="tools.html">Design Lab</a>
                 <a href="api.html">API</a>
                 <a href="app.html" style="color: var(--primary-color); font-weight: bold;">Web App</a>
+                <a href="diag.html" style="color: #64748b; font-weight: bold;">Web Diag</a>
             </nav>
         </div>
     </header>
@@ -30,15 +31,32 @@
                 <p class="subtitle" style="font-size: 1.25rem; max-width: 850px; margin: 0 auto 40px auto; color: var(--text-muted); line-height: 1.7;">
                     A rigorous Python library that unifies 15th-century historical algorithms with modern astrophysics. <code>caltib</code> spans pure-integer arithmetic, continuous rational-fraction kinematics, strictly reproducible float-day models, and JPL numerical integrations under a single, elegant API.
                 </p>
-                <div class="cta-group" style="display: flex; justify-content: center; gap: 20px; align-items: center; flex-wrap: wrap;">
-                    <a href="app.html" class="btn btn-primary" style="font-size: 1.2rem; padding: 15px 35px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);">Launch Live Web Calendar &rarr;</a>
-                    <a href="api.html" class="btn btn-outline" style="font-size: 1.1rem; padding: 15px 30px;">Read the Docs</a>
-                    <a href="https://github.com/gantemur/caltib" class="btn btn-outline" style="font-size: 1.1rem; padding: 15px 30px;">GitHub</a>
+                <div class="cta-group" style="display: flex; justify-content: center; gap: 15px; align-items: center; flex-wrap: wrap;">
+                    <a href="app.html" class="btn btn-primary" style="font-size: 1.1rem; padding: 12px 25px;">Live Calendar &rarr;</a>
+                    <a href="diag.html" class="btn btn-gray" style="font-size: 1.1rem; padding: 12px 25px;">Diagnostic Dashboard &rarr;</a>
+                    <a href="api.html" class="btn btn-outline" style="font-size: 1.1rem; padding: 12px 25px;">Read the Docs</a>
+                    <a href="https://github.com/gantemur/caltib" class="btn btn-outline" style="font-size: 1.1rem; padding: 12px 25px;">GitHub</a>
                 </div>
             </div>
         </section>
 
-        <section class="features container" style="margin-top: 60px;">
+        <section class="container" style="margin-top: -30px; position: relative; z-index: 10;">
+            <div class="app-showcase">
+                <a href="app.html" class="app-card">
+                    <span class="app-icon">📅</span>
+                    <h3>Interactive Web Calendar</h3>
+                    <p>A fully localized, universal civil calendar generator. Explore localized Tithi generation across multiple historical and modern reform engines instantly in your browser.</p>
+                </a>
+                
+                <a href="diag.html" class="app-card">
+                    <span class="app-icon">📈</span>
+                    <h3>Diagnostic Dashboard</h3>
+                    <p>A deep-time analytical laboratory. Plot secular drift, evaluate continuous solar kinematics, and visually map mathematical variance across millennia.</p>
+                </a>
+            </div>
+        </section>
+
+        <section class="features container">
             <div class="feature-card">
                 <h3>Historical Fidelity</h3>
                 <p>Exact implementations of the Phugpa, Tsurphu, Bhutan, Mongol, and Karana traditions. Faithfully reproduces regional intercalations and historical epoch constants.</p>

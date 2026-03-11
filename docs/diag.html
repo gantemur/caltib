@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>caltib Diagnostics</title>
     
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="diag.css">
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
 </head>
 <body>
 
-    <h2 id="page-title" data-i18n="diag_title">caltib Diagnostics Dashboard</h2>
-    
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; background-color: white; border-bottom: 1px solid #e2e8f0; margin-bottom: 15px;">
+        <h2 id="page-title" data-i18n="diag_title" style="margin: 0; font-size: 1.5rem; color: #1e293b;">caltib Diagnostics Dashboard</h2>
+        <nav><a href="index.html">&larr; Back to Docs</a></nav>
+    </header>
+
     <button id="mobile-toggle" onclick="toggleControls()">⚙️ Controls</button>
 
     <div id="control-panel" class="controls">
@@ -22,31 +26,42 @@
             <select id="lang-select" onchange="applyTranslations()">
                 <option value="en" selected>English</option>
                 <option value="bo">བོད་ཡིག (Tibetan)</option>
+                <option value="dz">རྫོང་ཁ (Dzongkha)</option>
                 <option value="mn">Монгол (Mongolian)</option>
-                <option value="zh">中文 (Chinese)</option>
                 <option value="ru">Русский (Russian)</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+                <option value="zh">中文 (Chinese)</option>
                 <option value="ja">日本語 (Japanese)</option>
                 <option value="ko">한국어 (Korean)</option>
+                <option value="tr">Türkçe (Turkish)</option>
+                <option value="nl">Nederlands (Dutch)</option>
+                <option value="de">Deutsch (German)</option>
                 <option value="fr">Français (French)</option>
                 <option value="es">Español (Spanish)</option>
-                <option value="de">Deutsch (German)</option>
+                <option value="ar">العربية (Arabic)</option>
             </select>
         </div>
 
         <div class="control-group">
             <label id="lbl-tool" data-i18n="diag_tool">Tool</label>
             <select id="tool-select" onchange="updateInputModes()">
-                <option value="anomaly" id="opt-anomaly" data-i18n="diag_tool_anomaly">Angular Anomaly (Proxy)</option>
-                <option value="anomaly_forward" id="opt-anomaly-fwd" data-i18n="diag_tool_anomaly_forward">Forward Kinematic Anomaly</option>
-                <option value="anomaly_sun" id="opt-anomaly-sun" data-i18n="diag_tool_anomaly_sun">Solar Equation of Center</option>
-                <option value="solar_lon" id="opt-solar" data-i18n="diag_tool_solar">Solar Longitude Error</option>
-                <option value="planets" id="opt-planets" data-i18n="diag_tool_planets">Planetary Longitude</option>
-                <option value="assign_month" id="opt-month" data-i18n="diag_tool_month">Assign Month (Sgang)</option>
-                <option value="assign_day" id="opt-day" data-i18n="diag_tool_day">Assign Day (Tithi)</option>
-                <option value="losar_scatter" id="opt-scatter" data-i18n="diag_tool_scatter">Losar / Tsagaan Sar Scatter</option>
-                <option value="offsets" id="opt-offsets" data-i18n="diag_tool_offsets">Physical Offsets (Histogram)</option>
-                <option value="drift" id="opt-drift" data-i18n="diag_tool_drift">Long-term Drift (Quadratic)</option>
-                <option value="multi_drift" id="opt-multi-drift" data-i18n="diag_tool_multi_drift">Compare Drifts & Spread</option>
+                <optgroup label="Grid Assignments" data-i18n="diag_group_grid">
+                    <option value="losar_scatter" id="opt-scatter" data-i18n="diag_tool_scatter">Losar / Tsagaan Sar Scatter</option>
+                    <option value="assign_month" id="opt-month" data-i18n="diag_tool_month">Assign Month (Sgang)</option>
+                    <option value="assign_day" id="opt-day" data-i18n="diag_tool_day">Assign Day (Tithi)</option>
+                </optgroup>
+                <optgroup label="Ephemeris Comparisons" data-i18n="diag_group_ephem">
+                    <option value="anomaly" id="opt-anomaly" data-i18n="diag_tool_anomaly">Elongation Anomaly</option>
+                    <option value="solar_lon" id="opt-solar" data-i18n="diag_tool_solar">Solar Longitude Error</option>
+                    <option value="anomaly_sun" id="opt-anomaly-sun" data-i18n="diag_tool_anomaly_sun">Solar Equation of Center</option>
+                    <option value="planets" id="opt-planets" data-i18n="diag_tool_planets">Planetary Longitude</option>
+                    <option value="anomaly_forward" id="opt-anomaly-fwd" data-i18n="diag_tool_anomaly_forward">Forward Kinematic Anomaly</option>
+                </optgroup>
+                <optgroup label="Core Diagnostics" data-i18n="diag_group_core">
+                    <option value="offsets" id="opt-offsets" data-i18n="diag_tool_offsets">Physical Offsets (Histogram)</option>
+                    <option value="drift" id="opt-drift" data-i18n="diag_tool_drift">Long-term Drift (Quadratic)</option>
+                    <option value="multi_drift" id="opt-multi-drift" data-i18n="diag_tool_multi_drift">Compare Drifts & Spread</option>
+                </optgroup>
             </select>
         </div>
 
@@ -188,9 +203,17 @@
 
     <div id="chart-container"></div>
 
+    <div style="text-align: center; padding: 40px 20px 20px 20px; font-size: 0.85rem; color: #64748b;">
+        Powered by <strong><a href="https://gantemur.github.io/caltib/" target="_blank" style="color: #2563eb; text-decoration: none; font-weight: bold;">caltib</a></strong> &mdash; Designed by Gantumur
+    </div>
+
     <script>
         let pyodide;
         let translations = {};
+
+        let globalRawJson = null;
+        let globalTool = null;
+        let globalOpt1 = null;
 
         const baseEngines = [
             {v: "phugpa", t: "PH"}, {v: "tsurphu", t: "TS"}, {v: "mongol", t: "MN"},
@@ -221,18 +244,21 @@
             let selSingle = document.getElementById('single-engine');
             let valSingle = selSingle.value;
             selSingle.innerHTML = options.map(o => `<option value="${o.v}">${o.t}</option>`).join('');
+            
+            // <-- CHANGE DEFAULT SINGLE ENGINE HERE (was 'l4')
             if (valSingle && options.some(o => o.v === valSingle)) selSingle.value = valSingle;
-            else selSingle.value = 'l4';
+            else selSingle.value = 'phugpa'; 
 
             for (let i = 1; i <= 4; i++) {
                 let selMulti = document.getElementById(`multi-eng-${i}`);
                 let valMulti = selMulti.value;
                 
+                // <-- CHANGE DEFAULT MULTI ENGINES HERE
                 if (!valMulti) {
                     if (i===1) valMulti = 'mongol';
                     else if (i===2) valMulti = 'phugpa';
-                    else if (i===3) valMulti = 'none';
-                    else if (i===4) valMulti = 'l4';
+                    else if (i===3) valMulti = 'bhutan'; 
+                    else if (i===4) valMulti = 'none';   
                 }
                 
                 let html = `<option value="none">--</option>`;
@@ -248,7 +274,7 @@
         }
 
         function initDefaults() {
-            renderEngineDropdowns('anomaly'); 
+            renderEngineDropdowns(document.getElementById('tool-select').value); 
             
             const today = new Date();
             const exactStart = new Date(today);
@@ -265,7 +291,8 @@
             document.getElementById('month-start').value = monthStart.toISOString().slice(0, 7);
             document.getElementById('month-end').value = monthEnd.toISOString().slice(0, 7);
 
-            document.getElementById('year-start').value = 1500;
+            // <-- CHANGE DEFAULT YEAR RANGE HERE (was 1500 to 2100)
+            document.getElementById('year-start').value = 1800; 
             document.getElementById('year-end').value = 2100;
         }
         initDefaults();
@@ -424,6 +451,122 @@
             const panel = document.getElementById('control-panel');
             panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'flex' : 'none';
         }
+        
+        function drawTranslatedPlot() {
+            if (!globalRawJson) return; // Don't draw if Python hasn't calculated anything yet
+            
+            const lang = document.getElementById("lang-select").value;
+            const dict = translations[lang] || translations['en'];
+            const tool = globalTool;
+            const opt1 = globalOpt1;
+
+            // Deep clone the raw data so we don't permanently overwrite English traces!
+            const plotData = JSON.parse(globalRawJson);
+            
+            let titleStr = "Plot";
+            if (tool === "anomaly") titleStr = dict["diag_tool_anomaly"] || "Angular Anomaly (Proxy)";
+            if (tool === "anomaly_forward") titleStr = dict["diag_tool_anomaly_forward"] || "Forward Kinematic Anomaly";
+            if (tool === "anomaly_sun") titleStr = dict["diag_tool_anomaly_sun"] || "Solar Equation of Center";
+            if (tool === "solar_lon") titleStr = dict["diag_tool_solar"] || "Solar Longitude Error";
+            if (tool === "planets") titleStr = dict["diag_tool_planets"] || "Planetary Longitude";
+            if (tool === "assign_month") titleStr = dict["diag_tool_month"] || "Assign Month (Sgang)";
+            if (tool === "assign_day") titleStr = dict["diag_tool_day"] || "Assign Day (Tithi)";
+            if (tool === "losar_scatter") titleStr = dict["diag_tool_scatter"] || "Losar / Tsagaan Sar Scatter";
+            if (tool === "offsets") titleStr = dict["diag_tool_offsets"] || "Physical Offsets";
+            if (tool === "drift") titleStr = dict["diag_tool_drift"] || "Long-term Drift (Quadratic)";
+            if (tool === "multi_drift") titleStr = dict["diag_tool_multi_drift"] || "Compare Drifts & Spread";
+
+            let layout = {
+                title: titleStr,
+                xaxis: { title: dict["date_col"] || "Date", showgrid: false },
+                yaxis: { title: titleStr, automargin: true },
+                hovermode: "closest",
+                margin: { t: 50, b: 50, l: 80, r: 60 }
+            };
+
+            // Merge Python Extras
+            if (plotData.layout_extras) {
+                if (plotData.layout_extras.shapes) layout.shapes = plotData.layout_extras.shapes;
+                if (plotData.layout_extras.annotations) layout.annotations = plotData.layout_extras.annotations;
+                if (plotData.layout_extras.yaxis) layout.yaxis = Object.assign(layout.yaxis, plotData.layout_extras.yaxis);
+                if (plotData.layout_extras.yaxis2) layout.yaxis2 = Object.assign({}, plotData.layout_extras.yaxis2);
+                if (plotData.layout_extras.xaxis) layout.xaxis = Object.assign(layout.xaxis, plotData.layout_extras.xaxis);
+            }
+
+            // Translate Axes
+            if (tool === "assign_month") {
+                layout.yaxis.title = dict["diag_yaxis_solar_lon"] || "Solar Longitude";
+            } else if (tool === "assign_day") {
+                layout.yaxis.title = dict["diag_yaxis_lunar_phase"] || "Lunar Phase (Tithi)";
+            } else if (tool === "losar_scatter") {
+                layout.yaxis.title = opt1 === "doy" ? (dict["diag_metric_doy"] || "Day of Year") : (dict["diag_metric_solstice"] || "Days since Dec 22");
+                layout.xaxis.title = dict["greg_year"] || "Gregorian Year";
+            } else if (tool === "solar_lon") {
+                layout.yaxis.title = dict["diag_yaxis_solar_error"] || "Error (Degrees)";
+            } else if (tool.startsWith("anomaly")) {
+                layout.yaxis.title = dict["diag_yaxis_anomaly"] || "Anomaly (Degrees)";
+            } else if (tool === "offsets") {
+                layout.xaxis.title = dict["diag_yaxis_offset_hours"] || "Offset (hours)";
+                layout.yaxis.title = dict["diag_yaxis_count"] || "Count";
+            } else if (tool === "drift") {
+                layout.xaxis.title = dict["diag_xaxis_lunar_year"] || "Lunar Year Coordinate";
+                layout.yaxis.title = dict["diag_yaxis_offset_hours"] || "Offset (hours)";
+            } else if (tool === "multi_drift") {
+                layout.xaxis.title = dict["diag_xaxis_lunar_year"] || "Lunar Year Coordinate";
+                layout.yaxis.title = dict["diag_yaxis_mean_drift"] || "Mean Offset Drift (hours)";
+                if (layout.yaxis2) layout.yaxis2.title = dict["diag_yaxis_spread"] || "Spread / Sigma (hours)";
+            } else if (tool === "planets") {
+                layout.xaxis.title = dict["greg_year"] || "Gregorian Year";
+                layout.yaxis.title = dict["diag_yaxis_solar_error"] || "Error (Degrees)";
+            }
+
+            // Format Ticks
+            if (tool === "assign_month") {
+                layout.xaxis.tickformat = '%Y/%m'; 
+                layout.xaxis.hoverformat = '%Y/%m';
+            } else if (tool === "losar_scatter" || tool === "offsets" || tool === "drift" || tool === "multi_drift" || tool === "planets") {
+                layout.xaxis.tickformat = 'd'; 
+                layout.xaxis.showgrid = true;
+            } else if (tool === "solar_lon" || tool.startsWith("anomaly")) {
+                layout.xaxis.tickformat = ''; 
+                layout.xaxis.hoverformat = '%Y-%m-%d';
+            } else {
+                layout.xaxis.tickformat = '%m/%d'; 
+                layout.xaxis.hoverformat = '%Y-%m-%d';
+            }
+
+            // Translate Legends
+            plotData.traces.forEach(trace => {
+                if (trace.name === "Mean Drift Fit") {
+                    trace.name = dict["diag_legend_mean_drift"] || "Mean Drift Fit";
+                } else if (trace.name && trace.name.includes("Spread")) {
+                    trace.name = dict["diag_legend_spread"] || "±1σ Spread";
+                } else if (trace.name && trace.name.includes("(Drift)")) {
+                    trace.name = trace.name.replace("(Drift)", dict["diag_legend_drift_suffix"] || "(Drift)");
+                } else if (trace.name && trace.name.includes("(Sigma)")) {
+                    trace.name = trace.name.replace("(Sigma)", dict["diag_legend_sigma_suffix"] || "(Sigma)");
+                }
+            });
+
+            // Translate Annotation Boxes
+            if (layout.annotations) {
+                layout.annotations.forEach(ann => {
+                    if (ann.text && ann.text.includes("<b>Mean:</b>")) {
+                        ann.text = ann.text
+                            .replace("<b>Mean:</b>", `<b>${dict["diag_stat_mean"] || "Mean"}:</b>`)
+                            .replace("<b>Median:</b>", `<b>${dict["diag_stat_median"] || "Median"}:</b>`)
+                            .replace("<b>Std Dev:</b>", `<b>${dict["diag_stat_std"] || "Std Dev"}:</b>`);
+                    }
+                });
+            }
+            
+            if (window.innerWidth <= 768) {
+                layout.legend = { orientation: "h", y: -0.2 };
+            }
+            
+            // Plotly.react is highly optimized for updating existing plots!
+            Plotly.react('chart-container', plotData.traces, layout, {responsive: true});
+        }
 
         function applyTranslations() {
             const lang = document.getElementById('lang-select').value;
@@ -440,13 +583,21 @@
                 "diag_offset_newmoon", "diag_offset_tithi", "diag_drift_delta_t", "diag_planet", 
                 "diag_planet_sun", "diag_planet_mercury", "diag_planet_venus", "diag_planet_mars", 
                 "diag_planet_jupiter", "diag_planet_saturn", "diag_planet_rahu", "diag_planet_mode", 
-                "diag_planet_tropical", "diag_planet_sidereal", "diag_planet_detrended", "diag_planet_zero"
+                "diag_planet_tropical", "diag_planet_sidereal", "diag_planet_detrended", "diag_planet_zero",
+                "diag_group_grid", "diag_group_ephem", "diag_group_core" // <-- The 3 new keys
             ];
             
             keys.forEach(k => {
                 const els = document.querySelectorAll(`[data-i18n="${k}"]`);
                 els.forEach(el => {
-                    if (dict[k]) { el.innerText = dict[k]; }
+                    if (dict[k]) { 
+                        // HTML <optgroup> elements require the "label" attribute to be set
+                        if (el.tagName === 'OPTGROUP') {
+                            el.label = dict[k];
+                        } else {
+                            el.innerText = dict[k]; 
+                        }
+                    }
                 });
             });
 
@@ -454,10 +605,15 @@
             if (!btn.disabled) {
                 btn.innerText = dict["diag_btn_update"] || "Update Plot";
             }
-        }
-        
-        function handleLangChange() {
-            applyTranslations();
+
+            const statusEl = document.getElementById("status");
+            if (statusEl.dataset.state === "updated") {
+                statusEl.innerText = dict["diag_status_updated"] || "Plot updated.";
+            } else if (statusEl.dataset.state === "ready") {
+                statusEl.innerText = dict["diag_status_ready"] || "Ready.";
+            }
+
+            drawTranslatedPlot();
         }
 
         async function initPyodide() {
@@ -466,7 +622,7 @@
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 
-                await micropip.install(["./caltib-0.1.0-py3-none-any.whl?v=" + new Date().getTime()]);
+                await micropip.install(["./caltib-0.1.0-py3-none-any.whl"]);
 
                 const transJson = pyodide.runPython(`
 import json
@@ -477,6 +633,7 @@ json.dumps(TRANSLATIONS)
                 
                 const lang = document.getElementById('lang-select').value;
                 const dict = translations[lang] || translations['en'];
+                document.getElementById("status").dataset.state = "ready";
                 document.getElementById("status").innerText = dict["diag_status_ready"] || "Ready.";
                 
                 const plotBtn = document.getElementById("plot-btn");
@@ -560,131 +717,23 @@ json.dumps(TRANSLATIONS)
             }
 
             try {
-                const rawJson = pyodide.runPython(`
+                // Save the raw JSON string globally
+                globalRawJson = pyodide.runPython(`
 from caltib.web_diag.api import handle_request
 handle_request('${tool}', '${engineStr}', '${start}', '${end}', ${lat}, ${lon}, '${opt1}', '${opt2}', '${opt3}')
                 `);
                 
-                const plotData = JSON.parse(rawJson);
+                // Save state globally so the translator knows how to redraw it
+                globalTool = tool;
+                globalOpt1 = opt1;
                 
-                let titleStr = "Plot";
-                if (tool === "anomaly") titleStr = dict["diag_tool_anomaly"] || "Angular Anomaly (Proxy)";
-                if (tool === "anomaly_forward") titleStr = dict["diag_tool_anomaly_forward"] || "Forward Kinematic Anomaly";
-                if (tool === "anomaly_sun") titleStr = dict["diag_tool_anomaly_sun"] || "Solar Equation of Center";
-                if (tool === "solar_lon") titleStr = dict["diag_tool_solar"] || "Solar Longitude Error";
-                if (tool === "planets") titleStr = dict["diag_tool_planets"] || "Planetary Longitude";
-                if (tool === "assign_month") titleStr = dict["diag_tool_month"] || "Assign Month (Sgang)";
-                if (tool === "assign_day") titleStr = dict["diag_tool_day"] || "Assign Day (Tithi)";
-                if (tool === "losar_scatter") titleStr = dict["diag_tool_scatter"] || "Losar / Tsagaan Sar Scatter";
-                if (tool === "offsets") titleStr = dict["diag_tool_offsets"] || "Physical Offsets";
-                if (tool === "drift") titleStr = dict["diag_tool_drift"] || "Long-term Drift (Quadratic)";
-                if (tool === "multi_drift") titleStr = dict["diag_tool_multi_drift"] || "Compare Drifts & Spread";
-
-                let layout = {
-                    title: titleStr,
-                    xaxis: { 
-                        title: dict["date_col"] || "Date",
-                        showgrid: false
-                    },
-                    yaxis: { 
-                        title: titleStr,
-                        automargin: true 
-                    },
-                    hovermode: "closest",
-                    margin: { t: 50, b: 50, l: 80, r: 60 }
-                };
-
-                // === 1. MERGE PYTHON LAYOUT EXTRAS FIRST ===
-                if (plotData.layout_extras) {
-                    if (plotData.layout_extras.shapes) layout.shapes = plotData.layout_extras.shapes;
-                    if (plotData.layout_extras.annotations) layout.annotations = plotData.layout_extras.annotations;
-                    if (plotData.layout_extras.yaxis) {
-                        layout.yaxis = Object.assign(layout.yaxis, plotData.layout_extras.yaxis);
-                    }
-                    if (plotData.layout_extras.yaxis2) {
-                        layout.yaxis2 = Object.assign({}, plotData.layout_extras.yaxis2);
-                    }
-                    if (plotData.layout_extras.xaxis) {
-                        layout.xaxis = Object.assign(layout.xaxis, plotData.layout_extras.xaxis);
-                    }
-                }
-
-                // === 2. TRANSLATE AXES (OVERWRITING PYTHON'S ENGLISH DEFAULTS) ===
-                if (tool === "assign_month") {
-                    layout.yaxis.title = dict["diag_yaxis_solar_lon"] || "Solar Longitude";
-                } else if (tool === "assign_day") {
-                    layout.yaxis.title = dict["diag_yaxis_lunar_phase"] || "Lunar Phase (Tithi)";
-                } else if (tool === "losar_scatter") {
-                    layout.yaxis.title = opt1 === "doy" ? (dict["diag_metric_doy"] || "Day of Year") : (dict["diag_metric_solstice"] || "Days since Dec 22");
-                    layout.xaxis.title = dict["greg_year"] || "Gregorian Year";
-                } else if (tool === "solar_lon") {
-                    layout.yaxis.title = dict["diag_yaxis_solar_error"] || "Error (Degrees)";
-                } else if (tool.startsWith("anomaly")) {
-                    layout.yaxis.title = dict["diag_yaxis_anomaly"] || "Anomaly (Degrees)";
-                } else if (tool === "offsets") {
-                    layout.xaxis.title = dict["diag_yaxis_offset_hours"] || "Offset (hours)";
-                    layout.yaxis.title = dict["diag_yaxis_count"] || "Count";
-                } else if (tool === "drift") {
-                    layout.xaxis.title = dict["diag_xaxis_lunar_year"] || "Lunar Year Coordinate";
-                    layout.yaxis.title = dict["diag_yaxis_offset_hours"] || "Offset (hours)";
-                } else if (tool === "multi_drift") {
-                    layout.xaxis.title = dict["diag_xaxis_lunar_year"] || "Lunar Year Coordinate";
-                    layout.yaxis.title = dict["diag_yaxis_mean_drift"] || "Mean Offset Drift (hours)";
-                    if (layout.yaxis2) {
-                        layout.yaxis2.title = dict["diag_yaxis_spread"] || "Spread / Sigma (hours)";
-                    }
-                } else if (tool === "planets") {
-                    layout.xaxis.title = dict["greg_year"] || "Gregorian Year";
-                    layout.yaxis.title = dict["diag_yaxis_solar_error"] || "Error (Degrees)";
-                }
-
-                // === 3. FORMAT AXES TICKS ===
-                if (tool === "assign_month") {
-                    layout.xaxis.tickformat = '%Y/%m'; 
-                    layout.xaxis.hoverformat = '%Y/%m';
-                } else if (tool === "losar_scatter" || tool === "offsets" || tool === "drift" || tool === "multi_drift" || tool === "planets") {
-                    layout.xaxis.tickformat = 'd'; 
-                    layout.xaxis.showgrid = true;
-                } else if (tool === "solar_lon" || tool.startsWith("anomaly")) {
-                    layout.xaxis.tickformat = ''; 
-                    layout.xaxis.hoverformat = '%Y-%m-%d';
-                } else {
-                    layout.xaxis.tickformat = '%m/%d'; 
-                    layout.xaxis.hoverformat = '%Y-%m-%d';
-                }
-
-                // === 4. TRANSLATE LEGENDS ===
-                plotData.traces.forEach(trace => {
-                    if (trace.name === "Mean Drift Fit") {
-                        trace.name = dict["diag_legend_mean_drift"] || "Mean Drift Fit";
-                    } else if (trace.name && trace.name.includes("Spread")) {
-                        trace.name = dict["diag_legend_spread"] || "±1σ Spread";
-                    } else if (trace.name && trace.name.includes("(Drift)")) {
-                        trace.name = trace.name.replace("(Drift)", dict["diag_legend_drift_suffix"] || "(Drift)");
-                    } else if (trace.name && trace.name.includes("(Sigma)")) {
-                        trace.name = trace.name.replace("(Sigma)", dict["diag_legend_sigma_suffix"] || "(Sigma)");
-                    }
-                });
-
-                // === 5. TRANSLATE ANNOTATION BOXES ===
-                if (layout.annotations) {
-                    layout.annotations.forEach(ann => {
-                        if (ann.text && ann.text.includes("<b>Mean:</b>")) {
-                            ann.text = ann.text
-                                .replace("<b>Mean:</b>", `<b>${dict["diag_stat_mean"] || "Mean"}:</b>`)
-                                .replace("<b>Median:</b>", `<b>${dict["diag_stat_median"] || "Median"}:</b>`)
-                                .replace("<b>Std Dev:</b>", `<b>${dict["diag_stat_std"] || "Std Dev"}:</b>`);
-                        }
-                    });
-                }
+                // Call our new drawing function
+                drawTranslatedPlot();
                 
-                if (window.innerWidth <= 768) {
-                    layout.legend = { orientation: "h", y: -0.2 };
-                }
-                
-                Plotly.newPlot('chart-container', plotData.traces, layout, {responsive: true});
-                
+                // Tag the status so the translator knows it's finished
+                status.dataset.state = "updated";
                 status.innerText = dict["diag_status_updated"] || "Plot updated.";
+                
                 if (window.innerWidth <= 768) {
                     document.getElementById('control-panel').style.display = 'none';
                 }
