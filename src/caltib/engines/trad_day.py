@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Optional, Tuple
 
-from caltib.core.types import LocationSpec
+from caltib.core.types import LocationSpec, SunriseState
 from caltib.engines.interfaces import DayEngineProtocol, NumT
-from caltib.engines.astro.sin_tables import OddPeriodicTable
+from caltib.engines.astro.tables import QuarterWaveTable
 from caltib.engines.astro.affine_series import PhaseDN, TabTermDN, AffineTabSeriesDN
 
 JD_J2000 = Fraction(2451545, 1)
@@ -87,8 +87,8 @@ class TraditionalDayEngine(DayEngineProtocol):
     def __init__(self, p: TraditionalDayParams):
         self.p = p
 
-        self.moon_table = OddPeriodicTable(quarter=p.moon_tab_quarter)
-        self.sun_table = OddPeriodicTable(quarter=p.sun_tab_quarter)
+        self.moon_table = QuarterWaveTable(quarter=p.moon_tab_quarter)
+        self.sun_table = QuarterWaveTable(quarter=p.sun_tab_quarter)
 
         # Build phases (turns) using the decoupled anomalies
         self.phase_moon = PhaseDN(p.a0, p.a1, p.a2)
@@ -242,3 +242,15 @@ class TraditionalDayEngine(DayEngineProtocol):
     def true_moon_tt(self, t2000: NumT) -> Fraction:
         """Rough true moon in turns at time t2000 (Elongation + Sun)."""
         return self.true_elong_tt(t2000) + self.true_sun_tt(t2000)
+
+    def eval_sunrise_lmt(self, t2000_tt: NumT) -> Tuple[Fraction, SunriseState]:
+        """
+        Debug/Validation Wrapper: Traditional/Arithmetic models use a constant 
+        equinoctial dawn, completely ignoring seasonal daylight variance.
+        """
+        from fractions import Fraction
+        from caltib.core.types import SunriseState
+        
+        # Always 6:00 AM LMT, and always a "normal" sunrise
+        return Fraction(1, 4), SunriseState.NORMAL
+    

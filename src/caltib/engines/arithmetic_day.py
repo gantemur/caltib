@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fractions import Fraction
+from typing import Tuple
 
-from caltib.core.types import LocationSpec
+from caltib.core.types import LocationSpec, SunriseState
 from caltib.engines.interfaces import DayEngineProtocol, NumT
 
 
@@ -186,3 +187,14 @@ class ArithmeticDayEngine(DayEngineProtocol):
     def true_moon_tt(self, t2000: NumT) -> Fraction:
         """True moon. (True = Mean for pure arithmetic engines)."""
         return self.mean_moon_tt(t2000)
+
+    def eval_sunrise_lmt(self, t2000_tt: NumT) -> Tuple[Fraction, SunriseState]:
+        """
+        Debug/Validation Wrapper: Traditional/Arithmetic models use a constant 
+        equinoctial dawn, completely ignoring seasonal daylight variance.
+        """
+        from fractions import Fraction
+        from caltib.core.types import SunriseState
+        
+        # Always 6:00 AM LMT, and always a "normal" sunrise
+        return Fraction(1, 4), SunriseState.NORMAL

@@ -730,7 +730,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Std Dev",        
         "diag_group_grid": "Grid Assignments",
         "diag_group_ephem": "Ephemeris Comparisons",
-        "diag_group_core": "Core Diagnostics"
+        "diag_group_core": "Core Diagnostics",
+        "diag_tool_sunrise": "Sunrise Error",
+        "diag_title_sunrise": "Sunrise Error vs Reference",
+        "diag_yaxis_error_mins": "Error (Minutes)",
     },
     "bo": {
         "diag_title": "བརྟག་དཔྱད་ལྟེ་གནས།",
@@ -800,7 +803,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "ཚད་ལྡན་ཧེ་བག",
         "diag_group_grid": "རེའུ་མིག་བཀོད་སྒྲིག",
         "diag_group_ephem": "ཟླ་ཐོ་བསྡུར་བ།",
-        "diag_group_core": "རྩ་བའི་བརྟག་དཔྱད།"
+        "diag_group_core": "རྩ་བའི་བརྟག་དཔྱད།",
+        "diag_tool_sunrise": "ཉི་ཤར་གྱི་ནོར་འཁྲུལ།",
+        "diag_title_sunrise": "ཉི་ཤར་གྱི་ནོར་འཁྲུལ་དང་ཚད་གཞིའི་བསྡུར་བ།",
+        "diag_yaxis_error_mins": "ནོར་འཁྲུལ། (སྐར་མ།)",
     },
     "mn": {
         "diag_title": "Оношилгооны самбар",
@@ -870,7 +876,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Стандарт хазайлт",
         "diag_group_grid": "Хүснэгтийн хуваарилалт",
         "diag_group_ephem": "Эфемеридийн харьцуулалт",
-        "diag_group_core": "Үндсэн оношилгоо"
+        "diag_group_core": "Үндсэн оношилгоо",
+        "diag_tool_sunrise": "Нар мандах алдаа",
+        "diag_title_sunrise": "Нар мандах алдаа ба жишиг",
+        "diag_yaxis_error_mins": "Алдаа (минут)",
     },
     "ru": {
         "diag_title": "Панель диагностики",
@@ -940,7 +949,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Ст. отклон.",
         "diag_group_grid": "Распределения по сетке",
         "diag_group_ephem": "Сравнения эфемерид",
-        "diag_group_core": "Основная диагностика"
+        "diag_group_core": "Основная диагностика",
+        "diag_tool_sunrise": "Ошибка восхода солнца",
+        "diag_title_sunrise": "Ошибка восхода солнца в сравнении с эталоном",
+        "diag_yaxis_error_mins": "Ошибка (минуты)",
     },
     "zh": {
         "diag_title": "诊断控制台",
@@ -1010,7 +1022,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "标准差",
         "diag_group_grid": "网格分配",
         "diag_group_ephem": "星历比较",
-        "diag_group_core": "核心诊断"
+        "diag_group_core": "核心诊断",
+        "diag_tool_sunrise": "日出误差",
+        "diag_title_sunrise": "日出误差与参考值对比",
+        "diag_yaxis_error_mins": "误差 (分钟)",
     },
     "dz": {
         "diag_title": "caltib བརྟག་དཔྱད་མ་ལག",
@@ -1080,7 +1095,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "ཚད་ལྡན་ཧེ་བག",
         "diag_group_grid": "རེའུ་མིག་བཀོད་སྒྲིག",
         "diag_group_ephem": "ཟླ་ཐོ་བསྡུར་བ།",
-        "diag_group_core": "རྩ་བའི་བརྟག་དཔྱད།"
+        "diag_group_core": "རྩ་བའི་བརྟག་དཔྱད།",
+        "diag_tool_sunrise": "ཉི་ཤར་གྱི་ནོར་འཁྲུལ།",
+        "diag_title_sunrise": "ཉི་ཤར་གྱི་ནོར་འཁྲུལ་དང་ཚད་གཞིའི་བསྡུར་བ།",
+        "diag_yaxis_error_mins": "ནོར་འཁྲུལ། (སྐར་མ།)",
     },
     "ja": {
         "diag_title": "caltib 診断ダッシュボード",
@@ -1150,7 +1168,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "標準偏差",
         "diag_group_grid": "グリッド割り当て",
         "diag_group_ephem": "天体暦の比較",
-        "diag_group_core": "コア診断"
+        "diag_group_core": "コア診断",
+        "diag_tool_sunrise": "日の出の誤差",
+        "diag_title_sunrise": "日の出の誤差 vs 基準値",
+        "diag_yaxis_error_mins": "誤差（分）",
     },
     "ko": {
         "diag_title": "caltib 진단 대시보드",
@@ -1220,7 +1241,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "표준편차",
         "diag_group_grid": "그리드 할당",
         "diag_group_ephem": "천체력 비교",
-        "diag_group_core": "핵심 진단"
+        "diag_group_core": "핵심 진단",
+        "diag_tool_sunrise": "일출 오차",
+        "diag_title_sunrise": "일출 오차 vs 기준",
+        "diag_yaxis_error_mins": "오차 (분)",
     },
     "de": {
         "diag_title": "caltib Diagnose-Dashboard",
@@ -1290,7 +1314,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Std-Abw",
         "diag_group_grid": "Rasterzuweisungen",
         "diag_group_ephem": "Ephemeriden-Vergleiche",
-        "diag_group_core": "Kern-Diagnostik"
+        "diag_group_core": "Kern-Diagnostik",
+        "diag_tool_sunrise": "Sonnenaufgangsfehler",
+        "diag_title_sunrise": "Sonnenaufgangsfehler vs. Referenz",
+        "diag_yaxis_error_mins": "Fehler (Minuten)",
     },
     "nl": {
         "diag_title": "caltib Diagnose Dashboard",
@@ -1360,7 +1387,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Standaardafw",
         "diag_group_grid": "Rastertoewijzingen",
         "diag_group_ephem": "Efehmeridenvergelijkingen",
-        "diag_group_core": "Kerndiagnostiek"
+        "diag_group_core": "Kerndiagnostiek",
+        "diag_tool_sunrise": "Zonsopgangfout",
+        "diag_title_sunrise": "Zonsopgangfout vs Referentie",
+        "diag_yaxis_error_mins": "Fout (minuten)",
     },
     "fr": {
         "diag_title": "Tableau de bord de diagnostic caltib",
@@ -1430,7 +1460,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Écart-type",
         "diag_group_grid": "Attributions de grille",
         "diag_group_ephem": "Comparaisons d'éphémérides",
-        "diag_group_core": "Diagnostics de base"
+        "diag_group_core": "Diagnostics de base",
+        "diag_tool_sunrise": "Erreur de lever du soleil",
+        "diag_title_sunrise": "Erreur de lever du soleil vs Référence",
+        "diag_yaxis_error_mins": "Erreur (Minutes)",
     },
     "es": {
         "diag_title": "Panel de diagnóstico de caltib",
@@ -1500,7 +1533,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Desv. Est.",
         "diag_group_grid": "Asignaciones de cuadrícula",
         "diag_group_ephem": "Comparaciones de efemérides",
-        "diag_group_core": "Diagnósticos principales"
+        "diag_group_core": "Diagnósticos principales",
+        "diag_tool_sunrise": "Error de amanecer",
+        "diag_title_sunrise": "Error de amanecer vs Referencia",
+        "diag_yaxis_error_mins": "Error (Minutos)",
     },
     "hi": {
         "diag_title": "caltib डायग्नोस्टिक्स डैशबोर्ड",
@@ -1570,7 +1606,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "मानक विचलन",
         "diag_group_grid": "ग्रिड असाइनमेंट",
         "diag_group_ephem": "पंचांग तुलना",
-        "diag_group_core": "मूल निदान"
+        "diag_group_core": "मूल निदान",
+        "diag_tool_sunrise": "सूर्योदय त्रुटि",
+        "diag_title_sunrise": "सूर्योदय त्रुटि बनाम संदर्भ",
+        "diag_yaxis_error_mins": "त्रुटि (मिनट)",
     },
     "ar": {
         "diag_title": "لوحة معلومات تشخيص caltib",
@@ -1640,7 +1679,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "الانحراف المعياري",
         "diag_group_grid": "تعيينات الشبكة",
         "diag_group_ephem": "مقارنات التقويم الفلكي",
-        "diag_group_core": "التشخيصات الأساسية"
+        "diag_group_core": "التشخيصات الأساسية",
+        "diag_tool_sunrise": "خطأ شروق الشمس",
+        "diag_title_sunrise": "خطأ شروق الشمس مقابل المرجع",
+        "diag_yaxis_error_mins": "خطأ (دقائق)",
     },
     "tr": {
         "diag_title": "caltib Teşhis Panosu",
@@ -1710,7 +1752,10 @@ DIAG_TRANSLATIONS = {
         "diag_stat_std": "Standart Sapma",
         "diag_group_grid": "Izgara Atamaları",
         "diag_group_ephem": "Efemeris Karşılaştırmaları",
-        "diag_group_core": "Temel Teşhisler"
+        "diag_group_core": "Temel Teşhisler",
+        "diag_tool_sunrise": "Gündoğumu Hatası",
+        "diag_title_sunrise": "Gündoğumu Hatası vs Referans",
+        "diag_yaxis_error_mins": "Hata (Dakika)",
     }
 }
 

@@ -236,6 +236,7 @@ def main(argv: list[str] | None = None) -> int:
             "anomaly-sun",
             "assign-day",
             "assign-month",
+            "compare-sunrise",
             "drift",
             "drift-quad",
             "equinox",
@@ -266,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("dyadic-params", help="Generate dyadic (power of 2) approximants for calendar design.")
     sub.add_parser("float-params", help="Generate full-precision hex-float parameters for calendar engine design.")
     sub.add_parser("sine-table", help="Generate integer tables for a quarter-period sine function.")
+    sub.add_parser("int-tables", help="Generate comprehensive integer tables (Sine, Arctan, Conjunction).")
     sub.add_parser("minimax", help="Compute minimax odd-polynomial approximations for sin and arctan.")
     sub.add_parser("pade-arctan", help="Compute minimax Padé approximant for arctan.")
     sub.add_parser("month-constants", help="Design tool for rational month constants.")
@@ -301,6 +303,7 @@ def main(argv: list[str] | None = None) -> int:
             "anomaly-sun": "caltib.diagnostics.anomaly_sun",
             "assign-day": "caltib.diagnostics.assign_day",
             "assign-month": "caltib.diagnostics.assign_month",
+            "compare-sunrise": "caltib.diagnostics.compare_sunrise",
             "drift": "caltib.diagnostics.drift",
             "drift-quad": "caltib.diagnostics.drift_quad",
             "equinox": "caltib.diagnostics.equinox",
@@ -337,6 +340,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "sine-table":
         return _run_module_main("caltib.design.sine_tables", rest)
+
+    if args.cmd == "int-tables":
+        return _run_module_main("caltib.design.int_tables", rest)
 
     if args.cmd == "minimax":
         return _run_module_main("caltib.design.minimax_polys", rest)

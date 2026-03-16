@@ -2,14 +2,32 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 from fractions import Fraction
+from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Tuple
-
 
 @dataclass(frozen=True)
 class EngineId:
     family: Literal["trad", "reform", "custom"]
     name: str
     version: str
+
+@dataclass(frozen=True)
+class LocationSpec:
+    name: str
+    lon_turn: Fraction
+    lat_turn: Optional[Fraction] = None
+    elev_m: Optional[Fraction] = None
+
+    def __str__(self) -> str:
+        """Allows CalendarEngine to answer 'what is your location?' cleanly."""
+        if self.lat_turn is None:
+            return f"{self.name} (Longitude: {float(self.lon_turn * 360):.2f}°E)"
+        return f"{self.name} (Lon: {float(self.lon_turn * 360):.2f}°E, Lat: {float(self.lat_turn * 360):.2f}°N)"
+
+class SunriseState(Enum):
+    NORMAL = "normal"
+    POLAR_DAY = "polar_day"      # Midnight sun (never sets)
+    POLAR_NIGHT = "polar_night"  # Sun never rises
 
 @dataclass(frozen=True)
 class TibetanDate:
@@ -83,19 +101,6 @@ class YearInfo:
     gregorian_end: Optional[date] = None
     months: List[MonthInfo] = field(default_factory=list) 
     attributes: Optional[Dict[str, Any]] = None  # <-- Year attributes live here!
-
-@dataclass(frozen=True)
-class LocationSpec:
-    name: str
-    lon_turn: Fraction
-    lat_turn: Optional[Fraction] = None
-    elev_m: Optional[Fraction] = None
-
-    def __str__(self) -> str:
-        """Allows CalendarEngine to answer 'what is your location?' cleanly."""
-        if self.lat_turn is None:
-            return f"{self.name} (Longitude: {float(self.lon_turn * 360):.2f}°E)"
-        return f"{self.name} (Lon: {float(self.lon_turn * 360):.2f}°E, Lat: {float(self.lat_turn * 360):.2f}°N)"
 
 @dataclass(frozen=True)
 class CalendarSpec:

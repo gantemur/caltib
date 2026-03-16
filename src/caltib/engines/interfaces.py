@@ -12,9 +12,9 @@ represent Days since J2000.0 TT (Terrestrial Time), where J2000.0 = JD 2451545.0
 from __future__ import annotations
 
 from fractions import Fraction
-from typing import Any, Dict, List, Protocol, Union
+from typing import Any, Dict, List, Protocol, Union, Tuple
 
-from caltib.core.types import LocationSpec
+from caltib.core.types import LocationSpec, SunriseState
 
 # A generic numeric type to support both exact Rational engines and Float engines
 NumT = Union[int, float, Fraction]
@@ -138,6 +138,13 @@ class DayEngineProtocol(Protocol):
         """
         Inverse kinematic lookup. Returns the active absolute tithi index (x) 
         that covers the given physical time (Days since J2000.0).
+        """
+        ...
+
+    def eval_sunrise_lmt(self, t2000_tt: NumT) -> Tuple[Fraction,SunriseState]:
+        """
+        Evaluates the exact LMT fraction of sunrise for the solar 
+        coordinates at the given continuous physical time (J2000 TT).
         """
         ...
 

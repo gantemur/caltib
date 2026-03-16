@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from datetime import date
 from fractions import Fraction
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
-from caltib.core.types import EngineId, DayInfo, TibetanDate, MonthInfo, TibetanMonth, YearInfo, TibetanYear, LocationSpec, CalendarSpec
+from caltib.core.types import EngineId, SunriseState, DayInfo, TibetanDate, MonthInfo, TibetanMonth, YearInfo, TibetanYear, LocationSpec, CalendarSpec
 from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol, AttributeEngineProtocol, PlanetsEngineProtocol, NumT
 
 # J2000.0 TT base for absolute Julian Day conversion
@@ -432,3 +432,8 @@ class CalendarEngine:
         if self.planets is None:
             return None
         return self.planets.longitudes(jd)
+
+    def eval_sunrise_lmt(self, t2000_tt: NumT) -> Tuple[Fraction, SunriseState]:
+        return self.day.eval_sunrise_lmt(t2000_tt)
+
+    

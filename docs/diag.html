@@ -53,8 +53,9 @@
                 <optgroup label="Ephemeris Comparisons" data-i18n="diag_group_ephem">
                     <option value="anomaly" id="opt-anomaly" data-i18n="diag_tool_anomaly">Elongation Anomaly</option>
                     <option value="solar_lon" id="opt-solar" data-i18n="diag_tool_solar">Solar Longitude Error</option>
-                    <option value="anomaly_sun" id="opt-anomaly-sun" data-i18n="diag_tool_anomaly_sun">Solar Equation of Center</option>
+                    <option value="sunrise" id="opt-sunrise" data-i18n="diag_tool_sunrise">Sunrise Error</option>
                     <option value="planets" id="opt-planets" data-i18n="diag_tool_planets">Planetary Longitude</option>
+                    <option value="anomaly_sun" id="opt-anomaly-sun" data-i18n="diag_tool_anomaly_sun">Solar Equation of Center</option>
                     <option value="anomaly_forward" id="opt-anomaly-fwd" data-i18n="diag_tool_anomaly_forward">Forward Kinematic Anomaly</option>
                 </optgroup>
                 <optgroup label="Core Diagnostics" data-i18n="diag_group_core">
@@ -192,6 +193,8 @@
             <div style="display: flex; gap: 5px;">
                 <button onclick="shiftWindow(-1)" title="Shift Left">◀</button>
                 <button onclick="shiftWindow(1)" title="Shift Right">▶</button>
+                <button onclick="zoomWindow(1)" title="Zoom In (Decrease Range)">+</button>
+                <button onclick="zoomWindow(-1)" title="Zoom Out (Increase Range)">-</button>
             </div>
         </div>
 
@@ -315,7 +318,7 @@
             const locGroup = document.getElementById('loc-group');
             const customLocGroup = document.getElementById('custom-loc-group');
             
-            if (hasReformed) {
+            if (hasReformed || tool === 'sunrise') {
                 locGroup.style.display = 'flex';
                 updateLocationMode();
             } else {
@@ -397,6 +400,9 @@
                 planetGroup.style.display = 'flex';
                 planetModeGroup.style.display = 'flex';
                 syncPlanetUI();
+            } else if (tool === 'sunrise') {          
+                multiGroup.style.display = 'flex';
+                exactDateGroup.style.display = 'flex';
             } else {
                 multiGroup.style.display = 'flex';
                 exactDateGroup.style.display = 'flex';
@@ -442,6 +448,48 @@
             updatePlot(); 
         }
 
+        function zoomWindow(direction) {
+            const tool = document.getElementById('tool-select').value;
+            // +1 (Zoom In) multiplies range by ~0.66, -1 (Zoom Out) multiplies by 1.5
+            const scale = direction > 0 ? (2.0 / 3.0) : 1.5; 
+
+            if (tool === 'losar_scatter' || tool === 'offsets' || tool === 'drift' || tool === 'multi_drift' || tool === 'planets') {
+                let startEl = document.getElementById("year-start");
+                let endEl = document.getElementById("year-end");
+                let y1 = parseInt(startEl.value);
+                let y2 = parseInt(endEl.value);
+                
+                let center = (y1 + y2) / 2.0;
+                let range = Math.max(1, y2 - y1); // Prevent range from collapsing to 0
+                let newRange = Math.max(1, Math.round(range * scale));
+                
+                startEl.value = Math.round(center - newRange / 2.0);
+                endEl.value = Math.round(center + newRange / 2.0);
+            } else {
+                let startEl = tool === 'assign_month' ? document.getElementById("month-start") : document.getElementById("date-start");
+                let endEl = tool === 'assign_month' ? document.getElementById("month-end") : document.getElementById("date-end");
+                
+                let d1 = new Date(startEl.value);
+                let d2 = new Date(endEl.value);
+                
+                let centerMs = (d1.getTime() + d2.getTime()) / 2.0;
+                let rangeMs = Math.max(86400000, d2.getTime() - d1.getTime()); // Minimum 1 day
+                let newRangeMs = rangeMs * scale;
+                
+                d1.setTime(centerMs - newRangeMs / 2.0);
+                d2.setTime(centerMs + newRangeMs / 2.0);
+                
+                if (tool === 'assign_month') {
+                    startEl.value = d1.toISOString().slice(0, 7);
+                    endEl.value = d2.toISOString().slice(0, 7);
+                } else {
+                    startEl.value = d1.toISOString().split('T')[0];
+                    endEl.value = d2.toISOString().split('T')[0];
+                }
+            }
+            updatePlot(); 
+        }
+
         function updateLocationMode() {
             const loc = document.getElementById('location-select').value;
             document.getElementById('custom-loc-group').style.display = (loc === 'custom') ? 'flex' : 'none';
@@ -475,6 +523,7 @@
             if (tool === "offsets") titleStr = dict["diag_tool_offsets"] || "Physical Offsets";
             if (tool === "drift") titleStr = dict["diag_tool_drift"] || "Long-term Drift (Quadratic)";
             if (tool === "multi_drift") titleStr = dict["diag_tool_multi_drift"] || "Compare Drifts & Spread";
+            if (tool === "sunrise") titleStr = dict["diag_title_sunrise"] || "Sunrise Error vs Reference";
 
             let layout = {
                 title: titleStr,
@@ -518,6 +567,8 @@
             } else if (tool === "planets") {
                 layout.xaxis.title = dict["greg_year"] || "Gregorian Year";
                 layout.yaxis.title = dict["diag_yaxis_solar_error"] || "Error (Degrees)";
+            } else if (tool === "sunrise") {
+                layout.yaxis.title = dict["diag_yaxis_error_mins"] || "Error (Minutes)";
             }
 
             // Format Ticks
@@ -527,11 +578,11 @@
             } else if (tool === "losar_scatter" || tool === "offsets" || tool === "drift" || tool === "multi_drift" || tool === "planets") {
                 layout.xaxis.tickformat = 'd'; 
                 layout.xaxis.showgrid = true;
-            } else if (tool === "solar_lon" || tool.startsWith("anomaly")) {
-                layout.xaxis.tickformat = ''; 
-                layout.xaxis.hoverformat = '%Y-%m-%d';
+            } else if (tool === "assign_day") {
+                layout.xaxis.tickformat = ''; // tickvals and ticktext are handled explicitly by Python API
             } else {
-                layout.xaxis.tickformat = '%m/%d'; 
+                // Applies to sunrise, anomaly, anomaly_sun, anomaly_forward, and solar_lon
+                layout.xaxis.tickformat = '%m/%d\n%Y'; 
                 layout.xaxis.hoverformat = '%Y-%m-%d';
             }
 
@@ -584,7 +635,8 @@
                 "diag_planet_sun", "diag_planet_mercury", "diag_planet_venus", "diag_planet_mars", 
                 "diag_planet_jupiter", "diag_planet_saturn", "diag_planet_rahu", "diag_planet_mode", 
                 "diag_planet_tropical", "diag_planet_sidereal", "diag_planet_detrended", "diag_planet_zero",
-                "diag_group_grid", "diag_group_ephem", "diag_group_core" // <-- The 3 new keys
+                "diag_group_grid", "diag_group_ephem", "diag_group_core",
+                "diag_tool_sunrise", "diag_title_sunrise", "diag_yaxis_error_mins"
             ];
             
             keys.forEach(k => {

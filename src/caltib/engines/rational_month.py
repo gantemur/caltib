@@ -17,7 +17,7 @@ from fractions import Fraction
 from typing import Tuple, List, Dict, Any
 
 from caltib.engines.interfaces import MonthEngineProtocol, NumT
-from caltib.engines.astro.sin_tables import OddPeriodicTable
+from caltib.engines.astro.tables import QuarterWaveTable
 from caltib.engines.astro.affine_series import TermDef, TabTermT, AffineTabSeriesT
 
 def frac_turn(x: Fraction) -> Fraction:
@@ -62,8 +62,8 @@ class RationalMonthEngine(MonthEngineProtocol):
         self.p = p
         
         # 1. Instantiate the tables
-        moon_tab = OddPeriodicTable(quarter=p.moon_tab_quarter)
-        sun_tab = OddPeriodicTable(quarter=p.sun_tab_quarter)
+        moon_tab = QuarterWaveTable(quarter=p.moon_tab_quarter)
+        sun_tab = QuarterWaveTable(quarter=p.sun_tab_quarter)
         
         # 2. Build Solar Series (Outputs True Sun)
         active_solar = tuple(

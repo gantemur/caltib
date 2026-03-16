@@ -6,7 +6,8 @@ from fractions import Fraction
 
 import caltib
 from caltib.api import get_calendar
-from caltib.reference.solar import solar_longitude
+from caltib.core.types import LocationSpec, SunriseState
+from caltib.reference.solar import solar_longitude, sunrise_sunset_utc
 from caltib.reference.lunar import lunar_position
 from caltib.reference.astro_args import fundamental_args, T_centuries
 from caltib.reference.time_scales import jd_utc_to_jd_tt, jd_tt_to_jd_utc
@@ -401,7 +402,12 @@ def get_assign_day_payload(engine_name, jd_start, jd_end):
         if i % label_step_x == 0:
             x_tickvals.append(jd_to_date_str(mid_jd))
             dt = datetime.datetime(2000, 1, 1, 12, 0, 0) + datetime.timedelta(days=(J - 2451545.0))
-            x_ticktext.append(dt.strftime("%m/%d"))
+            
+            # Mimic Plotly's smart formatting: Show year on first tick or when year changes
+            if len(x_tickvals) == 1 or (dt.month == 1 and dt.day <= label_step_x):
+                x_ticktext.append(dt.strftime("%m/%d\n%Y"))
+            else:
+                x_ticktext.append(dt.strftime("%m/%d"))
             
     shapes.append({"type": "line", "x0": jd_to_date_str(J_end + 1), "x1": jd_to_date_str(J_end + 1), "yref": "paper", "y0": 0, "y1": 1, "line": {"color": "#1f77b4", "width": 0.8, "dash": "dash"}, "opacity": 0.6, "layer": "below"})
     return {"traces": [{"x": [jd_to_date_str(t) for t in t_jd], "y": y_val, "type": "scatter", "mode": "lines", "name": "True Elongation", "line": {"color": "#ff7f0e", "width": 1.5}}], "layout_extras": {"shapes": shapes, "annotations": annotations, "yaxis": {"tickvals": y_tickvals, "ticktext": y_ticktext, "title": "Lunar Phase (Tithi)"}, "xaxis": {"tickvals": x_tickvals, "ticktext": x_ticktext, "tickformat": ""}}}
@@ -852,13 +858,91 @@ def get_planets_payload(engines, year_start, year_end, planet, mode, zero_year):
         }
     }
 
+
+# =====================================================================
+# TOOL 10: SUNRISE ERROR (POLAR SHADED)
+# =====================================================================
+def get_sunrise_payload(engines, jd_start, jd_end, lat, lon):
+    span_days = int(jd_end - jd_start)
+    if span_days <= 0: return {"traces": [], "layout_extras": {}}
+    
+    num_steps = min(800, max(2, span_days))
+    ts = linspace(jd_start, jd_end, num_steps)
+    dates_str = [jd_to_date_str(jd).split(" ")[0] for jd in ts] # YYYY-MM-DD
+    
+    loc = LocationSpec(name="Custom", lat_turn=Fraction(lat)/360, lon_turn=Fraction(lon)/360)
+    
+    ref_utc_list = []
+    polar_states = []
+    
+    for jd in ts:
+        ref_sunrise = sunrise_sunset_utc(jd, lat_deg=lat, lon_deg_east=lon)
+        polar_states.append(ref_sunrise.state)
+        ref_utc_list.append(ref_sunrise.rise_utc_hours if ref_sunrise.state == SunriseState.NORMAL else math.nan)
+
+    traces = []
+    color_map = {"phugpa": "#ff7f0e", "mongol": "#1f77b4", "tsurphu": "#9467bd", "bhutan": "#2ca02c", "karana": "#d62728", "l0": "#8c564b", "l1": "#e377c2", "l2": "#17becf", "l3": "#bcbd22", "l4": "#f1c40f"}
+    
+    for eng_name in engines:
+        base_eng = eng_name[:-2] if eng_name.endswith("-m") else eng_name
+        try: eng = get_calendar(base_eng, location=loc)
+        except: continue
+        
+        y_vals, valid_dates = [], []
+        for i, jd in enumerate(ts):
+            if polar_states[i] != SunriseState.NORMAL:
+                continue
+                
+            t2000_tt = jd_utc_to_jd_tt(jd) - 2451545.0
+            try:
+                lmt_frac, state = eng.eval_sunrise_lmt(t2000_tt)
+                if state != SunriseState.NORMAL: continue
+                    
+                engine_utc_frac = (float(lmt_frac) - (lon / 360.0)) % 1.0
+                engine_utc_hours = engine_utc_frac * 24.0
+                
+                diff_hours = engine_utc_hours - ref_utc_list[i]
+                diff_hours = (diff_hours + 12.0) % 24.0 - 12.0
+                
+                y_vals.append(diff_hours * 60.0)
+                valid_dates.append(dates_str[i])
+            except: pass
+        
+        if y_vals:
+            c = color_map.get(base_eng, "#1f77b4")
+            traces.append({
+                "x": valid_dates, "y": y_vals, "type": "scatter", "mode": "lines",
+                "name": get_abbr(eng_name), "line": {"color": c, "width": 1.5}
+            })
+    
+    # Generate Polar Shading Shapes
+    shapes = [{"type": "rect", "xref": "paper", "x0": 0, "x1": 1, "y0": -16, "y1": 16, "fillcolor": "gray", "opacity": 0.1, "line": {"width": 0}, "layer": "below"}]
+    
+    current_state = SunriseState.NORMAL
+    start_idx = 0
+    for i, state in enumerate(polar_states):
+        if state != current_state:
+            if current_state != SunriseState.NORMAL and i > start_idx:
+                color = "#fef08a" if current_state == SunriseState.POLAR_DAY else "#1e3a8a"
+                opacity = 0.4 if current_state == SunriseState.POLAR_DAY else 0.2
+                shapes.append({"type": "rect", "x0": dates_str[start_idx], "x1": dates_str[i-1], "yref": "paper", "y0": 0, "y1": 1, "fillcolor": color, "opacity": opacity, "line": {"width": 0}, "layer": "below"})
+            current_state = state
+            start_idx = i
+            
+    if current_state != SunriseState.NORMAL and len(polar_states) > start_idx:
+        color = "#fef08a" if current_state == SunriseState.POLAR_DAY else "#1e3a8a"
+        opacity = 0.4 if current_state == SunriseState.POLAR_DAY else 0.2
+        shapes.append({"type": "rect", "x0": dates_str[start_idx], "x1": dates_str[-1], "yref": "paper", "y0": 0, "y1": 1, "fillcolor": color, "opacity": opacity, "line": {"width": 0}, "layer": "below"})
+
+    return {"traces": traces, "layout_extras": {"shapes": shapes}}
+
+
 # =====================================================================
 # MAIN ROUTER
 # =====================================================================
 def handle_request(tool, engine_str, start_str, end_str, lat, lon, opt1="since-solstice", opt2="newmoon", opt3="sun"):
     engines = [e.strip() for e in engine_str.split(",") if e.strip()]
 
-    # ADD THIS NEW ROUTE AT THE TOP
     if tool == "planets":
         return json.dumps(get_planets_payload(engines, int(start_str), int(end_str), opt1, opt2, float(opt3)))
 
@@ -880,6 +964,9 @@ def handle_request(tool, engine_str, start_str, end_str, lat, lon, opt1="since-s
     except ValueError: dt_end = datetime.datetime.strptime(end_str, "%Y-%m").replace(day=28) + datetime.timedelta(days=5)
         
     jd_start, jd_end = dt_start.toordinal() + 1721424.5, dt_end.toordinal() + 1721424.5
+
+    if tool == "sunrise":
+        return json.dumps(get_sunrise_payload(engines, jd_start, jd_end, lat, lon))
 
     if tool == "anomaly":
         traces = [get_anomaly_reference_trace(jd_start, jd_end, 1.0)]

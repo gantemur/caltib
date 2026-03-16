@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Literal
 
+from caltib.core.types import SunriseState
 from . import astro_args as aa
 from . import time_scales as ts
 
@@ -84,14 +85,14 @@ class SunriseApparent:
     """Output for the Local Apparent Time of sunrise/sunset."""
     rise_app_hours: float
     set_app_hours: float
-
+    state: SunriseState = SunriseState.NORMAL
 
 def sunrise_apparent_time(
     jd_tt: float, 
     lat_deg: float, 
     h0_deg: float = -0.833, 
     eps_model: Literal["iau2000", "iau1980"] = "iau2000"
-) -> Optional[SunriseApparent]:
+) -> SunriseApparent:
     """
     (C.11 & C.12) Computes sunrise and sunset in Local Apparent Solar Time (hours).
     Returns None if the sun does not rise or set (polar day/night).
@@ -106,8 +107,11 @@ def sunrise_apparent_time(
     
     cos_H0 = (math.sin(h0_rad) - math.sin(lat_rad) * math.sin(delta_rad)) / (math.cos(lat_rad) * math.cos(delta_rad))
     
-    if cos_H0 < -1.0 or cos_H0 > 1.0:
-        return None  # Sun never rises or never sets
+    # 3-State Polar Logic
+    if cos_H0 < -1.0:
+        return SunriseApparent(math.nan, math.nan, SunriseState.POLAR_DAY)
+    if cos_H0 > 1.0:
+        return SunriseApparent(math.nan, math.nan, SunriseState.POLAR_NIGHT)
         
     H0_deg = math.degrees(math.acos(cos_H0))
     
@@ -115,7 +119,7 @@ def sunrise_apparent_time(
     rise_app = 12.0 - (H0_deg / 15.0)
     set_app = 12.0 + (H0_deg / 15.0)
     
-    return SunriseApparent(rise_app_hours=rise_app, set_app_hours=set_app)
+    return SunriseApparent(rise_app_hours=rise_app, set_app_hours=set_app, state=SunriseState.NORMAL)
 
 
 @dataclass(frozen=True)
@@ -123,7 +127,7 @@ class SunriseCivil:
     """Output for the uniform civil clock time (UTC) of sunrise/sunset."""
     rise_utc_hours: float
     set_utc_hours: float
-
+    state: SunriseState = SunriseState.NORMAL
 
 def sunrise_sunset_utc(
     jd_utc_noon: float,
@@ -131,7 +135,7 @@ def sunrise_sunset_utc(
     lon_deg_east: float,
     eps_model: Literal["iau2000", "iau1980"] = "iau2000",
     h0_deg: float = -0.833
-) -> Optional[SunriseCivil]:
+) -> SunriseCivil:
     """
     (C.15) Iterative approach to compute accurate sunrise/sunset times in UTC hours.
     Expects jd_utc_noon to be the UTC JD of local noon (or 12:00 UTC for approximation).
@@ -139,8 +143,10 @@ def sunrise_sunset_utc(
     # 1. Base approximation at noon
     jd_tt_base = ts.jd_utc_to_jd_tt(jd_utc_noon)
     app_times = sunrise_apparent_time(jd_tt_base, lat_deg, h0_deg, eps_model)
-    if not app_times:
-        return None
+    
+    # Fast exit for Polar Day/Night
+    if app_times.state != SunriseState.NORMAL:
+        return SunriseCivil(math.nan, math.nan, app_times.state)
         
     # Standard time zone offset in hours
     dt_zone = ts.lmt_offset_hours(lon_deg_east)
@@ -172,5 +178,5 @@ def sunrise_sunset_utc(
         
     rise_utc = refine_event(app_times.rise_app_hours) % 24.0
     set_utc = refine_event(app_times.set_app_hours) % 24.0
-    
-    return SunriseCivil(rise_utc_hours=rise_utc, set_utc_hours=set_utc)
+
+    return SunriseCivil(rise_utc_hours=rise_utc, set_utc_hours=set_utc, state=SunriseState.NORMAL)

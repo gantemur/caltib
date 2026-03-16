@@ -17,10 +17,9 @@ from caltib.engines.rational_day import RationalDayParams
 from caltib.engines.trad_planets import TraditionalPlanetsParams
 
 # 3. Physics / Astro dependencies remain exactly the same
-from caltib.engines.astro.deltat import DeltaTRationalDef, ConstantDeltaTRationalDef, QuadraticDeltaTRationalDef
 from caltib.engines.astro.affine_series import TermDef, FundArg, build_phase
-from caltib.engines.astro.sunrise import ConstantSunriseRationalDef, SunriseRationalDef, SphericalSunriseRationalDef
-
+from caltib.engines.astro.deltat import DeltaTDef, ConstantDeltaTDef, QuadraticDeltaTDef
+from caltib.engines.astro.sunrise import SunriseDef, ConstantSunriseDef, SphericalSunriseDef, TrueSunriseDef
 
 # ============================================================
 # TRADITIONAL CONSTANTS
@@ -76,25 +75,39 @@ FUND_RATES = {
 }
 
 # Constant Delta T: 55.3s in 1987, 63.8s in 2000, 69.2s in early 2026
-DT_CONSTANT_DEF = ConstantDeltaTRationalDef(Fraction(69, 1))
+DT_CONSTANT_DEF = ConstantDeltaTDef(Fraction(69, 1))
 # Quadratic Delta T: -20 + 32 * ((year - 1820) / 100)^2
-DT_QUADRATIC_DEF = QuadraticDeltaTRationalDef(
+DT_QUADRATIC_DEF = QuadraticDeltaTDef(
     a=Fraction(-20, 1), 
     b=Fraction(0, 1), 
     c=Fraction(32, 1), 
     y0=Fraction(1820, 1)
 )
 
-# Constant sunrise (89/360 for 5:56am,  1/4 for 6:00am)
-DAWN_CONSTANT_DEF = ConstantSunriseRationalDef(Fraction(90, 360))
-# Spherical sunrise constants (h0 = -0.833 deg, eps = 23.44 deg)
-DAWN_SPHERICAL_DEF = SphericalSunriseRationalDef(
-    h0_turn=Fraction(-1, 432), 
-    eps_turn=Fraction(2344, 36000)
-)
-
 # New tables
 SINE_TAB_QUARTER = (0, 228, 444, 638, 801, 923, 998, 1024)
+# Max interpolation error: 0.006408 (0.6408% of amplitude)
+ATAN_TAB_VALUES  = (0, 185, 363, 528, 677, 809, 924, 1024)
+# Max interpolation error: 0.001956 (0.1956% of amplitude)
+
+# Constant sunrise (1/4 for 6:00am, 89/360 for 5:56am)
+DAWN_600AM_DEF = ConstantSunriseDef(Fraction(1, 4))
+DAWN_556AM_DEF = ConstantSunriseDef(Fraction(89, 360))
+# Spherical sunrise constants (h0 = -0.833 deg, eps = 23.44 deg)
+DAWN_SPHERICAL_DEF = SphericalSunriseDef(
+    h0_turn=Fraction(-1, 432), 
+    eps_turn=Fraction(2344, 36000),
+    sine_tab_quarter=SINE_TAB_QUARTER,
+    day_fraction=Fraction(89, 360),
+)
+# True sunrise constants (h0 = -0.833 deg, eps = 23.44 deg)
+DAWN_TRUE_DEF = TrueSunriseDef(
+    h0_turn=Fraction(-1, 432), 
+    eps_turn=Fraction(2344, 36000),
+    sine_tab_quarter=SINE_TAB_QUARTER,
+    atan_tab_values=ATAN_TAB_VALUES,
+    day_fraction=Fraction(89, 360)
+)
 
 
 # ============================================================
@@ -288,8 +301,8 @@ def rational_day(
     solar_terms: Tuple[TermDef, ...] = (),
     lunar_terms: Tuple[TermDef, ...] = (),
     iterations: int = 1,
-    delta_t: DeltaTRationalDef = DT_CONSTANT_DEF,
-    sunrise: SunriseRationalDef = DAWN_CONSTANT_DEF,
+    delta_t: DeltaTDef = DT_CONSTANT_DEF,
+    sunrise: SunriseDef = DAWN_600AM_DEF,
     moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
     sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
 ) -> RationalDayParams:
@@ -766,7 +779,7 @@ L4_SPEC = CalendarSpec(
         lunar_terms=L_LUNAR_TERMS_6,
         iterations=2,  
         delta_t=DT_QUADRATIC_DEF,
-        sunrise=DAWN_SPHERICAL_DEF,  
+        sunrise=DAWN_TRUE_DEF,  
         moon_tab_quarter=SINE_TAB_QUARTER,
         sun_tab_quarter=SINE_TAB_QUARTER
     ),
