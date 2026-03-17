@@ -106,15 +106,15 @@ class TabTermT:
 @dataclass(frozen=True)
 class AffineTabSeriesT:
     """
-    x(t) = base(t) + C(t),  C(t)=Σ amp_i * table_i(phase_i(t)).
-    All arithmetic can be Fraction (L1–L3) or float (L4–L5), depending on the provider.
+    x(t) = base(t) + Σ amp_i * table_i(phase_i(t)), where base(t) = A + B*t + C*t^2.
     """
     A: Fraction
     B: Fraction
     terms: Tuple[TabTermT, ...]
+    C: Fraction = Fraction(0,1)
 
     def base(self, t: Fraction) -> Fraction:
-        return self.A + self.B * t
+        return self.A + t * (self.B + t * self.C)
 
     def eval(self, t: Fraction) -> Fraction:
         s = self.base(t)
@@ -148,7 +148,7 @@ class AffineTabSeriesT:
         
         for _ in range(iterations):
             # Calculate the correction sum C(t)
-            corr = Fraction(0, 1)
+            corr = self.C * t * t
             for term in self.terms:
                 corr += term.amp * term.table_eval_turn(term.phase.eval(t))
                 

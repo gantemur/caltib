@@ -12,6 +12,7 @@ from caltib.engines.arithmetic_day import ArithmeticDayParams, ArithmeticDayEngi
 from caltib.engines.rational_month import RationalMonthParams, RationalMonthEngine
 from caltib.engines.trad_day import TraditionalDayParams, TraditionalDayEngine
 from caltib.engines.rational_day import RationalDayParams, RationalDayEngine
+from caltib.engines.fp_day import FloatDayParams, FloatDayEngine
 from caltib.engines.trad_attr import TraditionalAttributeEngine
 from caltib.engines.trad_planets import TraditionalPlanetsParams, TraditionalPlanetsEngine
 
@@ -35,8 +36,8 @@ def build_calendar_engine(spec: CalendarSpec) -> CalendarEngine:
         day_engine = RationalDayEngine(spec.day_params)
     elif isinstance(spec.day_params, ArithmeticDayParams):
         day_engine = ArithmeticDayEngine(spec.day_params)
-    # elif isinstance(spec.day_params, FloatDayParams):
-    #     day_engine = FloatDayEngine(spec.day_params)
+    elif isinstance(spec.day_params, FloatDayParams):
+         day_engine = FloatDayEngine(spec.day_params)
     # elif isinstance(spec.day_params, EphDayParams):
     #     day_engine = ephDayEngine(spec.day_params)
     else:

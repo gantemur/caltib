@@ -106,11 +106,11 @@ class YearInfo:
 class CalendarSpec:
     """Pure data payload for constructing a full modular calendar."""
     id: EngineId
-    month_params: Any  # ArithmeticMonthParams
-    day_params: Any    # TraditionalDayParams | RationalDayParams
+    month_params: Any  # ArithmeticMonthParams | RationalMonthParams
+    day_params: Any    # TraditionalDayParams | RationalDayParams | ArithmeticDayParams | FloatDayParams
     leap_labeling: str
     meta: dict
-    planets_params: Any = None
+    planets_params: Any = None # TraditionalPlanetsParams | RationalPlanetsParams
 
     def with_location(self, new_loc: 'LocationSpec') -> 'CalendarSpec':
         """Creates a new spec securely recalibrated for the target location."""

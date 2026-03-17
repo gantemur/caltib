@@ -51,10 +51,12 @@ class RationalDayParams:
     
     A_sun: Fraction
     B_sun: Fraction
+    C_sun: Fraction
     solar_terms: Tuple[TermDef, ...]
     
     A_elong: Fraction
     B_elong: Fraction
+    C_elong: Fraction
     lunar_terms: Tuple[TermDef, ...]
     
     iterations: int
@@ -63,7 +65,7 @@ class RationalDayParams:
     moon_tab_quarter: Tuple[int, ...]
     sun_tab_quarter: Tuple[int, ...]
 
-    def with_location(self, new_loc: 'LocationSpec') -> 'RationalDayParams':
+    def with_location(self, new_loc: LocationSpec) -> RationalDayParams:
         """Rebuilds the parameters for a new location."""
         import dataclasses
         return dataclasses.replace(self, location=new_loc)
@@ -85,20 +87,15 @@ class RationalDayEngine(DayEngineProtocol):
             TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
             for t in p.solar_terms
         )
-        self.solar_series = AffineTabSeriesT(A=p.A_sun, B=p.B_sun, terms=active_solar)
+        self.solar_series = AffineTabSeriesT(A=p.A_sun, B=p.B_sun, C=p.C_sun, terms=active_solar)
 
-        # 3. Build Lunar Series (Outputs True Moon: L_moon = Elong + L_sun)
+        # 3. Build Lunar Anomaly Series
         active_lunar = tuple(
             TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=moon_tab.eval_normalized_turn)
             for t in p.lunar_terms
         )
-        self.lunar_series = AffineTabSeriesT(
-            A=p.A_elong + p.A_sun, 
-            B=p.B_elong + p.B_sun, 
-            terms=active_lunar
-        )
 
-        # 4. Build Elongation Series: E(t) = D_mean(t) + C_moon(t) - C_sun(t)
+        # 4. Build Elongation Series: E(t) = D_mean(t) + A_moon(t) - A_sun(t)
         # Solar perturbation amplitudes are negated because E = Moon - Sun
         active_elong_solar = tuple(
             TabTermT(amp=-t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
@@ -107,6 +104,7 @@ class RationalDayEngine(DayEngineProtocol):
         self.elong_series = AffineTabSeriesT(
             A=p.A_elong, 
             B=p.B_elong, 
+            C=p.C_elong,
             terms=active_lunar + active_elong_solar
         )
 
@@ -114,7 +112,7 @@ class RationalDayEngine(DayEngineProtocol):
         if isinstance(p.delta_t, ConstantDeltaTDef):
             self.delta_t = ConstantDeltaT(p.delta_t.value)
         elif isinstance(p.delta_t, QuadraticDeltaTDef):
-            self.delta_t = QuadraticDeltaT(p.delta_t.a, p.delta_t.b, p.delta_t.c)
+            self.delta_t = QuadraticDeltaT(p.delta_t.a, p.delta_t.b, p.delta_t.c,p.delta_t.y0)
         else:
             raise TypeError("Unknown DeltaTDef")
 
@@ -274,10 +272,10 @@ class RationalDayEngine(DayEngineProtocol):
         return self.solar_series.eval(t2000)
 
     def mean_moon_tt(self, t2000: NumT) -> Fraction:
-        return self.lunar_series.base(t2000)
+        return self.elong_series.base(t2000) + self.solar_series.base(t2000)
 
     def true_moon_tt(self, t2000: NumT) -> Fraction:
-        return self.lunar_series.eval(t2000)
+        return self.elong_series.eval(t2000) + self.solar_series.eval(t2000)
 
     def mean_elong_tt(self, t2000: NumT) -> Fraction:
         return self.elong_series.base(t2000)

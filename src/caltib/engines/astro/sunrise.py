@@ -1,7 +1,7 @@
 """
 caltib.engines.astro.sunrise
 ----------------------------
-Calculates the fractional time of sunrise (UTC) for a given location.
+Calculates the fractional (and float) time of sunrise (UTC) for a given location.
 
 This module is a pure geometric transformation. It has no concept of absolute 
 time or dates. It relies on the calling engine to handle "backreaction".
@@ -15,6 +15,7 @@ from abc import ABC, abstractmethod
 
 from caltib.core.types import LocationSpec, SunriseState
 from .tables import QuarterWaveTable, ArctanTable
+from .fp_math import QuarterWavePolynomial, ArctanPolynomial, float_sqrt
 
 
 # ============================================================
@@ -181,3 +182,77 @@ class TrueSunrise(SunriseModel):
         # Ensure strict wrapping to [0, 1)
         q = t_lmt.numerator // t_lmt.denominator
         return t_lmt - Fraction(q, 1), SunriseState.NORMAL
+
+# ============================================================
+# Float Sunrise Models (For FloatDayEngine)
+# ============================================================
+
+@dataclass(frozen=True)
+class FloatSunriseDef:
+    h0_turn: float
+    eps_turn: float
+    sine_poly_coeffs: Tuple[float, ...]
+    atan_poly_coeffs: Tuple[float, ...]
+    day_fraction: float = float.fromhex("0x1.fa4fa4fa4fa50p-3") # 89/360 (5:56 AM)
+
+@dataclass(frozen=True)
+class FloatSunrise:
+    """
+    Pure floating-point physics for Equation of Time and Spherical Sunrise.
+    Strictly avoids fractions and math.acos/math.asin for cross-platform determinism.
+    """
+    h0_turn: float
+    eps_turn: float
+    sine_poly: QuarterWavePolynomial
+    atan_poly: ArctanPolynomial
+    day_fraction: float = float.fromhex("0x1.fa4fa4fa4fa50p-3") # 89/360 (5:56 AM)
+
+    def init_lmt_fraction(self) -> float:
+        return self.day_fraction
+
+    def sunrise_lmt_fraction(self, lat_turn: float, true_sun_turn: float, mean_sun_turn: float) -> Tuple[float, SunriseState]:
+        # Clean Sine & Cosine evaluations
+        sin_eps = self.sine_poly.eval_normalized_turn(self.eps_turn)
+        cos_eps = self.sine_poly.cos_normalized_turn(self.eps_turn)
+        
+        sin_lambda = self.sine_poly.eval_normalized_turn(true_sun_turn)
+        cos_lambda = self.sine_poly.cos_normalized_turn(true_sun_turn)
+        
+        sin_phi = self.sine_poly.eval_normalized_turn(lat_turn)
+        cos_phi = self.sine_poly.cos_normalized_turn(lat_turn)
+        sin_h0 = self.sine_poly.eval_normalized_turn(self.h0_turn)
+        
+        # Spherical Law of Cosines
+        sin_delta = sin_eps * sin_lambda
+        cos_delta = float_sqrt(1.0 - sin_delta * sin_delta) 
+        
+        numerator = sin_h0 - (sin_phi * sin_delta)
+        denominator = cos_phi * cos_delta
+        
+        # Boundary States
+        if numerator >= denominator:
+            return self.day_fraction, SunriseState.POLAR_NIGHT
+        elif numerator <= -denominator:
+            return self.day_fraction, SunriseState.POLAR_DAY
+            
+        # Hour Angle via Acos!
+        cos_H0 = numerator / denominator
+        H0_turn = self.atan_poly.acos_turn(cos_H0)
+        t_lat = 0.5 - H0_turn
+        
+        # Right Ascension via Atan2!
+        y_alpha = cos_eps * sin_lambda
+        x_alpha = cos_lambda
+        alpha_turn = self.atan_poly.atan2_turn(y_alpha, x_alpha)
+        
+        # LMT Correction
+        eot_shift = alpha_turn - mean_sun_turn
+        t_lmt = t_lat + eot_shift
+        
+        return t_lmt % 1.0, SunriseState.NORMAL
+
+    def sunrise_utc_fraction(self, loc: LocationSpec, true_sun_turn: float, mean_sun_turn: float) -> Tuple[float, SunriseState]:
+        # Perform the 1-way cast from the config Fraction exactly once. Highly deterministic.
+        lmt_frac, state = self.sunrise_lmt_fraction(float(loc.lat_turn), true_sun_turn, mean_sun_turn)
+        utc_frac = lmt_frac - float(loc.lon_turn)
+        return utc_frac % 1.0, state

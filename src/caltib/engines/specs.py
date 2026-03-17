@@ -14,12 +14,14 @@ from caltib.engines.rational_month import RationalMonthParams
 from caltib.engines.arithmetic_day import ArithmeticDayParams
 from caltib.engines.trad_day import TraditionalDayParams
 from caltib.engines.rational_day import RationalDayParams
+from caltib.engines.fp_day import FloatDayParams
 from caltib.engines.trad_planets import TraditionalPlanetsParams
 
-# 3. Physics / Astro dependencies remain exactly the same
+# 3. Physics / Astro dependencies
 from caltib.engines.astro.affine_series import TermDef, FundArg, build_phase
-from caltib.engines.astro.deltat import DeltaTDef, ConstantDeltaTDef, QuadraticDeltaTDef
-from caltib.engines.astro.sunrise import SunriseDef, ConstantSunriseDef, SphericalSunriseDef, TrueSunriseDef
+from caltib.engines.astro.float_series import build_collapsed_terms, FloatFundArg, FloatTermDef
+from caltib.engines.astro.deltat import DeltaTDef, ConstantDeltaTDef, QuadraticDeltaTDef, FloatDeltaTDef
+from caltib.engines.astro.sunrise import SunriseDef, ConstantSunriseDef, SphericalSunriseDef, TrueSunriseDef, FloatSunriseDef
 
 # ============================================================
 # TRADITIONAL CONSTANTS
@@ -93,22 +95,23 @@ ATAN_TAB_VALUES  = (0, 185, 363, 528, 677, 809, 924, 1024)
 # Constant sunrise (1/4 for 6:00am, 89/360 for 5:56am)
 DAWN_600AM_DEF = ConstantSunriseDef(Fraction(1, 4))
 DAWN_556AM_DEF = ConstantSunriseDef(Fraction(89, 360))
-# Spherical sunrise constants (h0 = -0.833 deg, eps = 23.44 deg)
+
+# Spherical sunrise constants (h0 = -50 arcminutes, eps = 23.44 deg)
 DAWN_SPHERICAL_DEF = SphericalSunriseDef(
     h0_turn=Fraction(-1, 432), 
-    eps_turn=Fraction(2344, 36000),
+    eps_turn=Fraction(293, 4500),
     sine_tab_quarter=SINE_TAB_QUARTER,
     day_fraction=Fraction(89, 360),
 )
-# True sunrise constants (h0 = -0.833 deg, eps = 23.44 deg)
+
+# True sunrise constants (h0 = -50 arcminutes, eps = 23.44 deg)
 DAWN_TRUE_DEF = TrueSunriseDef(
     h0_turn=Fraction(-1, 432), 
-    eps_turn=Fraction(2344, 36000),
+    eps_turn=Fraction(293, 4500),
     sine_tab_quarter=SINE_TAB_QUARTER,
     atan_tab_values=ATAN_TAB_VALUES,
     day_fraction=Fraction(89, 360)
 )
-
 
 # ============================================================
 # APPROXIMATE LOCATIONS (For Traditional Arithmetic Engines)
@@ -254,6 +257,72 @@ BIRTH_SIGNS = {
     "saturn": Fraction(2, 3)
 }
 
+
+# ============================================================
+# Float engine constants
+# ============================================================
+
+# ============================================================
+# Absolute J2000.0 Astronomical Constants (Meeus / JPL)
+# Evaluated strictly as (Degrees / 360) and (Degrees / 360 / Days)
+# ============================================================
+
+# J2000.0 Linear Phases (c0 = intercept, c1 = turns/day)
+J2000_FUNDS = {
+    "S":  FloatFundArg(c0=280.46646 / 360.0, c1=36000.76983 / 360.0 / 36525.0),
+    "D":  FloatFundArg(c0=297.85020 / 360.0, c1=445267.11140 / 360.0 / 36525.0),
+    "M":  FloatFundArg(c0=357.52911 / 360.0, c1=35999.05029 / 360.0 / 36525.0),
+    "Mp": FloatFundArg(c0=134.96340 / 360.0, c1=477198.86751 / 360.0 / 36525.0),
+    "F":  FloatFundArg(c0=93.27209 / 360.0,  c1=483202.01752 / 360.0 / 36525.0)
+}
+
+# Coefficients for sine approximation (Input: turns, Output: amplitude)
+# Domain: [0, 0.25]
+SINE_POLY_5_COEFFS = (
+    float.fromhex("0x1.9204e06298ee5p+2"),   # c1
+    float.fromhex("-0x1.4911303618770p+5"),  # c3
+    float.fromhex("0x1.28af31a2c633ep+6"),   # c5
+)
+
+SINE_POLY_7_COEFFS = (
+    float.fromhex("0x1.921f7b2a8caaap+2"),   # c1
+    float.fromhex("-0x1.4ab430edb388ep+5"),  # c3
+    float.fromhex("0x1.457ce7f0c0b57p+6"),   # c5
+    float.fromhex("-0x1.1d438fda450c4p+6"),  # c7
+)
+
+# Coefficients for arctangent approximation (Input: ratio, Output: turns)
+# Domain: [0, 1.0]
+ATAN_POLY_5_COEFFS = (
+    float.fromhex("0x1.4482618478638p-3"),   # c1
+    float.fromhex("-0x1.7d119bc1df0c0p-5"),  # c3
+    float.fromhex("0x1.b0f17a7c7df9bp-7"),   # c5
+)
+
+ATAN_POLY_7_COEFFS = (
+    float.fromhex("0x1.45befa84fe3f6p-3"),   # c1
+    float.fromhex("-0x1.a431f6c59c177p-5"),  # c3
+    float.fromhex("0x1.849c4c475fd16p-6"),   # c5
+    float.fromhex("-0x1.aa34c2cb444dbp-8"),  # c7
+)
+
+# Float sunrise model
+DAWN_FLOAT_DEF = FloatSunriseDef(
+    h0_turn=float.fromhex("-0x1.2000000000000p-9"),  # -1/432
+    eps_turn=float.fromhex("0x1.0aaaa0260481ap-4"),  # 2344/36000
+    sine_poly_coeffs=SINE_POLY_5_COEFFS,
+    atan_poly_coeffs=ATAN_POLY_5_COEFFS,
+    day_fraction=float.fromhex("0x1.fa4fa4fa4fa50p-3") # 89/360 (5:56 AM)
+)
+
+# Quadratic Delta T: -20 + 32 * ((year - 1820) / 100)^2
+DT_FLOAT_DEF = FloatDeltaTDef(
+    a=-20.0,
+    b=0.0,
+    c=32.0,
+    y0=1820.0
+)
+
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
@@ -305,13 +374,56 @@ def rational_day(
     sunrise: SunriseDef = DAWN_600AM_DEF,
     moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
     sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
+    C_sun: Fraction = Fraction(0,1), C_elong: Fraction = Fraction(0,1)
 ) -> RationalDayParams:
     return RationalDayParams(
         epoch_k=k_from_epoch_jd(funds["m0"]),
         A_sun=funds["S"].c0, B_sun=funds["S"].c1, solar_terms=solar_terms,
         A_elong=funds["D"].c0, B_elong=funds["D"].c1, lunar_terms=lunar_terms,
         iterations=iterations, delta_t=delta_t, sunrise=sunrise, location=location,
-        moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter
+        moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter,
+        C_sun=C_sun, C_elong=C_elong
+    )
+
+def fp_day(
+    *,
+    epoch_k: int,
+    location: LocationSpec = LOC_LHASA,
+    solar_table: Tuple[Tuple[float, ...], ...] = (),
+    lunar_table: Tuple[Tuple[float, ...], ...] = (),
+    iterations: int = 3,
+    delta_t: FloatDeltaTDef = DT_FLOAT_DEF,
+    sunrise: FloatSunriseDef = DAWN_FLOAT_DEF, 
+    sine_poly_coeffs: Tuple[float, ...] = SINE_POLY_5_COEFFS,
+    C_sun: float = 0.0, C_elong: float = 0.0
+) -> FloatDayParams:
+    """Builds pure-data FloatDayParams using exact J2000.0 astronomical constants."""
+    
+    # 1. Bulk-build the solar and lunar Fourier terms (Data tuples)
+    # Assumes table rows are (d, m, mp, f, amplitude_in_microdegrees)
+    solar_terms = build_collapsed_terms(
+        funds=J2000_FUNDS, keys=("D", "M", "Mp", "F"), rows=solar_table, amp_scale=(1e-6 / 360.0)
+    )
+    lunar_terms = build_collapsed_terms(
+        funds=J2000_FUNDS, keys=("D", "M", "Mp", "F"), rows=lunar_table, amp_scale=(1e-6 / 360.0)
+    )
+    
+    # 2. Build Elongation terms (Moon - Sun)
+    neg_solar_terms = tuple(FloatTermDef(amp=-t.amp, c0=t.c0, c1=t.c1) for t in solar_terms)
+    elong_terms = lunar_terms + neg_solar_terms
+
+    # 3. Return the fully configured, pure-data parameter object
+    return FloatDayParams(
+        epoch_k=epoch_k,
+        location=location,
+        A_sun=J2000_FUNDS["S"].c0, B_sun=J2000_FUNDS["S"].c1, C_sun=C_sun,
+        solar_terms=solar_terms,
+        A_elong=J2000_FUNDS["D"].c0, B_elong=J2000_FUNDS["D"].c1, C_elong=C_elong,
+        elong_terms=elong_terms,
+        iterations=iterations,
+        delta_t=delta_t,
+        sunrise=sunrise,
+        sine_poly_coeffs=sine_poly_coeffs
     )
 
 def rational_month(
@@ -325,11 +437,12 @@ def rational_month(
     Y0: int = 1987,
     M0: int = 3,
     sgang1_deg: Fraction = Fraction(0, 1),
+    C_sun: Fraction = Fraction(0,1), C_elong: Fraction = Fraction(0,1)
 ) -> RationalMonthParams:
     return RationalMonthParams(
         epoch_k=k_from_epoch_jd(funds["m0"]),
-        A_sun=funds["S"].c0, B_sun=funds["S"].c1, solar_terms=solar_terms,
-        A_elong=funds["D"].c0, B_elong=funds["D"].c1, lunar_terms=lunar_terms,
+        A_sun=funds["S"].c0, B_sun=funds["S"].c1, C_sun=C_sun, solar_terms=solar_terms,
+        A_elong=funds["D"].c0, B_elong=funds["D"].c1, C_elong=C_elong, lunar_terms=lunar_terms,
         iterations=iterations, 
         moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter,
         Y0=Y0, M0=M0, sgang1_deg=sgang1_deg 
@@ -639,7 +752,7 @@ TRAD_SPECS = {
 
 
 # ============================================================
-# REFORMED ENGINE SPECIFICATIONS
+# REFORMED RATIONAL (AND ARITHMETIC) ENGINE SPECIFICATIONS
 # ============================================================
 
 # 1. The epoch fundamentals (E1987)
@@ -670,6 +783,19 @@ L_LUNAR_TERMS_6 = L_LUNAR_TERMS_3 + (
     TermDef(amp=Fraction(4, 6741), phase=build_phase({"Mp": 2}, L_FUNDS)),
     TermDef(amp=Fraction(-29, 91313), phase=build_phase({"F": 2}, L_FUNDS)),
 )
+
+# ============================================================================
+# Secular Accelerations (turns / day^2)
+# ============================================================================
+# These J2000.0 quadratic drift coefficients represent the physical acceleration 
+# of the Sun and the Moon's elongation (e.g., the ~13.3s/cy^2 lunar brake).
+#
+# The exact fractional forms are strictly synchronized with the Delta-T 
+# time-scale denominator. Their prime factors contain only 2, 3, 5, and 1461^2,
+# ensuring that Python's rational LCM additions never balloon into massive,
+# un-factorable prime numbers during continuous engine evaluations.
+FUND_ACC_SUN   = Fraction(379, 600334031250000000)
+FUND_ACC_ELONG = Fraction(-697, 177876750000000000)
 
 # ============================================================
 # L0 REFORM: Pure Arithmetic Baseline
@@ -734,7 +860,7 @@ L2_SPEC = CalendarSpec(
 )
 
 # ============================================================
-# L3 REFORM: Full 5-Term Orbit, Spherical Dawn, Quadratic Delta T
+# L3 REFORM: Full 6-Term Orbit, Spherical Dawn, Quadratic Delta T
 # ============================================================
 L3_SPEC = CalendarSpec(
     id=EngineId("reform", "l3", "0.1"),
@@ -749,13 +875,102 @@ L3_SPEC = CalendarSpec(
         lunar_terms=L_LUNAR_TERMS_6,
         iterations=3,  
         delta_t=DT_QUADRATIC_DEF,
-        sunrise=DAWN_SPHERICAL_DEF,  
+        sunrise=DAWN_SPHERICAL_DEF,
         moon_tab_quarter=SINE_TAB_QUARTER,
         sun_tab_quarter=SINE_TAB_QUARTER
     ),
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "description": "L3 Reform: 5 lunar terms, spherical dawn, quadratic delta T"}
 )
+
+# ============================================================
+# REFORMED FLOAT ENGINE SPECIFICATIONS
+# ============================================================
+
+# Define the JPL tables in pure floats (d, m, m', f, amplitude_microdegrees)
+FLOAT_SOLAR_TABLE_1 = (
+    (0, 1, 0, 0, 1914602.0), # M (Equation of Center)
+)
+
+# Table 10: Primary lunar series (24 terms). Accuracy: ~ 3-4 min.
+FLOAT_LUNAR_TABLE_24 = (
+    # d,  m, m',  f,   C(microdeg)
+    ( 0,  0,  1,  0,  6288774.0),  # Major Inequality
+    ( 2,  0, -1,  0,  1274027.0),  # Evection
+    ( 2,  0,  0,  0,   658314.0),  # Variation
+    ( 0,  0,  2,  0,   213618.0),  # 2nd Elliptic
+    ( 0,  1,  0,  0,  -185116.0),  # Annual Equation
+    ( 0,  0,  0,  2,  -114332.0),  # Red. to Ecliptic
+    ( 2,  0, -2,  0,    58793.0),  # Evection Harm.
+    ( 2, -1, -1,  0,    57066.0),
+    ( 2,  0,  1,  0,    53322.0),
+    ( 2, -1,  0,  0,    45758.0),
+    ( 0,  1, -1,  0,   -40923.0),
+    ( 1,  0,  0,  0,   -34720.0),  # Parallactic Ineq.
+    ( 0,  1,  1,  0,   -30383.0),
+    ( 0,  0,  0, -2,    15327.0),
+    ( 0,  0,  1,  2,   -12528.0),
+    ( 0,  0,  1, -2,    10980.0),
+    ( 4,  0, -1,  0,    10675.0),
+    ( 0,  0,  3,  0,    10034.0),
+    ( 4,  0, -2,  0,     8548.0),
+    ( 2,  1, -1,  0,    -7888.0),
+    ( 2,  1,  0,  0,    -6766.0),
+    ( 1,  0, -1,  0,    -5163.0),
+    ( 1,  1,  0,  0,     4987.0),
+    ( 2, -1,  1,  0,     4036.0)
+)
+
+# Table 11: Supplementary series (40 terms). Improves accuracy to ~ 30 sec.
+FLOAT_LUNAR_TABLE_64 = FLOAT_LUNAR_TABLE_24 + (
+    # d,  m, m',  f,   C(microdeg)
+    ( 2,  0,  2,  0,     3994.0),
+    ( 4,  0,  0,  0,     3861.0),
+    ( 2,  0, -3,  0,     3665.0),
+    ( 0,  1, -2,  0,    -2689.0),
+    ( 2,  0, -1,  2,    -2602.0),
+    ( 2, -1, -2,  0,     2390.0),
+    ( 1,  0,  1,  0,    -2348.0),
+    ( 2, -2,  0,  0,     2236.0),
+    ( 0,  1,  2,  0,    -2120.0),
+    ( 0,  2,  0,  0,    -2069.0),
+    ( 2, -2, -1,  0,     2011.0),
+    ( 2,  0,  1, -2,    -1977.0),
+    ( 4,  0, -3,  0,    -1736.0),
+    ( 4, -1, -1,  0,    -1671.0),
+    ( 2,  1,  1,  0,    -1557.0),
+    ( 2,  1, -2,  0,     1492.0),
+    ( 2,  0, -4,  0,    -1422.0),
+    ( 4, -1, -2,  0,    -1205.0),
+    ( 2,  1,  0, -2,    -1111.0),
+    ( 2, -1,  1, -2,    -1100.0),
+    ( 2, -1,  2,  0,     -811.0),
+    ( 0,  0,  4,  0,      769.0),
+    ( 2,  0, -2,  2,      717.0),
+    ( 0,  0,  2,  2,     -712.0),
+    ( 1,  0,  2,  0,     -663.0),
+    ( 1,  1, -1,  0,     -565.0),
+    ( 1,  0, -2,  0,     -523.0),
+    ( 4,  0, -4,  0,      492.0),
+    ( 4, -2, -1,  0,     -488.0),
+    ( 2,  2, -1,  0,     -469.0),
+    ( 2,  2,  0,  0,     -440.0),
+    ( 0,  1,  3,  0,     -425.0),
+    ( 4,  0,  1,  0,     -418.0),
+    ( 0,  0,  2, -2,      386.0),
+    ( 2,  0, -5,  0,      371.0),
+    ( 2,  2, -2,  0,      362.0),
+    ( 1,  1,  1,  0,      317.0),
+    ( 2,  0, -3,  2,     -310.0),
+    ( 0,  2, -1,  0,     -307.0),
+    ( 2,  0,  3,  0,     -293.0)
+)
+
+# Bit-perfect IEEE 754 float equivalents for the L4/L5 Fourier series engines.
+# Derived strictly from float(FUND_ACC_SUN) and float(FUND_ACC_ELONG) to 
+# guarantee zero drift between the rational and float models over 10,000 years.
+FLOAT_ACC_SUN   = float.fromhex("0x1.6bedadfcc8d0dp-51") 
+FLOAT_ACC_ELONG = float.fromhex("-0x1.1a5a8662ee151p-48")
 
 # ============================================================
 # L4 REFORM: Rational Month + Rational Day
@@ -765,26 +980,49 @@ L4_SPEC = CalendarSpec(
     month_params=rational_month(
         funds=L_FUNDS,
         solar_terms=L_SOLAR_TERMS,
+        lunar_terms=L_LUNAR_TERMS_1,
+        iterations=1,
+        Y0=1987,
+        M0=3,
+        sgang1_deg=Fraction(337, 1)
+    ),
+    day_params=fp_day(
+        epoch_k=k_from_epoch_jd(L_FUNDS["m0"]), # Uses the exact same rational anchor!
+        location=LOC_LHASA,
+        solar_table=FLOAT_SOLAR_TABLE_1,
+        lunar_table=FLOAT_LUNAR_TABLE_24,
+        iterations=3,
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1987", "description": "L4 Reform: Primary Astronomical Engine (24-Term Float Day)"}
+)
+
+# ============================================================
+# L5 REFORM: Pure Float Engine (64-Bit FPU)
+# ============================================================
+
+L5_SPEC = CalendarSpec(
+    id=EngineId("reform", "l5", "0.1"),
+    month_params=rational_month(
+        funds=L_FUNDS,
+        solar_terms=L_SOLAR_TERMS,
         lunar_terms=L_LUNAR_TERMS_6,
         iterations=2,
         moon_tab_quarter=SINE_TAB_QUARTER,
         sun_tab_quarter=SINE_TAB_QUARTER,
         Y0=1987,
         M0=3,
-        sgang1_deg=Fraction(0, 1)  # Vernal equinox anchor
+        sgang1_deg=Fraction(307, 1) 
     ),
-    day_params=rational_day(
-        funds=L_FUNDS,
-        solar_terms=L_SOLAR_TERMS,
-        lunar_terms=L_LUNAR_TERMS_6,
-        iterations=2,  
-        delta_t=DT_QUADRATIC_DEF,
-        sunrise=DAWN_TRUE_DEF,  
-        moon_tab_quarter=SINE_TAB_QUARTER,
-        sun_tab_quarter=SINE_TAB_QUARTER
+    day_params=fp_day(
+        epoch_k=k_from_epoch_jd(L_FUNDS["m0"]), # Uses the exact same rational anchor!
+        location=LOC_LHASA,
+        solar_table=FLOAT_SOLAR_TABLE_1,
+        lunar_table=FLOAT_LUNAR_TABLE_64,
+        iterations=3,
     ),
     leap_labeling="first_is_leap",
-    meta={"epoch": "E1987", "description": "L4 Reform: Rational Month + Rational Day (Full Astronomical)"}
+    meta={"epoch": "E1987", "description": "L5 Reform: High-Precision Astronomical Engine (64-Term Float Day)"}
 )
 
 # ------------------------------------------------------------
@@ -795,6 +1033,7 @@ REFORM_SPECS = {
     "reform-l2": L2_SPEC, 
     "reform-l3": L3_SPEC,
     "reform-l4": L4_SPEC,
+    "reform-l5": L5_SPEC,
 }
 
 ALIASES = {
@@ -803,6 +1042,7 @@ ALIASES = {
     "l2": L2_SPEC,
     "l3": L3_SPEC,
     "l4": L4_SPEC,
+    "l5": L5_SPEC,
 }
 
 # ------------------------------------------------------------

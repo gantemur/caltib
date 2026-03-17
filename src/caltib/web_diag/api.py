@@ -162,26 +162,53 @@ def get_anomaly_engine_trace(engine_name, jd_start, jd_end):
     base_engine = engine_name[:-2] if use_month else engine_name
     eng = get_calendar(base_engine)
     t2000_start, t2000_end = jd_start - 2451545.0, jd_end - 2451545.0
-    x_lo, x_hi = eng.day.get_x_from_t2000(t2000_start) - 2, eng.day.get_x_from_t2000(t2000_end) + 2
 
     mean_rate = 360.0 / 29.530588853
     data_points = []
-    for x in range(x_lo, x_hi + 1):
-        if use_month:
-            if not hasattr(eng, "month"): continue
-            t_true = float(eng.month.true_date(Fraction(x, 30)))
-            t_mean = float(eng.month.mean_date(Fraction(x, 30)))
-        else:
-            # CLEANED
+
+    if use_month:
+        if not hasattr(eng, "month"): return None
+        
+        # Use the Month Engine's OWN inverse function to find the exact boundaries
+        l_start = float(eng.month.get_l_from_t2000(t2000_start)) - 0.1
+        l_end = float(eng.month.get_l_from_t2000(t2000_end)) + 0.1
+        
+        # Generate 30 points per lunation to match the Day Engine's tithi density
+        steps = int((l_end - l_start) * 30)
+        
+        for i in range(steps + 1):
+            l_val = l_start + i / 30.0
+            t_true = float(eng.month.true_date(l_val))
+            t_mean = float(eng.month.mean_date(l_val))
+            
+            jd_val = t_true + 2451545.0
+            if jd_start <= jd_val <= jd_end: 
+                data_points.append((jd_val, - (t_true - t_mean) * mean_rate))
+                
+    else:
+        # Use the Day Engine's boundaries
+        x_lo = eng.day.get_x_from_t2000(t2000_start) - 2
+        x_hi = eng.day.get_x_from_t2000(t2000_end) + 2
+        
+        for x in range(x_lo, x_hi + 1):
             t_true = float(eng.day.true_date(x))
             t_mean = float(eng.day.mean_date(x)) 
             
-        jd_val = t_true + 2451545.0
-        if jd_start <= jd_val <= jd_end: data_points.append((jd_val, - (t_true - t_mean) * mean_rate))
+            jd_val = t_true + 2451545.0
+            if jd_start <= jd_val <= jd_end: 
+                data_points.append((jd_val, - (t_true - t_mean) * mean_rate))
 
     if not data_points: return None
     data_points.sort(key=lambda item: item[0])
-    return {"x": [jd_to_date_str(d[0]) for d in data_points], "y": [d[1] for d in data_points], "type": "scatter", "mode": "lines", "name": get_abbr(engine_name), "line": {"width": 1.5}}
+    
+    return {
+        "x": [jd_to_date_str(d[0]) for d in data_points], 
+        "y": [d[1] for d in data_points], 
+        "type": "scatter", 
+        "mode": "lines", 
+        "name": engine_name.upper(), 
+        "line": {"width": 1.5}
+    }
 
 def get_continuous_anomaly_payload(engines, jd_start, jd_end, mode="forward"):
     span_days = jd_end - jd_start

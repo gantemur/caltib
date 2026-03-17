@@ -65,7 +65,7 @@ class TraditionalDayParams:
         if self.r2 is None:
             object.__setattr__(self, 'r2', self.s2)
 
-    def with_location(self, location: 'LocationSpec') -> 'TraditionalDayParams':
+    def with_location(self, location: LocationSpec) -> TraditionalDayParams:
         """
         Traditional engines do not use geographical coordinates for math, 
         but we accept the location to satisfy the DayEngineProtocol and 
@@ -120,7 +120,7 @@ class TraditionalDayEngine(DayEngineProtocol):
             base_cd=p.s2,
             terms=(
                 TabTermDN(
-                    amp=Fraction(1, 720),  # 1/720 turn per table unit (60 * 12)
+                    amp=Fraction(-1, 720),  # Flipped sign for inverse kinematics
                     phase=self.phase_sun_anomaly,
                     table_eval_turn=self.sun_table.eval_turn,
                 ),

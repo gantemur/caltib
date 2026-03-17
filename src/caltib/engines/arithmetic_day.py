@@ -46,7 +46,7 @@ class ArithmeticDayParams:
         """Solar advance per tithi (turns)."""
         return self.s1 / Fraction(30, 1)
 
-    def with_location(self, new_loc: 'LocationSpec') -> 'ArithmeticDayParams':
+    def with_location(self, new_loc: LocationSpec) -> ArithmeticDayParams:
         """Rebuilds the parameters for a new location, shifting the local time."""
         import dataclasses
 

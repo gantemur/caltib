@@ -7,6 +7,8 @@ and the high-precision reference calculator (reference.solar).
 Supports up to 4 engines simultaneously and highlights polar gaps.
 """
 
+from __future__ import annotations
+
 import argparse
 import math
 from datetime import datetime, date, timedelta
@@ -25,14 +27,15 @@ def get_jd_utc_noon(d: date) -> float:
     return 2451544.5 + diff.days + 0.5
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compare engine sunrises with reference.")
     parser.add_argument("--engines", type=str, default="phugpa,l3", help="Comma-separated engine names (max 4).")
     parser.add_argument("--lat", type=float, default=29.65, help="Latitude (default: Lhasa 29.65)")
     parser.add_argument("--lon", type=float, default=91.1, help="Longitude (default: Lhasa 91.1)")
-    parser.add_argument("--start", type=str, default="2024-01-01", help="Start date (YYYY-MM-DD)")
-    parser.add_argument("--end", type=str, default="2025-01-01", help="End date (YYYY-MM-DD)")
-    args = parser.parse_args()
+    parser.add_argument("--start", type=str, default="2026-01-01", help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--end", type=str, default="2026-12-31", help="End date (YYYY-MM-DD)")
+    
+    args = parser.parse_args(argv)
 
     # 1. Setup Location
     loc = LocationSpec(
@@ -154,6 +157,8 @@ def main():
     filename = f"sunrise_err_lat{args.lat}_lon{args.lon}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     print(f"Success! Plot saved to: {filename}")
+
+    return 0
 
 if __name__ == "__main__":
     main()

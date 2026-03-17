@@ -90,9 +90,37 @@ class QuadraticDeltaT(DeltaTModel):
         # yd = t2000_tt / 365.25 + 2000
         yd = t2000_tt / Fraction(1461, 4) + Fraction(2000, 1)
         u = (yd - self.y0) / Fraction(100, 1)
-        
         # Horner's method applied to exact fractions
         return self.a + u * (self.b + u * self.c)
 
     def info(self) -> Dict[str, object]:
         return {"type": "quadratic", "a": str(self.a), "b": str(self.b), "c": str(self.c), "y0": str(self.y0)}
+
+
+# ============================================================
+# Float Delta T Models (For FloatDayEngine)
+# ============================================================
+
+@dataclass(frozen=True)
+class FloatDeltaTDef:
+    """Float representation of quadratic Delta T: a + b*u + c*u^2"""
+    a: float
+    b: float
+    c: float
+    y0: float
+
+@dataclass(frozen=True)
+class FloatDeltaT:
+    a: float
+    b: float
+    c: float
+    y0: float = 1820.0
+
+    def delta_t_seconds_year(self, year: float) -> float:
+        u = (year - self.y0) / 100.0
+        # Horner's method for ax^2 + bx + c
+        return self.a + u * (self.b + u * self.c)
+
+    def delta_t_seconds(self, t2000_tt: float) -> float:
+        # yd = t2000_tt / 365.25 + 2000
+        return self.delta_t_seconds_year(t2000_tt / 365.25 + 2000.0)

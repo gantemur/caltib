@@ -31,10 +31,12 @@ class RationalMonthParams:
     
     A_sun: Fraction
     B_sun: Fraction
+    C_sun: Fraction
     solar_terms: Tuple[TermDef, ...]
     
     A_elong: Fraction
     B_elong: Fraction
+    C_elong: Fraction
     lunar_terms: Tuple[TermDef, ...]
     
     iterations: int
@@ -44,7 +46,7 @@ class RationalMonthParams:
     # Human Labeling Anchors
     Y0: int
     M0: int
-    sgang1_deg: Fraction = Fraction(0, 1)  # Input in exact degrees (e.g., 0 for Vernal Equinox)
+    sgang1_deg: Fraction = Fraction(307, 1)  # Tropical longitude (degrees) defining Month 1
 
     @property
     def sgang_base(self) -> Fraction:
@@ -70,7 +72,7 @@ class RationalMonthEngine(MonthEngineProtocol):
             TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
             for t in p.solar_terms
         )
-        self.solar_series = AffineTabSeriesT(A=p.A_sun, B=p.B_sun, terms=active_solar)
+        self.solar_series = AffineTabSeriesT(A=p.A_sun, B=p.B_sun, C=p.C_sun, terms=active_solar)
 
         # 3. Build Lunar Series (Outputs True Moon)
         active_lunar = tuple(
@@ -86,6 +88,7 @@ class RationalMonthEngine(MonthEngineProtocol):
         self.elong_series = AffineTabSeriesT(
             A=p.A_elong, 
             B=p.B_elong, 
+            C=p.C_elong,
             terms=active_lunar + active_elong_solar
         )
 
@@ -99,7 +102,7 @@ class RationalMonthEngine(MonthEngineProtocol):
     @property
     def sgang_base(self) -> Fraction:
         """Converts degrees to a normalized continuous zodiac offset in turns [0, 1)."""
-        return (self.p.sgang1_deg / Fraction(360, 1)) % 1
+        return self.p.sgang_base
 
     # ---------------------------------------------------------
     # Continuous Physics (The Diagnostic Interface)
@@ -139,31 +142,7 @@ class RationalMonthEngine(MonthEngineProtocol):
                 return lunations[0]
         raise ValueError(f"No lunations found for year {year}")
 
-    def get_month_info(self, n: int) -> Dict[str, Any]:
-        Z_n = self.sgang_index(n)
-        Z_prev = self.sgang_index(n - 1)
-        Z_0 = self.sgang_index(0)
-        M_linear = self.p.M0 + (Z_n - Z_0)
-        M = ((M_linear - 1) % 12) + 1
-        Y = self.p.Y0 + (M_linear - M) // 12
-        if Z_n == Z_prev:
-            leap_state = 2
-        else:
-            Z_next = self.sgang_index(n + 1)
-            if Z_n == Z_next:
-                leap_state = 1
-            else:
-                leap_state = 0
-        linear = n - self.first_lunation(Y)
-        return {
-            "year": Y,
-            "month": M,
-            "leap_state": leap_state,
-            "linear_month": linear,
-            "sgang_index": Z_n
-        }
-
-# ---------------------------------------------------------
+    # ---------------------------------------------------------
     # Astronomical Transit Labeling (The Civil Interface)
     # ---------------------------------------------------------
     def sgang_index(self, n: int) -> int:
@@ -189,14 +168,14 @@ class RationalMonthEngine(MonthEngineProtocol):
         """
         Z_n = self.sgang_index(n)
         Z_prev = self.sgang_index(n - 1)
+        
+        # Absolute Tropical Mapping: Z_n strictly aligns with sgang1_deg
+        M = (Z_n % 12) + 1
+        
+        # Anchor the year to Y0 based on the transit index at n=0
         Z_0 = self.sgang_index(0)
-        
-        # The human calendar month advances every time the sgang index advances
-        M_linear = self.p.M0 + (Z_n - Z_0)
-        
-        # Adjust to 1-12 bounds
-        M = ((M_linear - 1) % 12) + 1
-        Y = self.p.Y0 + (M_linear - M) // 12
+        Y_anchor = self.p.Y0 - (Z_0 // 12)
+        Y = Y_anchor + (Z_n // 12)
         
         # Astronomical leap logic: If no transit occurred, it is a leap month!
         if Z_n == Z_prev:
@@ -213,10 +192,12 @@ class RationalMonthEngine(MonthEngineProtocol):
     def get_month_info(self, n: int) -> Dict[str, Any]:
         """Diagnostic dictionary wrapper for the civil month labels."""
         Y, M, leap_state = self.label_from_lunation(n)
+        linear = n - self.first_lunation(Y)
         return {
             "year": Y,
             "month": M,
             "leap_state": leap_state,
+            "linear_month": linear,
             "sgang_index": self.sgang_index(n)
         }
 
@@ -228,9 +209,11 @@ class RationalMonthEngine(MonthEngineProtocol):
         """
         from fractions import Fraction
         
-        M_linear_target = 12 * (year - self.p.Y0) + month
         Z_0 = self.sgang_index(0)
-        Z_target = (M_linear_target - self.p.M0) + Z_0
+        Y_anchor = self.p.Y0 - (Z_0 // 12)
+        
+        # Calculate absolute Z_target directly from year and month
+        Z_target = 12 * (year - Y_anchor) + (month - 1)
         
         # 1. Provide an extremely close starting guess based on the exact linear rates
         # Target continuous solar longitude (in turns) at the start of the transit
