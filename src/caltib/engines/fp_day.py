@@ -25,10 +25,12 @@ class FloatDayParams:
     location: LocationSpec
     
     A_sun: float; B_sun: float; C_sun: float
-    solar_terms: Tuple[FloatTermDef, ...]
+    solar_static: Tuple[FloatTermDef, ...]
+    solar_dynamic: Tuple[FloatTermDef, ...]
     
     A_elong: float; B_elong: float; C_elong: float
-    elong_terms: Tuple[FloatTermDef, ...]
+    elong_static: Tuple[FloatTermDef, ...]
+    elong_dynamic: Tuple[FloatTermDef, ...]
     
     iterations: int
     delta_t: FloatDeltaTDef       
@@ -49,12 +51,22 @@ class FloatDayEngine(DayEngineProtocol):
         from caltib.engines.astro.fp_math import QuarterWavePolynomial
         sine_poly = QuarterWavePolynomial(coeffs=p.sine_poly_coeffs)
         
-        # 2. Build the execution objects from the pure data
+        # 2. Build the execution objects from the pure data (UPDATED)
         self.solar_series = FloatFourierSeries(
-            A=p.A_sun, B=p.B_sun, C=p.C_sun, terms=p.solar_terms, poly=sine_poly
+            A=p.A_sun, 
+            B=p.B_sun, 
+            C=p.C_sun, 
+            static_terms=p.solar_static,
+            dynamic_terms=p.solar_dynamic,
+            poly=sine_poly
         )
         self.elong_series = FloatFourierSeries(
-            A=p.A_elong, B=p.B_elong, C=p.C_elong, terms=p.elong_terms, poly=sine_poly
+            A=p.A_elong, 
+            B=p.B_elong, 
+            C=p.C_elong, 
+            static_terms=p.elong_static,
+            dynamic_terms=p.elong_dynamic,
+            poly=sine_poly
         )
         
         # 3. Build the Sunrise and DeltaT models from their pure Defs

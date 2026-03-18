@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Tuple, Any
 
 
 def frac_turn(x: Fraction) -> Fraction:
@@ -71,25 +71,18 @@ class PhaseT:
     def eval(self, t: Fraction) -> Fraction:
         return frac_turn(self.c0 + self.c1 * t)
 
-
 @dataclass(frozen=True)
 class FundArg:
     """Base fundamental argument: c0 + c1*t"""
     c0: Fraction
     c1: Fraction
 
-
-def build_phase(multipliers: Dict[str, int], funds: Dict[str, FundArg]) -> PhaseT:
-    """Collapses fundamental arguments safely at initialization time."""
-    c0 = sum((funds[k].c0 * Fraction(m, 1) for k, m in multipliers.items()), start=Fraction(0, 1))
-    c1 = sum((funds[k].c1 * Fraction(m, 1) for k, m in multipliers.items()), start=Fraction(0, 1))
-    return PhaseT(c0=c0, c1=c1)
-
 @dataclass(frozen=True)
 class TermDef:
     """Pure data representation of a continuous series term (for specs.py)."""
     amp: Fraction
     phase: PhaseT
+    amp1: Fraction = Fraction(0, 1)
 
 @dataclass(frozen=True)
 class TabTermT:
@@ -101,6 +94,7 @@ class TabTermT:
     amp: Fraction
     phase: PhaseT
     table_eval_turn: Callable[[Fraction], Fraction]
+    amp1: Fraction = Fraction(0, 1)
 
 
 @dataclass(frozen=True)
@@ -150,9 +144,90 @@ class AffineTabSeriesT:
             # Calculate the correction sum C(t)
             corr = self.C * t * t
             for term in self.terms:
-                corr += term.amp * term.table_eval_turn(term.phase.eval(t))
+                current_amp = term.amp + term.amp1 * t
+                corr += current_amp * term.table_eval_turn(term.phase.eval(t))
                 
             # Apply iteration step
             t = t0 - corr * invB
             
         return t
+
+def make_funds(
+    m0: Fraction, 
+    fund_rates: Dict[str, Fraction],  # <--- Injected dependency
+    jd_base: Fraction,                # <--- Injected dependency (e.g., JD_J2000)
+    s0: Fraction = Fraction(0),
+    a0: Fraction = Fraction(0),
+    r0: Fraction = Fraction(0),
+    f0: Fraction = Fraction(0),
+) -> Dict[str, Any]: # Returns mixed dict (Fraction for m0, FundArg for the rest)
+    """
+    Binds epoch phases (at absolute JD) to the standard fundamental rates (c1),
+    projecting them back to t=0 (e.g. J2000.0) for the absolute time solver.
+    """
+    
+    # Shift absolute JD to internal coordinate system (Days since jd_base)
+    m0_offset = m0 - jd_base
+    
+    # Elongation is exactly 0 at the epoch: D(m0_offset) = c0 + c1*m0_offset = 0
+    c0_D = -fund_rates["D"] * m0_offset
+    
+    # Sun longitude is s0 at the epoch: S(m0_offset) = c0 + c1*m0_offset = s0
+    c0_S = s0 - fund_rates["S"] * m0_offset
+    
+    c0_M = r0 - fund_rates["M"] * m0_offset
+    c0_Mp = a0 - fund_rates["Mp"] * m0_offset
+    c0_F = f0 - fund_rates["F"] * m0_offset
+    
+    return {
+        "m0": m0,
+        "S":  FundArg(c0=c0_S, c1=fund_rates["S"]),
+        "D":  FundArg(c0=c0_D, c1=fund_rates["D"]),
+        "M":  FundArg(c0=c0_M, c1=fund_rates["M"]),
+        "Mp": FundArg(c0=c0_Mp, c1=fund_rates["Mp"]),
+        "F":  FundArg(c0=c0_F, c1=fund_rates["F"]),
+    }
+
+def compile_affine_terms(
+    funds: Dict[str, FundArg],
+    keys: Tuple[str, ...],
+    rows: Tuple[Tuple[Any, ...], ...],
+    include_drift: bool = False
+) -> Tuple[TermDef, ...]:
+    """
+    Matrix-multiplies fundamental arguments against rational tables at startup.
+    Analogous to build_collapsed_terms, but returns pure TermDefs since the 
+    affine loop natively handles amp1 without a static/dynamic list split.
+    """
+    compiled = []
+    num_keys = len(keys)
+    
+    # 36525 days in a Julian Century
+    century_days = Fraction(36525, 1)
+    
+    for row in rows:
+        mults = row[:num_keys]
+        raw_amp = row[num_keys]
+        
+        # 1. Extract drift if requested
+        if include_drift and len(row) > (num_keys + 1):
+            raw_amp_drift = row[num_keys + 1]
+        else:
+            raw_amp_drift = Fraction(0, 1)
+            
+        # 2. Collapse fundamental arguments
+        c0 = Fraction(0, 1)
+        c1 = Fraction(0, 1)
+        for key, m in zip(keys, mults):
+            if m != 0:
+                c0 += funds[key].c0 * Fraction(m, 1)
+                c1 += funds[key].c1 * Fraction(m, 1)
+            
+        # 3. Return the pure data blueprint!
+        compiled.append(TermDef(
+            amp=raw_amp,
+            phase=PhaseT(c0=c0, c1=c1),
+            amp1=raw_amp_drift
+        ))
+        
+    return tuple(compiled)
