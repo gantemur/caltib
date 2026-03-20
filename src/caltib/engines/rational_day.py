@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Tuple
+from typing import Tuple, Optional
 
 from caltib.core.types import LocationSpec
 from caltib.engines.interfaces import DayEngineProtocol, NumT
@@ -64,6 +64,8 @@ class RationalDayParams:
     sunrise: SunriseDef
     moon_tab_quarter: Tuple[int, ...]
     sun_tab_quarter: Tuple[int, ...]
+
+    invB_elong_prec: Optional[Fraction] = None
 
     def with_location(self, new_loc: LocationSpec) -> RationalDayParams:
         """Rebuilds the parameters for a new location."""
@@ -166,7 +168,7 @@ class RationalDayEngine(DayEngineProtocol):
         Uses Picard iteration to solve: E_true(t) = x/30.
         """
         target_turns = Fraction(x) / Fraction(30, 1)
-        return self.elong_series.picard_solve(target_turns, iterations=self.p.iterations)
+        return self.elong_series.picard_solve(target_turns, iterations=self.p.iterations, invB_prec=self.p.invB_elong_prec)
 
     def get_x_from_t2000(self, t2000: float) -> int:
         """

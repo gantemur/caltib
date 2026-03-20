@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple, Any
+from typing import Tuple, Any, Optional
 from fractions import Fraction
 import math
 
@@ -60,21 +60,69 @@ JD_J2000 = Fraction(2451545, 1)
 P_NEW = 1336
 Q_NEW = 1377
 
-# Mean motions derived from Meeus ELP2000 linear rates (per lunation)
-M1_NEW = Fraction(283346, 9595)   # Synodic month (days)
-S1_NEW = Fraction(334, 4131)    # Sun longitude (turns)
-A1_NEW = Fraction(4583, 63907)    # Moon anomaly (turns)
-R1_NEW = Fraction(1689, 20891)    # Sun anomaly (turns, "sigma")
-F1_NEW = Fraction(324, 3803)    # Moon latitude (turns)
+# ============================================================================
+# SET 1: THE OPTIMIZED RATES (Default)
+# ============================================================================
+# Derived from highly optimized rational approximations of the Meeus per-lunation 
+# rates. This set mathematically locks the continuous day-engine to the exact 
+# same foundational constants as the discrete month-engine, ensuring perfect 
+# internal consistency (no "tearing" between months and days over millennia).
 
-# Fundamental rates evaluated natively at t = JD (c1 in turns per day)
-FUND_RATES = {
-    "S": S1_NEW / M1_NEW,
-    "D": Fraction(1, 1) / M1_NEW,
-    "M": R1_NEW / M1_NEW,
-    "Mp": (Fraction(1, 1) + A1_NEW) / M1_NEW,  # <--- Added 1 full revolution
-    "F": (Fraction(1, 1) + F1_NEW) / M1_NEW,   # <--- Added 1 full revolution
+OPTIMIZED_PER_LUNATION_RATES = {
+    "M1": Fraction(283346, 9595),   # Synodic month (days)
+    "S1": Fraction(334, 4131),      # Sun longitude (turns)
+    "A1": Fraction(4583, 63907),    # Moon anomaly (turns)
+    "R1": Fraction(1689, 20891),    # Sun anomaly (turns, "sigma")
+    "F1": Fraction(324, 3803),      # Moon latitude (turns)
 }
+
+_OPT = OPTIMIZED_PER_LUNATION_RATES
+
+FUND_RATES_OPTIMIZED = {
+    "S":  _OPT["S1"] / _OPT["M1"],
+    "D":  Fraction(1, 1) / _OPT["M1"],
+    "M":  _OPT["R1"] / _OPT["M1"],
+    "Mp": (Fraction(1, 1) + _OPT["A1"]) / _OPT["M1"],
+    "F":  (Fraction(1, 1) + _OPT["F1"]) / _OPT["M1"],
+    "M1": _OPT["M1"],
+    "S1": _OPT["S1"]
+}
+
+# ============================================================================
+# SET 2: THE EXACT J2000 HARMONIC RATES (Astronomical Pure)
+# ============================================================================
+# Evaluated directly from the exact J2000 floating-point baseline.
+# Denominators are strictly composed of harmonic primes (487, 2, 3, 5).
+# Users prioritizing absolute astronomical precision over discrete month 
+# synchronization can inject this set into the calendar engines.
+
+_MEAN = {
+    "S":  Fraction(3600076983,  1314900000000),   
+    "D":  Fraction(4452671114,  131490000000),    
+}
+
+FUND_RATES_EXACT = {
+    "S":  _MEAN["S"],   
+    "D":  _MEAN["D"],    
+    "M":  Fraction(3599905029,  1314900000000),   
+    "Mp": Fraction(47719886751, 1314900000000),   
+    "F":  Fraction(48320201752, 1314900000000),
+    "M1": Fraction(1, 1) / _MEAN["D"],
+    "S1": _MEAN["S"] / _MEAN["D"]
+}
+
+# Default choice for the standard L1-L5 specs.
+FUND_RATES = FUND_RATES_OPTIMIZED
+
+# ============================================================================
+# PRECONDITIONER (For the Decoupled Solver)
+# ============================================================================
+# Used in L3-L5 to prevent LCM inflation during the Picard iteration loop.
+# This acts solely as an iteration multiplier. Because secular drift changes the 
+# true M1 over centuries, ultra-high precision here is mathematically unnecessary. 
+# Fraction(295306, 10000) provides ~29.5306 days, guaranteeing sub-second 
+# convergence in 3 iterations while keeping the LCM pool microscopic (2^4 * 5^4).
+M1_PREC = Fraction(295306, 10000)
 
 # Constant Delta T: 55.3s in 1987, 63.8s in 2000, 69.2s in early 2026
 DT_CONSTANT_DEF = ConstantDeltaTDef(Fraction(69, 1))
@@ -374,6 +422,7 @@ def rational_day(
     sunrise: SunriseDef = DAWN_600AM_DEF,
     moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
     sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
+    invB_prec: Optional[Fraction] = None,
     C_sun: Fraction = Fraction(0,1), 
     C_elong: Fraction = Fraction(0,1),
     include_drift: bool = False
@@ -393,6 +442,7 @@ def rational_day(
         A_elong=funds["D"].c0, B_elong=funds["D"].c1, lunar_terms=lunar_terms,
         iterations=iterations, delta_t=delta_t, sunrise=sunrise, location=location,
         moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter,
+        invB_elong_prec=invB_prec,
         C_sun=C_sun, C_elong=C_elong
     )
 
@@ -461,6 +511,7 @@ def rational_month(
     Y0: int = 1987,
     M0: int = 3,
     sgang1_deg: Fraction = Fraction(307, 1),
+    invB_prec: Optional[Fraction] = None,
     C_sun: Fraction = Fraction(0,1), 
     C_elong: Fraction = Fraction(0,1),
     include_drift: bool = False
@@ -480,7 +531,8 @@ def rational_month(
         A_elong=funds["D"].c0, B_elong=funds["D"].c1, C_elong=C_elong, lunar_terms=lunar_terms,
         iterations=iterations, 
         moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter,
-        Y0=Y0, M0=M0, sgang1_deg=sgang1_deg 
+        Y0=Y0, M0=M0, sgang1_deg=sgang1_deg,
+        invB_elong_prec=invB_prec
     )
 
 def arith_day(
@@ -760,6 +812,23 @@ TRAD_SPECS = {
 
 # The epoch fundamentals (E1987)
 L_FUNDS = make_funds(
+    # m0 absolute JD epoch. Base 100M strips wild primes (11, 13, 23) from 
+    # the original 65780 denominator. Error vs Meeus is ~43 microseconds.
+    m0=Fraction(244691379521131, 100000000),
+    
+    fund_rates=FUND_RATES,
+    jd_base=JD_J2000,
+    
+    # Phase offsets mapped to the Harmonic Arcsecond Grid (1,296,000)
+    # This prevents the initial make_funds calculation from polluting the LCM.
+    s0=Fraction(128634, 1296000), 
+    a0=Fraction(389900, 1296000),
+    r0=Fraction(406845, 1296000),
+    f0=Fraction(91591, 1296000)
+)
+
+# Non-harmonized version:
+L_FUNDS_V1 = make_funds(
     m0=Fraction(160957989449, 65780),
     fund_rates=FUND_RATES,
     jd_base=JD_J2000,
@@ -770,44 +839,43 @@ L_FUNDS = make_funds(
 )
 
 # ============================================================================
-# SOLAR ANOMALY SERIES (Fractions in turns)
+# SOLAR ANOMALY SERIES (Harmonized Arcsecond Grid)
+# Base Denominator = 1,296,000 (2**7 * 3**4 * 5**3)
 # ============================================================================
-# (d, m, mp, f, amp_fraction, [amp1_fraction_per_day])
+# # (d, m, mp, f, amp_fraction, [amp1_fraction_per_day])
 
-# 1-Term Solar Series (Primary Keplerian anomaly; ~1.91° amplitude)
+# 1-Term Solar Series (Primary Equation of Center: 6893 arcseconds)
+# Includes secular drift: -4817 microdeg/cy mapped to harmonic primes
 # Leaves ~30-minute residual error in pure solar position, ~2.4m in lunar phase.
-# Solar amplitude drift in turns per day
 L_SOLAR_TABLE_1 = (
-    (0, 1, 0, 0, Fraction(543, 102067), Fraction(-1, 1461 * 2**9 * 3**6 * 5)), 
+    (0, 1, 0, 0, Fraction(6893, 1296000), Fraction(-1, 487 * 2**9 * 3**7 * 5)), 
 )
-# 2-Term Solar Series (Corrects elliptical flattening; ~0.02° amplitude)
+# 2-Term Solar Series (Corrects elliptical flattening: 72 arcseconds)
 # Drops residual error to ~26s for the Sun, and ~2s for the Moon.
 L_SOLAR_TABLE_2 = L_SOLAR_TABLE_1 + (
-    (0, 2, 0, 0, Fraction(1, 18006)), 
+    (0, 2, 0, 0, Fraction(72, 1296000)), 
 )
 
 # ============================================================================
-# LUNAR ANOMALY SERIES (Fractions in turns)
+# LUNAR ANOMALY SERIES (Harmonized Arcsecond Grid)
+# Base Denominator = 1,296,000 (2**7 * 3**4 * 5**3)
 # ============================================================================
-# 1-Term Lunar Series (Primary Lunar Equation of Center; ~6.29° amplitude)
-# The fundamental Keplerian wobble of the Moon's elliptical orbit.
+# # (d, m, mp, f, amp_fraction, [amp1_fraction_per_day])
+
+# 1-Term Lunar Series (Major Equation of Center: ~6.29° -> 22,640 arcseconds)
 L_LUNAR_TABLE_1 = (
-    (0, 0, 1, 0, Fraction(535, 30626)),                               # Major Eq
+    (0, 0, 1, 0, Fraction(22640, 1296000)),               # Major Eq
 )
 # 3-Term Lunar Series (Adds the major solar perturbations)
-# Includes Evection (~1.27°) and Variation (~0.66°), caused by the Sun's 
-# gravitational pull shifting depending on the lunar phase.
 L_LUNAR_TABLE_3 = L_LUNAR_TABLE_1 + (
-    (2, 0, -1, 0, Fraction(44, 12433)),                               # Evection
-    (2, 0, 0, 0, Fraction(101, 55232)),                               # Variation
+    (2, 0, -1, 0, Fraction(4586, 1296000)),               # Evection (~1.27°)
+    (2, 0, 0, 0, Fraction(2370, 1296000)),                # Variation (~0.66°)
 )
 # 6-Term Lunar Series (High-precision historical emulation)
-# Incorporates the Annual Equation (Earth-Sun distance effect), the 2nd-order 
-# Equation of Center, and the Reduction to the Ecliptic.
 L_LUNAR_TABLE_6 = L_LUNAR_TABLE_3 + (
-    (0, 1, 0, 0, Fraction(-9, 17497), Fraction(1, 2**6 * 3**2 * 5**11)),      # Annual Eq + Drift
-    (0, 0, 2, 0, Fraction(4, 6741)),                                  # 2nd Elliptic
-    (0, 0, 0, 2, Fraction(-29, 91313)),                               # Reduction
+    (0, 0, 2, 0, Fraction(769, 1296000)),                 # 2nd Elliptic
+    (0, 1, 0, 0, Fraction(-666, 1296000)),                # Annual Eq, Drift: Fraction(1, 2**6 * 3**2 * 5**11)
+    (0, 0, 0, 2, Fraction(-412, 1296000)),                # Reduction to Ecliptic
 )
 
 # ============================================================================
@@ -822,6 +890,12 @@ L_LUNAR_TABLE_6 = L_LUNAR_TABLE_3 + (
 # un-factorable prime numbers during continuous engine evaluations.
 FUND_ACC_SUN = Fraction(1, 2**7 * 3**4 * 5**16)
 FUND_ACC_ELONG = Fraction(-1, 2**11 * 3**13 * 5**7)
+# Alternaitve version:
+# Explicitly factorized to the fundamental time-harmonic primes (487, 2, 3, 5).
+# 36525 days/cy * 360 deg = 13,149,000 = 487 * 2^3 * 3^3 * 5^3
+FUND_ACC_SUN_V1   = Fraction(1,  487 * 2**8 * 3**3 * 5**8) # 1 / 131,490,000,000
+FUND_ACC_ELONG_V1 = Fraction(-1, 487 * 2**9 * 3**7 * 5**4) # ~ -13.3 s/cy^2
+
 
 # ============================================================
 # L0 REFORM: Pure Arithmetic Baseline
@@ -832,13 +906,13 @@ L0_SPEC = CalendarSpec(
     month_params=arith_month(
         P=P_NEW, Q=Q_NEW, beta_star=57, 
         sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=M1_NEW
+        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
     ),
     day_params=arith_day(
         location=LOC_LHASA,
         m0_abs=L_FUNDS["m0"],   # Passes absolute, arith_day auto-shifts for Lhasa!
         s0=L_FUNDS["S"].c0, 
-        s1=S1_NEW, 
+        s1=FUND_RATES["S1"],
         U=143925, 
         V=141673
     ),
@@ -854,7 +928,7 @@ L1_SPEC = CalendarSpec(
     month_params=arith_month(
         P=P_NEW, Q=Q_NEW, beta_star=57, 
         sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=M1_NEW
+        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
     ),
     day_params=rational_day(
         funds=L_FUNDS,
@@ -873,7 +947,7 @@ L2_SPEC = CalendarSpec(
     month_params=arith_month(
         P=P_NEW, Q=Q_NEW, beta_star=57, 
         sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=M1_NEW
+        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
     ),
     day_params=rational_day(
         funds=L_FUNDS,
@@ -893,27 +967,38 @@ L3_SPEC = CalendarSpec(
     month_params=arith_month(
         P=P_NEW, Q=Q_NEW, beta_star=57, 
         sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=M1_NEW,
+        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
     ),
     day_params=rational_day(
         funds=L_FUNDS,
         solar_table=L_SOLAR_TABLE_1,
         lunar_table=L_LUNAR_TABLE_6, 
-        iterations=3,  
+        iterations=3,
+        invB_prec=M1_PREC,
         delta_t=DT_QUADRATIC_DEF,
         sunrise=DAWN_SPHERICAL_DEF,
         moon_tab_quarter=SINE_TAB_QUARTER,
         sun_tab_quarter=SINE_TAB_QUARTER,
+        include_drift=True
     ),
     leap_labeling="first_is_leap",
-    meta={"epoch": "E1987", "description": "L3 Reform: 5 lunar terms, spherical dawn, quadratic delta T"}
+    meta={"epoch": "E1987", "description": "L3 Reform: 6 lunar terms, spherical dawn, quadratic delta T"}
 )
 
-# ============================================================
-# REFORMED FLOAT ENGINE SPECIFICATIONS
-# ============================================================
+# ============================================================================
+# FLOAT ENGINE FOURIER TABLES (JPL / Meeus)
+# ============================================================================
+# Format: (d, m, m', f, amplitude_microdegrees, [secular_drift_microdegrees])
+#
+# Note on Determinism: The amplitudes and drifts below are defined strictly as 
+# whole integers (represented as float literals, e.g., 6288774.0) measuring 
+# microdegrees. Under the IEEE 754 64-bit standard, all integers up to 2^53 
+# have an exact, bit-perfect binary representation. By avoiding base-10 
+# fractional decimals in the source code, we guarantee 100% deterministic 
+# parsing across all hardware architectures and compilers. The scaling division 
+# (converting microdegrees into turns) is performed strictly internally during 
+# engine initialization.
 
-# Define the JPL tables in pure floats (d, m, m', f, amplitude_microdegrees)
 # 1-Term Solar Series (Primary Keplerian anomaly; leaves ~30-minute error in solar position, ~2.4m in lunar phase)
 # Includes secular drift (-4817 microdeg/cy) to fix the 70-min millennial error.
 FLOAT_SOLAR_TABLE_1 = (
@@ -935,7 +1020,7 @@ FLOAT_LUNAR_TABLE_6 = (
     ( 2,  0, -1,  0,  1274027.0),  # Evection
     ( 2,  0,  0,  0,   658314.0),  # Variation
     ( 0,  0,  2,  0,   213618.0),  # 2nd Elliptic
-    ( 0,  1,  0,  0,  -185116.0, 465.8),  # Annual Equation
+    ( 0,  1,  0,  0,  -185116.0),  # Annual Equation, drift: 465.8
     ( 0,  0,  0,  2,  -114332.0)   # Reduction to Ecliptic
 )
 
@@ -943,12 +1028,12 @@ FLOAT_LUNAR_TABLE_6 = (
 FLOAT_LUNAR_TABLE_24 = FLOAT_LUNAR_TABLE_6 + (
     # d,  m, m',  f,   C(microdeg)
     ( 2,  0, -2,  0,    58793.0),  # 3rd Elliptic / Evection Harmonic
-    ( 2, -1, -1,  0,    57066.0, -143.6),
+    ( 2, -1, -1,  0,    57066.0),  # drift: -143.6
     ( 2,  0,  1,  0,    53322.0),
-    ( 2, -1,  0,  0,    45758.0, -115.1),
-    ( 0,  1, -1,  0,   -40923.0, 103.0),
+    ( 2, -1,  0,  0,    45758.0),  # drift: -115.1
+    ( 0,  1, -1,  0,   -40923.0),  # drfit: 103.0
     ( 1,  0,  0,  0,   -34720.0),  # Parallactic Inequality (Solar parallax effect)
-    ( 0,  1,  1,  0,   -30383.0,  76.4),
+    ( 0,  1,  1,  0,   -30383.0),  # drift: 76.4
     ( 2,  0,  0, -2,    15327.0),  #
     ( 0,  0,  1,  2,   -12528.0),
     ( 0,  0,  1, -2,    10980.0),
@@ -1007,11 +1092,19 @@ FLOAT_LUNAR_TABLE_64 = FLOAT_LUNAR_TABLE_24 + (
     ( 2,  0,  3,  0,     -293.0)
 )
 
-# Bit-perfect IEEE 754 float equivalents for the L4/L5 Fourier series engines.
-# Derived strictly from float(FUND_ACC_SUN) and float(FUND_ACC_ELONG) to 
-# guarantee zero drift between the rational and float models over 10,000 years.
-FLOAT_ACC_SUN   = float.fromhex("0x1.6bedadfcc8d0dp-51") 
-FLOAT_ACC_ELONG = float.fromhex("-0x1.1a5a8662ee151p-48")
+# ============================================================================
+# FLOAT ACCELERATIONS
+# ============================================================================
+# Derived strictly from Fraction(1, 2**7 * 3**4 * 5**16) and 
+# Fraction(-1, 2**11 * 3**13 * 5**7)
+FLOAT_ACC_SUN   = float.fromhex("0x1.6c6150309e816p-51")   # ~ 6.32098e-16
+FLOAT_ACC_ELONG = float.fromhex("-0x1.1a7a2c7be9067p-48")  # ~ -3.92015e-15
+
+# Alternatice version
+# Derived strictly from Fraction(1, 487 * 2**8 * 3**3 * 5**8) and 
+# Fraction(-1, 487 * 2**9 * 3**7 * 5**4)
+FLOAT_ACC_SUN_V1   = float.fromhex("0x1.6bedadfcc8d0dp-51") 
+FLOAT_ACC_ELONG_V1 = float.fromhex("-0x1.1a5a8662ee151p-48")
 
 # ============================================================
 # L4 REFORM: Rational Month + Rational Day
@@ -1032,7 +1125,7 @@ L4_SPEC = CalendarSpec(
         epoch_k=k_from_epoch_jd(L_FUNDS["m0"]), # Uses the exact same rational anchor!
         location=LOC_LHASA,
         solar_table=FLOAT_SOLAR_TABLE_2,
-        lunar_table=FLOAT_LUNAR_TABLE_24,
+        lunar_table=FLOAT_LUNAR_TABLE_24[:14],
         iterations=3,
         include_drift=True
     ),
@@ -1051,11 +1144,13 @@ L5_SPEC = CalendarSpec(
         solar_table=L_SOLAR_TABLE_2,
         lunar_table=L_LUNAR_TABLE_6, 
         iterations=2,
+        invB_prec=M1_PREC,
         moon_tab_quarter=SINE_TAB_QUARTER,
         sun_tab_quarter=SINE_TAB_QUARTER,
         Y0=1987,
         M0=3,
         sgang1_deg=Fraction(307, 1),
+        C_elong=FUND_ACC_ELONG,
         include_drift=True
     ),
     day_params=fp_day(
@@ -1064,6 +1159,7 @@ L5_SPEC = CalendarSpec(
         solar_table=FLOAT_SOLAR_TABLE_2,
         lunar_table=FLOAT_LUNAR_TABLE_64,
         iterations=3,
+        C_elong=FLOAT_ACC_ELONG,
         include_drift=True
     ),
     leap_labeling="first_is_leap",

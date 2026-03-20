@@ -14,7 +14,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 
 from caltib.engines.interfaces import MonthEngineProtocol, NumT
 from caltib.engines.astro.tables import QuarterWaveTable
@@ -47,6 +47,8 @@ class RationalMonthParams:
     Y0: int
     M0: int
     sgang1_deg: Fraction = Fraction(307, 1)  # Tropical longitude (degrees) defining Month 1
+
+    invB_elong_prec: Optional[Fraction] = None
 
     @property
     def sgang_base(self) -> Fraction:
@@ -119,7 +121,7 @@ class RationalMonthEngine(MonthEngineProtocol):
         Returns the true physical time (Days since J2000.0 TT) for absolute lunation l.
         Uses Picard iteration to solve: E_true(t) = l.
         """
-        return self.elong_series.picard_solve(Fraction(l), iterations=self.p.iterations)
+        return self.elong_series.picard_solve(Fraction(l), iterations=self.p.iterations,invB_prec=self.p.invB_elong_prec)
 
     def get_l_from_t2000(self, t2000: NumT) -> Fraction:
         """Inverse kinematic lookup: Returns true elongation (in turns) at physical time t."""

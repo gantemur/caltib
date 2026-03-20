@@ -122,6 +122,7 @@ class AffineTabSeriesT:
         *,
         iterations: int,
         t_init: Fraction = None,
+        invB_prec: Fraction = None,
     ) -> Fraction:
         """
         Fixed iteration solver for x(t)=x0 in the contractive regime:
@@ -131,6 +132,9 @@ class AffineTabSeriesT:
         if iterations < 0:
             raise ValueError("iterations must be non-negative")
             
+        # Step 1: The Exact Physical Anchor
+        # t0 MUST use the exact B to anchor the true J2000 physical rate.
+        # This injects the wild prime into the denominator exactly once (Power 1).
         t0 = (x0 - self.A) / self.B
         
         # O(1) baseline bypass
@@ -138,8 +142,12 @@ class AffineTabSeriesT:
             return t0
             
         t = t0 if t_init is None else t_init
-        invB = Fraction(1, 1) / self.B
+
+        # Step 2: The Preconditioner
+        # Use the harmonic preconditioner if provided, else fallback to exact 1/B
+        multiplier = invB_prec if invB_prec is not None else Fraction(1, 1) / self.B
         
+        # Step 3: The Contractive Loop
         for _ in range(iterations):
             # Calculate the correction sum C(t)
             corr = self.C * t * t
@@ -148,7 +156,8 @@ class AffineTabSeriesT:
                 corr += current_amp * term.table_eval_turn(term.phase.eval(t))
                 
             # Apply iteration step
-            t = t0 - corr * invB
+            # By using the harmonic multiplier, the wild prime safely stays at Power 1
+            t = t0 - corr * multiplier
             
         return t
 
