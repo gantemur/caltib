@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Tuple, Any, Optional
 from fractions import Fraction
+import warnings
 import math
 
 # 1. New Core Types
 from caltib.core.types import EngineId, CalendarSpec, LocationSpec
-from caltib.core.time import k_from_epoch_jd
+from caltib.core.time import k_from_epoch_jd, y0_from_epoch_jd, deduce_epoch_constants
 
 # 2. New Pure Data Parameters
 from caltib.engines.arithmetic_month import ArithmeticMonthParams
@@ -377,22 +378,108 @@ DT_FLOAT_DEF = FloatDeltaTDef(
 
 def arith_month(
     *, 
-    Y0: int = 1987, 
-    M0: int = 3, 
+    Y0: Optional[int] = None,
+    M0: Optional[int] = None, 
+    beta_star: Optional[int] = None,
+    tau: Optional[int] = None,
     P: int = P_TIB, 
     Q: int = Q_TIB, 
-    beta_star: int = 57,
-    tau: int = 0,
     m0: Fraction,
     m1: Fraction = M1_TIB,
-    s0: Fraction = Fraction(0, 1),
-    sgang1_deg: Fraction = Fraction(307,1)
+    s0: Fraction = Fraction(0, 1), 
+    sgang1_deg: Fraction = Fraction(307, 1)
 ) -> ArithmeticMonthParams:
+    
+    # 1. Y0 Resolution
+    expected_Y0 = y0_from_epoch_jd(m0)
+    resolved_Y0 = expected_Y0 if Y0 is None else Y0
+    if Y0 is not None and resolved_Y0 != expected_Y0:
+        warnings.warn(
+            f"Year Alignment Warning: Explicit Y0={resolved_Y0}, but JD m0 "
+            f"falls in {expected_Y0}. Proceeding with explicit Y0.",
+            UserWarning, stacklevel=2
+        )
+
+    # 2. Unified Grid Snap (Guarantees M0 and beta_star are physically locked)
+    expected_M0, expected_beta, expected_tau = deduce_epoch_constants(s0, sgang1_deg, P, Q)
+    
+    # 3. M0 Resolution
+    resolved_M0 = expected_M0 if M0 is None else M0
+    if M0 is not None and resolved_M0 != expected_M0:
+        warnings.warn(
+            f"Month Alignment Warning: Explicit M0={resolved_M0}, but unified geometry "
+            f"evaluates to {expected_M0}. Proceeding with explicit M0.",
+            UserWarning, stacklevel=2
+        )
+        
+    # 4. Beta/Tau Resolution
+    resolved_beta = expected_beta if beta_star is None else beta_star
+    resolved_tau = expected_tau if tau is None else tau
+    if (beta_star is not None or tau is not None):
+        if resolved_beta != expected_beta or resolved_tau != expected_tau:
+            warnings.warn(
+                f"Phase Alignment Warning: Explicit beta_star={resolved_beta}, tau={resolved_tau}. "
+                f"Unified geometry calculates beta_star={expected_beta}, tau={expected_tau}. "
+                f"Proceeding with explicit values.",
+                UserWarning, stacklevel=2
+            )
+            
     return ArithmeticMonthParams(
-        epoch_k=k_from_epoch_jd(m0),  # Deduce Day epoch_k directly from m0
+        epoch_k=k_from_epoch_jd(m0),  
         sgang1_deg=sgang1_deg,
-        Y0=Y0, M0=M0, P=P, Q=Q, beta_star=beta_star, tau=tau,
-        m0=m0, m1=m1, s0=s0
+        Y0=resolved_Y0, 
+        M0=resolved_M0, 
+        P=P, 
+        Q=Q, 
+        beta_star=resolved_beta, 
+        tau=resolved_tau,
+        m0=m0, 
+        m1=m1, 
+        s0=s0
+    )
+
+def rational_month(
+    *,
+    funds: dict[str, FundArg],
+    solar_table: Tuple[Tuple[Any, ...], ...] = (),
+    lunar_table: Tuple[Tuple[Any, ...], ...] = (),
+    iterations: int = 1,
+    moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
+    sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
+    sgang1_deg: Fraction = Fraction(307, 1),
+    leap_labeling: str = "first_is_leap",  # The "Outside" View
+    skipped_naming: str = "second",
+    invB_prec: Optional[Fraction] = None,
+    C_sun: Fraction = Fraction(0,1), 
+    C_elong: Fraction = Fraction(0,1),
+    include_drift: bool = False
+) -> RationalMonthParams:
+
+    # Translate the civil labeling into the physical naming convention
+    if leap_labeling == "first_is_leap":
+        leap_naming = "following"
+    elif leap_labeling == "second_is_leap":
+        leap_naming = "previous"
+    else:
+        raise ValueError(f"Unknown leap_labeling: {leap_labeling}")
+
+    # Compile the pure data TermDefs
+    solar_terms = compile_affine_terms(
+        funds=funds, keys=("D", "M", "Mp", "F"), rows=solar_table, include_drift=include_drift
+    )
+    lunar_terms = compile_affine_terms(
+        funds=funds, keys=("D", "M", "Mp", "F"), rows=lunar_table, include_drift=include_drift
+    )
+
+    return RationalMonthParams(
+        epoch_k=k_from_epoch_jd(funds["m0"]),
+        A_sun=funds["S"].c0, B_sun=funds["S"].c1, C_sun=C_sun, solar_terms=solar_terms,
+        A_elong=funds["D"].c0, B_elong=funds["D"].c1, C_elong=C_elong, lunar_terms=lunar_terms,
+        iterations=iterations, 
+        moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter,
+        Y0=y0_from_epoch_jd(funds["m0"]), sgang1_deg=sgang1_deg,
+        leap_naming=leap_naming, skipped_naming=skipped_naming,
+        invB_elong_prec=invB_prec
     )
 
 def trad_day(
@@ -500,41 +587,6 @@ def fp_day(
         sine_poly_coeffs=sine_poly_coeffs
     )
 
-def rational_month(
-    *,
-    funds: dict[str, FundArg],
-    solar_table: Tuple[Tuple[Any, ...], ...] = (),
-    lunar_table: Tuple[Tuple[Any, ...], ...] = (),
-    iterations: int = 1,
-    moon_tab_quarter: Tuple[int, ...] = MOON_TAB_QUARTER,
-    sun_tab_quarter: Tuple[int, ...] = SUN_TAB_QUARTER,
-    Y0: int = 1987,
-    M0: int = 3,
-    sgang1_deg: Fraction = Fraction(307, 1),
-    invB_prec: Optional[Fraction] = None,
-    C_sun: Fraction = Fraction(0,1), 
-    C_elong: Fraction = Fraction(0,1),
-    include_drift: bool = False
-) -> RationalMonthParams:
-
-    # Compile the pure data TermDefs
-    solar_terms = compile_affine_terms(
-        funds=funds, keys=("D", "M", "Mp", "F"), rows=solar_table, include_drift=include_drift
-    )
-    lunar_terms = compile_affine_terms(
-        funds=funds, keys=("D", "M", "Mp", "F"), rows=lunar_table, include_drift=include_drift
-    )
-
-    return RationalMonthParams(
-        epoch_k=k_from_epoch_jd(funds["m0"]),
-        A_sun=funds["S"].c0, B_sun=funds["S"].c1, C_sun=C_sun, solar_terms=solar_terms,
-        A_elong=funds["D"].c0, B_elong=funds["D"].c1, C_elong=C_elong, lunar_terms=lunar_terms,
-        iterations=iterations, 
-        moon_tab_quarter=moon_tab_quarter, sun_tab_quarter=sun_tab_quarter,
-        Y0=Y0, M0=M0, sgang1_deg=sgang1_deg,
-        invB_elong_prec=invB_prec
-    )
-
 def arith_day(
     *,
     location: LocationSpec,
@@ -633,7 +685,7 @@ PHUGPA_E1927_S0 = Fraction(749,804)
 PHUGPA_SPEC = CalendarSpec(
     id=EngineId("trad", "phugpa", "0.1"),
     month_params=arith_month(
-        Y0=1927, beta_star=55, tau=48, 
+        Y0=1927, M0=3, beta_star=55, tau=48, 
         m0=PHUGPA_E1927_M0, s0=PHUGPA_E1927_S0,
         sgang1_deg=Fraction(308, 1)
     ),
@@ -660,7 +712,7 @@ PHUGPA_E1987_S0 = Fraction(0, 1)
 PHUGPA_E1987_SPEC = CalendarSpec(
     id=EngineId("trad", "phugpa", "0.1"),
     month_params=arith_month(
-        Y0=1987, beta_star=0, tau=48, 
+        Y0=1987, M0=3, beta_star=0, tau=48, 
         m0=PHUGPA_E1987_M0, s0=PHUGPA_E1987_S0,
         sgang1_deg=Fraction(308, 1)
     ),
@@ -687,7 +739,7 @@ TSURPHU_E1852_S0 = Fraction(23, 27135)
 TSURPHU_SPEC = CalendarSpec(
     id=EngineId("trad", "tsurphu", "0.1"),
     month_params=arith_month(
-        Y0=1852, beta_star=14, tau=0, 
+        Y0=1852, M0=3, beta_star=14, tau=0, 
         m0=TSURPHU_E1852_M0, s0=TSURPHU_E1852_S0,
         sgang1_deg=Fraction(307, 1)
     ),
@@ -714,7 +766,7 @@ MONGOL_E1747_S0 = Fraction(397, 402)
 MONGOL_SPEC = CalendarSpec(
     id=EngineId("trad", "mongol", "0.1"),
     month_params=arith_month(
-        Y0=1747, beta_star=10, tau=46, 
+        Y0=1747, M0=3, beta_star=10, tau=46, 
         m0=MONGOL_E1747_M0, s0=MONGOL_E1747_S0,
         sgang1_deg=Fraction(308, 1)+Fraction(2, 3)
     ),
@@ -742,7 +794,7 @@ BHUTAN_E1754_S0 = Fraction(1, 67)
 BHUTAN_SPEC = CalendarSpec(
     id=EngineId("trad", "bhutan", "0.1"),
     month_params=arith_month(
-        Y0=1754, beta_star=2, tau=57, 
+        Y0=1754, M0=3, beta_star=2, tau=57, 
         m0=BHUTAN_E1754_M0, s0=BHUTAN_E1754_S0,
         sgang1_deg=Fraction(309, 1)
     ),
@@ -775,7 +827,7 @@ KARANA_P_RATES["rahu"] = RAHU_LUN / M1_KAR
 KARANA_SPEC = CalendarSpec(
     id=EngineId("trad", "karana", "0.1"),
     month_params=arith_month(
-        Y0=806, beta_star=0, tau=63, 
+        Y0=806, M0=3, beta_star=0, tau=63, 
         m0=KARANA_E806_M0, s0=KARANA_E806_S0, m1=M1_KAR,
         sgang1_deg=Fraction(300, 1)
     ),
@@ -809,6 +861,8 @@ TRAD_SPECS = {
 # ============================================================
 # REFORMED RATIONAL (AND ARITHMETIC) ENGINE SPECIFICATIONS
 # ============================================================
+#Month 1 anchor
+SGANG1=336
 
 # The epoch fundamentals (E1987)
 L_FUNDS = make_funds(
@@ -900,21 +954,17 @@ FUND_ACC_ELONG_V1 = Fraction(-1, 487 * 2**9 * 3**7 * 5**4) # ~ -13.3 s/cy^2
 # ============================================================
 # L0 REFORM: Pure Arithmetic Baseline
 # ============================================================
-
 L0_SPEC = CalendarSpec(
     id=EngineId("reform", "l0", "0.1"),
     month_params=arith_month(
-        P=P_NEW, Q=Q_NEW, beta_star=57, 
-        sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
+        P=P_NEW, Q=Q_NEW,
+        sgang1_deg=SGANG1,
+        m0=L_FUNDS["m0"], s0=L_FUNDS["s0"], m1=FUND_RATES["M1"],
     ),
     day_params=arith_day(
         location=LOC_LHASA,
-        m0_abs=L_FUNDS["m0"],   # Passes absolute, arith_day auto-shifts for Lhasa!
-        s0=L_FUNDS["S"].c0, 
-        s1=FUND_RATES["S1"],
-        U=143925, 
-        V=141673
+        U=143925, V=141673,
+        m0_abs=L_FUNDS["m0"], s0=L_FUNDS["s0"], s1=FUND_RATES["S1"],
     ),
     leap_labeling="first_is_leap",
     meta={"epoch": "E1987", "description": "L0 Reform: Pure Arithmetic with Meeus constants"}
@@ -926,9 +976,9 @@ L0_SPEC = CalendarSpec(
 L1_SPEC = CalendarSpec(
     id=EngineId("reform", "l1", "0.1"),
     month_params=arith_month(
-        P=P_NEW, Q=Q_NEW, beta_star=57, 
-        sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
+        P=P_NEW, Q=Q_NEW,
+        sgang1_deg=SGANG1, 
+        m0=L_FUNDS["m0"], s0=L_FUNDS["s0"], m1=FUND_RATES["M1"],
     ),
     day_params=rational_day(
         funds=L_FUNDS,
@@ -945,9 +995,9 @@ L1_SPEC = CalendarSpec(
 L2_SPEC = CalendarSpec(
     id=EngineId("reform", "l2", "0.1"),
     month_params=arith_month(
-        P=P_NEW, Q=Q_NEW, beta_star=57, 
-        sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
+        P=P_NEW, Q=Q_NEW,
+        sgang1_deg=SGANG1, 
+        m0=L_FUNDS["m0"], s0=L_FUNDS["s0"], m1=FUND_RATES["M1"],
     ),
     day_params=rational_day(
         funds=L_FUNDS,
@@ -965,9 +1015,9 @@ L2_SPEC = CalendarSpec(
 L3_SPEC = CalendarSpec(
     id=EngineId("reform", "l3", "0.1"),
     month_params=arith_month(
-        P=P_NEW, Q=Q_NEW, beta_star=57, 
-        sgang1_deg=Fraction(307, 1), 
-        m0=L_FUNDS["m0"], s0=L_FUNDS["S"].c0, m1=FUND_RATES["M1"]
+        P=P_NEW, Q=Q_NEW,
+        sgang1_deg=SGANG1, 
+        m0=L_FUNDS["m0"], s0=L_FUNDS["s0"], m1=FUND_RATES["M1"],
     ),
     day_params=rational_day(
         funds=L_FUNDS,
@@ -1109,6 +1159,8 @@ FLOAT_ACC_ELONG_V1 = float.fromhex("-0x1.1a5a8662ee151p-48")
 # ============================================================
 # L4 REFORM: Rational Month + Rational Day
 # ============================================================
+L4_LEAP_LABELING = "first_is_leap"
+
 L4_SPEC = CalendarSpec(
     id=EngineId("reform", "l4", "0.1"),
     month_params=rational_month(
@@ -1116,9 +1168,9 @@ L4_SPEC = CalendarSpec(
         solar_table=L_SOLAR_TABLE_1,
         lunar_table=L_LUNAR_TABLE_1, 
         iterations=1,
-        Y0=1987,
-        M0=3,
-        sgang1_deg=Fraction(337, 1),
+        sgang1_deg=SGANG1,
+        leap_labeling=L4_LEAP_LABELING,
+        skipped_naming="second",
         include_drift=True
     ),
     day_params=fp_day(
@@ -1129,13 +1181,14 @@ L4_SPEC = CalendarSpec(
         iterations=3,
         include_drift=True
     ),
-    leap_labeling="first_is_leap",
+    leap_labeling=L4_LEAP_LABELING,
     meta={"epoch": "E1987", "description": "L4 Reform: Primary Astronomical Engine (24-Term Float Day)"}
 )
 
 # ============================================================
 # L5 REFORM: Pure Float Engine (64-Bit FPU)
 # ============================================================
+L5_LEAP_LABELING = "first_is_leap"
 
 L5_SPEC = CalendarSpec(
     id=EngineId("reform", "l5", "0.1"),
@@ -1147,9 +1200,9 @@ L5_SPEC = CalendarSpec(
         invB_prec=M1_PREC,
         moon_tab_quarter=SINE_TAB_QUARTER,
         sun_tab_quarter=SINE_TAB_QUARTER,
-        Y0=1987,
-        M0=3,
-        sgang1_deg=Fraction(307, 1),
+        sgang1_deg=SGANG1,
+        leap_labeling=L5_LEAP_LABELING,
+        skipped_naming="second",
         C_elong=FUND_ACC_ELONG,
         include_drift=True
     ),
@@ -1162,7 +1215,7 @@ L5_SPEC = CalendarSpec(
         C_elong=FLOAT_ACC_ELONG,
         include_drift=True
     ),
-    leap_labeling="first_is_leap",
+    leap_labeling=L5_LEAP_LABELING,
     meta={"epoch": "E1987", "description": "L5 Reform: High-Precision Astronomical Engine (64-Term Float Day)"}
 )
 

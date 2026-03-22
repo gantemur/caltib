@@ -190,6 +190,7 @@ def make_funds(
     
     return {
         "m0": m0,
+        "s0": s0,
         "S":  FundArg(c0=c0_S, c1=fund_rates["S"]),
         "D":  FundArg(c0=c0_D, c1=fund_rates["D"]),
         "M":  FundArg(c0=c0_M, c1=fund_rates["M"]),
