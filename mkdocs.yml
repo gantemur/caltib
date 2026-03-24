@@ -1,6 +1,17 @@
 site_name: caltib
 site_description: High-Precision Tibetan Calendrical Math
 repo_url: https://github.com/gantemur/caltib
+theme:
+  name: material
+  edit_uri: edit/main/docs/  # Points users to the docs folder for narrative edits
+  repo_name: gantemur/caltib
+  palette:
+    primary: indigo
+    accent: blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    
 copyright: |
   <style>
     .footer-container {
@@ -29,16 +40,7 @@ copyright: |
       McGill University &bull; National University of Mongolia &bull; Mongolian Academy of Sciences
     </div>
   </div>
-theme:
-  name: material
-  edit_uri: edit/main/docs/  # Points users to the docs folder for narrative edits
-  repo_name: gantemur/caltib
-  palette:
-    primary: indigo
-    accent: blue
-  features:
-    - navigation.tabs
-    - navigation.sections
+
 
 # We are adding the standard extensions here to fix the buttons and layout!
 markdown_extensions:
