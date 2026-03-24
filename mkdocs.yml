@@ -1,17 +1,18 @@
 site_name: caltib
 site_description: High-Precision Tibetan Calendrical Math
 repo_url: https://github.com/gantemur/caltib
+repo_name: gantemur/caltib
+edit_uri: edit/main/docs/
+
 theme:
   name: material
-  edit_uri: edit/main/docs/  # Points users to the docs folder for narrative edits
-  repo_name: gantemur/caltib
   palette:
     primary: indigo
     accent: blue
   features:
     - navigation.tabs
     - navigation.sections
-    
+
 copyright: |
   <style>
     .footer-container {
@@ -24,11 +25,11 @@ copyright: |
     .footer-affiliations {
       opacity: 0.6;
       font-size: 0.9em;
-      text-align: left; /* Clean left-align for mobile */
+      text-align: left;
     }
     @media (min-width: 768px) {
       .footer-affiliations {
-        margin-left: auto; /* Pushes to the right only on desktop */
+        margin-left: auto;
         text-align: right;
       }
     }
@@ -41,8 +42,6 @@ copyright: |
     </div>
   </div>
 
-
-# We are adding the standard extensions here to fix the buttons and layout!
 markdown_extensions:
   - attr_list          
   - md_in_html
@@ -65,7 +64,6 @@ plugins:
           options:
             show_source: false
             show_root_heading: true
-            # These options fix the giant fonts and TOC clutter!
             heading_level: 4               
             show_signature_annotations: true
             separate_signature: true       
@@ -73,8 +71,8 @@ plugins:
             show_if_no_docstring: true
             show_submodules: true
             filters:
-              - "!^_"              # Hides anything starting with an underscore
-              - "!^[A-Z0-9_]+$"    # Hides ALL_CAPS constants
+              - "!^_"              
+              - "!^[A-Z0-9_]+$"    
 
 nav:
   - Home: index.md
