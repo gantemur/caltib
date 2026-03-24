@@ -2,12 +2,30 @@ site_name: caltib
 site_description: High-Precision Tibetan Calendrical Math
 repo_url: https://github.com/gantemur/caltib
 copyright: |
-  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 10px 20px;">
-    <div style="display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: baseline;">
-      <span>Developed by <strong>Tsogtgerel Gantumur</strong></span>
-      <span style="opacity: 0.8;">&copy; 2026. Released under the MIT License.</span>
-    </div>
-    <div style="opacity: 0.6; font-size: 0.9em; text-align: right;">
+  <style>
+    .footer-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      column-gap: 20px;
+      row-gap: 8px;
+    }
+    .footer-affiliations {
+      opacity: 0.6;
+      font-size: 0.9em;
+      text-align: left; /* Clean left-align for mobile */
+    }
+    @media (min-width: 768px) {
+      .footer-affiliations {
+        margin-left: auto; /* Pushes to the right only on desktop */
+        text-align: right;
+      }
+    }
+  </style>
+  <div class="footer-container">
+    <span>Developed by <strong>Tsogtgerel Gantumur</strong></span>
+    <span style="opacity: 0.8;">&copy; 2026. Released under the MIT License.</span>
+    <div class="footer-affiliations">
       McGill University &bull; National University of Mongolia &bull; Mongolian Academy of Sciences
     </div>
   </div>
