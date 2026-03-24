@@ -3,8 +3,8 @@ site_description: High-Precision Tibetan Calendrical Math
 repo_url: https://github.com/gantemur/caltib
 copyright: |
   <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 15px;">
-    <div>Developed by <strong>Tsogtgerel Gantumur</strong><br>&copy; 2026. Released under the MIT License.</div>
-    <div style="opacity: 0.8;">McGill University &bull; National University of Mongolia &bull; Mongolian Academy of Sciences</div>
+    <div>Developed by <strong>Tsogtgerel Gantumur</strong></div>
+    <div>&copy; 2026. Released under the MIT License.</div>
   </div>
 theme:
   name: material
