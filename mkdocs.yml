@@ -2,9 +2,14 @@ site_name: caltib
 site_description: High-Precision Tibetan Calendrical Math
 repo_url: https://github.com/gantemur/caltib
 copyright: |
-  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 15px;">
-    <div>Developed by <strong>Tsogtgerel Gantumur</strong></div>
-    <div>&copy; 2026. Released under the MIT License.</div>
+  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 10px 20px;">
+    <div style="display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: baseline;">
+      <span>Developed by <strong>Tsogtgerel Gantumur</strong></span>
+      <span style="opacity: 0.8;">&copy; 2026. Released under the MIT License.</span>
+    </div>
+    <div style="opacity: 0.6; font-size: 0.9em; text-align: right;">
+      McGill University &bull; National University of Mongolia &bull; Mongolian Academy of Sciences
+    </div>
   </div>
 theme:
   name: material
