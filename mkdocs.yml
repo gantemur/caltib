@@ -1,0 +1,55 @@
+site_name: caltib
+site_description: High-Precision Tibetan Calendrical Math
+repo_url: https://github.com/gantemur/caltib
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+
+# We are adding the standard extensions here to fix the buttons and layout!
+markdown_extensions:
+  - attr_list               # <-- This fixes the buttons!
+  - md_in_html
+  - admonition              # <-- Fixes warning/note boxes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            show_root_heading: true
+            # These options fix the giant fonts and TOC clutter!
+            heading_level: 4               
+            show_signature_annotations: true
+            separate_signature: true       
+            docstring_section_style: list  
+            show_if_no_docstring: true
+            show_submodules: true
+            filters:
+              - "!^_"              # Hides anything starting with an underscore
+              - "!^[A-Z0-9_]+$"    # Hides ALL_CAPS constants
+
+nav:
+  - Home: index.md
+  - Traditions & Drift: traditions.md
+  - The Reforms: reforms.md
+  - Architecture: library.md
+  - Design & Diagnostics: tools.md
+  - API Reference: api.md
+  - 🚀 Live Web Calendar: app.html
+  - 📊 Diagnostics Lab: diag.html
