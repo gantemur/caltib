@@ -6,8 +6,6 @@ from pyodide.ffi import create_proxy
 import caltib.i18n as i18n
 import json
 
-
-
 from caltib.core.types import LocationSpec
 
 from caltib.engines import specs

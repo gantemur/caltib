@@ -102,10 +102,7 @@ def build_global_grid(np, engine: str, jd_min: float, jd_max: float):
 
     # Sample strictly every 15 tithis (New Moon and Full Moon) to build a tight grid
     for x in range(x_start, x_end + 1, 15):
-        try:
-            jd = float(eng.day.true_date(x)) + 2451545.0
-        except AttributeError:
-            jd = float(eng.day.treu_date(x)) + 2451545.0
+        jd = float(eng.day.true_date(x)) + 2451545.0
             
         s = float(eng.day.true_sun(x))
         sd = 360.0 * s if 0.0 <= s <= 1.5 else s

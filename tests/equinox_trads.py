@@ -79,8 +79,9 @@ def build_global_grid(np, engine: str, year_start: int, year_end: int, sample_da
         n0, n1 = iter_lunations_for_year(engine, Y)
         for n in range(n0, n1 + 1):
             for d in sample_days:
-                jd = float(eng.day.true_date(d, n))
-                s = eng.day.true_sun(d, n)  # expected turns (0..1) or degrees
+                x = 30 * n + d
+                jd = float(eng.day.true_date(x)) + 2451545.0
+                s = eng.day.mean_sun(x)  # expected turns (0..1) or degrees
 
                 sf = float(s)
                 # heuristic: if it's in [0,1.5], treat as turns

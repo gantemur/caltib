@@ -676,6 +676,13 @@
                 
                 await micropip.install(["./caltib-0.1.0-py3-none-any.whl"]);
 
+                // Gag the warnings before caltib is ever imported
+                pyodide.runPython(`
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+                `);
+                // -----------------------------------
+
                 const transJson = pyodide.runPython(`
 import json
 from caltib.i18n import TRANSLATIONS

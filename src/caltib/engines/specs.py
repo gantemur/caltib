@@ -887,8 +887,8 @@ L_FUNDS_V1 = make_funds(
     fund_rates=FUND_RATES,
     jd_base=JD_J2000,
     s0=Fraction(3609, 36361), 
-    a0=Fraction(7690, 25561),
-    r0=Fraction(27144, 86467),
+    a0=Fraction(3899, 12960),
+    r0=Fraction(9041, 28800),
     f0=Fraction(4596, 65033)
 )
 

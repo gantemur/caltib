@@ -63,7 +63,7 @@ def build_series(np, engine: str, start_year: int, end_year: int, *, metric: str
 
     for i, Y in enumerate(years):
         ny = caltib.new_year_day(int(Y), engine=engine)  # returns Gregorian date (year >= 1)
-        d = ny["date"]
+        d = ny
         if metric == "doy":
             y[i] = float(day_of_year(d))
         elif metric == "since-solstice":
