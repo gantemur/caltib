@@ -2,36 +2,31 @@
 
 ## 🎯 Active Development Tracks
 
-### 1. Web Application & Documentation (The Frontend)
-- [ ] **Polish Website:** Finalize the static HTML documentation site, ensuring all architectural concepts, reform methodologies, and laboratory tools are clearly explained.
-- [ ] **Build the Web Calendar App (`app.html`):**
-  - [ ] Implement a full-featured UI with Day, Month, and Year views similar to modern calendar applications.
-  - [ ] Integrate PyScript/WebAssembly to load the zero-dependency core engine directly in the browser.
-  - [ ] Build specialized features, such as a chronological list generator for Losar / Tsagaan Sar dates over arbitrary year ranges.
+### 1. Web Application & Documentation
+- [ ] **Implement Open/Save Configuration:** Add functionality to export and import complete custom calendar specifications (via JSON) directly within the `app.html` web interface.
+- [ ] **Automated Documentation Pipeline:** Implement docstring-driven documentation using MkDocs (with the Material theme) and `mkdocstrings`. Set up a GitHub Action to automatically build and deploy the API reference to GitHub Pages on `main` branch pushes.
 
-### 2. High-Precision Floating-Point Kinematics (L4 & L5)
-- [ ] **Develop `FloatDayEngine`:** Implement strictly reproducible floating-point kinematics using Chebyshev minimax polynomials to approximate transcendental functions.
-- [ ] **Develop `FloatMonthEngine`:** Bridge the rational month constants with the floating-point day boundaries.
-- [ ] **Implement FP Sunrise Models:** Develop high-precision, floating-point spherical sunrise models (incorporating the Equation of Time) to replace or supplement the rational L3 sunrise logic.
-- [ ] **Implement Solvers:** Integrate fixed-iteration Picard and Steffensen solvers for the floating-point anomalies.
+### 2. Numerical Ephemeris Integration (L6)
+- [ ] **Develop `EphDayEngine` (L6):** Create the ultimate truth layer by implementing L6, allowing users to toggle between **JPL DE422 `.bsp` files** and the **internal analytical reference library** as optional sources for mapping physical syzygies.
+- [ ] **Develop `EphMonthEngine`:** Allow the month boundaries and intercalation logic to be driven natively by continuous ephemeris data rather than analytical mean motions.
 
-### 3. Numerical Ephemeris Integration (L6)
-- [ ] **Develop `EphDayEngine`:** Create the ultimate truth layer by directly querying JPL DE422 `.bsp` files to map physical syzygies.
-- [ ] **Develop `EphMonthEngine`:** Allow the month boundaries and intercalation logic to be driven natively by ephemeris data rather than analytical mean motions.
+### 3. Phenomenological & Planetary Engines
+- [ ] **Write Rational Planet Engine:** Implement the pure-rational historical Siddhantic planetary mathematical models (fast/slow motions, dal-bar, etc.).
 
-### 4. Phenomenological & Astrological Engines
-- [ ] **Develop `AttributeEngine`:** Map the discrete chronological grids to traditional Tibetan/Mongolian attributes (Elements, Animals, Trigrams/Mewa, Lunar Mansions, Weekdays).
-- [ ] **Develop `PlanetsEngine`:** Implement both the historical Siddhantic planetary mathematical models and a modern routing layer to fetch true planetary positions via ephemeris.
-
-### 5. Advanced Diagnostics Laboratory
-- [ ] **Month Engine Diagnostics:** Write specialized `caltib diag` tools to visualize month-level behavior, such as intercalation triggers, drift in the leap-month assignment, and rational vs. ephemeris month boundaries.
-- [ ] **Sunrise & Latitude Diagnostics:** Write tools to compare the civil phase shifts caused by localized spherical sunrise models across different geographic latitudes (e.g., Lhasa vs. Ulaanbaatar).
+### 4. Advanced Diagnostics Laboratory & Validation
+- [ ] **Near-Tie & Boundary Validation:** Ensure all extreme mathematical boundary cases are correct. Write dedicated, rigorous test scripts targeting near-tie scenarios (e.g., borderline leap months, micro-second skipped/repeated day boundaries).
+- [ ] **Integrate Exotic Epochs:** Extract and implement the "exotic" historical epoch data and parameters from Edward Henning's source code/pages to use as hardened validation baselines.
+- [ ] **Web-Diag Enhancements:** Add the Equinox Solar Longitude drift analysis tool directly into the `diag.html` web dashboard.
 
 ---
 
 ## ✅ Completed Milestones
 * **Architecture Refactor:** Successfully decoupled discrete arithmetic from continuous kinematics using the `CalendarSpec` polymorphic factory.
 * **Rational Engines (L0-L3):** Implemented zero-FPU continuous rational fractions, Picard solvers, and integer sine-tables.
+* **Floating-Point Engines (L4-L5):** Developed strictly reproducible FP kinematics using Chebyshev minimax polynomials, floating-point spherical sunrise models, and Picard/Steffensen solvers.
 * **Universal Civil Generator:** Built the orchestrator to convert continuous $x$-coordinates into discrete JDN boundaries, accurately handling skipped/duplicated days based on geographical location.
+* **Web Calendar Frontend:** Built `app.html` with full-featured Day/Month/Year views, chronological Losar/Tsagaan Sar generators, and fully integrated client-side PyScript/WebAssembly execution.
+* **Attribute Engine:** Mapped the discrete chronological grids to traditional Tibetan/Mongolian attributes (Elements, Animals, Trigrams/Mewa, Lunar Mansions, Weekdays).
 * **Unified Diagnostics Lab:** Built the comprehensive suite for measuring secular drift, variance, equinox precession, and syzygy offsets against JPL DE422 truth.
+* **Diagnostic Enhancements:** Completed month-level diagnostics (intercalation triggers, drift) and spherical sunrise/latitude geographic phase shift comparisons.
 * **Design Tools:** Implemented continued fraction generators and Chebyshev minimax polynomial calculators for engine design.
