@@ -32,3 +32,13 @@ packages = ["src/caltib"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/caltib/reference/data/deltat_iers_monthly.csv" = "caltib/reference/data/deltat_iers_monthly.csv"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/*.png",
+  "/*.jpg",
+  "/*.pdf",
+  "/*.csv",    # Ignores CSVs only in the root directory
+  "/tests",    # Optional: exclude the tests folder from the end-user download
+  "/output"    # Standard output folder
+]

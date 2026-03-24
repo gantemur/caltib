@@ -9,3 +9,8 @@ build/
 *.egg-info/
 .venv/
 .DS_Store
+# Ignore these file types ONLY in the root directory
+/*.png
+/*.jpg
+/*.pdf
+/*.csv
