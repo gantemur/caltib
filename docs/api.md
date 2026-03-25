@@ -109,6 +109,10 @@ Below is the automatically generated technical reference for all public classes 
 ::: caltib.engines.trad_day
 ::: caltib.engines.rational_day
 ::: caltib.engines.fp_day
+
+!!! warning "Experimental: L6 Engine"
+    The following `l6.engine` module is under development.
+
 ::: caltib.engines.l6.engine
 
 ### Analytical Astronomical Reference (Ground Truth)

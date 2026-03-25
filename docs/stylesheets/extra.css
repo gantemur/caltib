@@ -1,0 +1,35 @@
+/* 1. Make the card an anchor point for the stretched link */
+.grid.cards ul li {
+    position: relative; 
+}
+
+/* 2. Stretch the title link's clickable area to cover the entire card */
+.grid.cards ul li > p:first-child a::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+}
+
+/* Add a subtle hover effect to make the cards feel "alive" */
+.grid.cards ul li:hover {
+    border-color: var(--md-primary-fg-color);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+/* Color the entire first line (Icon AND Bold Text) Indigo */
+.grid.cards ul li > p:first-child {
+    color: var(--md-primary-fg-color);
+    margin-bottom: 0.2rem; /* Pulls the text closer to the divider */
+}
+
+/* Ensure the divider line matches the theme cleanly */
+.grid.cards ul li hr {
+    margin-top: 0;
+    border-bottom: 1px solid var(--md-primary-fg-color);
+    opacity: 0.2;
+}

@@ -13,6 +13,9 @@ theme:
     - navigation.tabs
     - navigation.sections
 
+extra_css:
+  - stylesheets/extra.css
+
 copyright: |
   <style>
     .footer-container {
@@ -50,6 +53,9 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 extra_javascript:
   - javascripts/mathjax.js

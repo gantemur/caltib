@@ -32,29 +32,29 @@ A rigorous Python library that unifies 15th-century historical algorithms with m
 
 <div class="grid cards" markdown>
 
--   **Historical Fidelity**
+-   :material-history: **Historical Fidelity**
 
     ---
 
     Exact implementations of the Phugpa, Tsurphu, Bhutan, Mongol, and Karana traditions. Faithfully reproduces regional intercalations and historical epoch constants.
 
--   **A Spectrum of Reforms**
+-   :material-chart-timeline-variant: **A Spectrum of Reforms**
 
     ---
 
-    Advances from zero-FPU continuous rational fractions using integer sine-tables (L0–L3), through strictly reproducible floating-point kinematic models using Chebyshev minimax approximations (L4–L5), culminating in high-fidelity JPL DE422 ephemeris evaluations (L6).
+    Advances from zero-FPU continuous rational fractions using integer sine-tables (L0–L3), through strictly reproducible floating-point kinematic models using minimax polynomials (L4–L5).
 
--   **Universal Civil Generator**
-
-    ---
-
-    Built on the absolute continuous lunar day count. It seamlessly evaluates continuous orbital syzygies against localized spherical sunrise models (without defaulting to the Equation of Time) to accurately handle discrete skipped and duplicated days globally.
-
--   **Automated Design Lab**
+-   :material-earth: **Universal Civil Generator**
 
     ---
 
-    Not just a calculator, but a complete mathematical laboratory for calendrical research. Use the comprehensive CLI to derive optimal continued fractions for mean motions and Chebyshev minimax polynomials for strictly reproducible floating-point kinematics.
+    Built on the absolute continuous lunar day count with localized spherical sunrise to accurately handle discrete skipped and duplicated days globally.
+
+-   :material-flask-outline: **Automated Design Lab**
+
+    ---
+    
+    A complete mathematical laboratory for calendrical research. Use the CLI to derive optimal continued fractions and Chebyshev minimax polynomials.
 
 </div>
 ---
@@ -69,11 +69,13 @@ pip install caltib
 ```
 
 **[tools]** (The Design & Diagnostics Lab)
+Provides the CLI and internal tools for measuring secular drift, calculating minimax polynomials, and analyzing calendar variance.
 ```bash
 pip install "caltib[tools]"
 ```
 
-**[ephemeris]** (JPL DE422 integration for the L6 engine)
+**[ephemeris]** (JPL DE422 High-Precision Truth Data)
+Required for deep-time secular drift analysis and the upcoming L6 engine. Provides the bridge between traditional algorithms and JPL DE422 numerical integrations.
 ```bash
 pip install "caltib[ephemeris]"
 ```
@@ -100,7 +102,10 @@ ub_info = ub_engine.day_info(date(2026, 2, 21))
 print(f"Localized L3 Tithi: {ub_info.tibetan.tithi}")
 
 # 3. The L6 Numerical Engine
-# (Requires [ephemeris] extra and JPL DE422 files)
-l6 = caltib.get_calendar("l6")
-l6_info = l6.day_info(date(2026, 2, 21))
+# (Roadmap: Requires [ephemeris] extra and JPL DE422 files)
+# l6 = caltib.get_calendar("l6")
+# l6_info = l6.day_info(date(2026, 2, 21))
 ```
+
+!!! info "Level 6 (L6) Status"
+    The **L6 Numerical Engine** is currently an experimental roadmap feature. While the underlying `[ephemeris]` dependency is fully implemented for use in **Design & Diagnostics**, the L6 calendrical engine is still under development.
