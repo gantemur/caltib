@@ -6,7 +6,7 @@ Users should mostly interact with functions re-exported here.
 # Initialize registry on import
 from . import api_init as _api_init  # noqa: F401
 
-__version__ = "0.3.0"
+__version__ = "0.3.2"
 
 from .api import (
     day_info,
