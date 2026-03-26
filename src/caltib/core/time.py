@@ -122,3 +122,33 @@ def deduce_epoch_constants(s_epoch: Fraction, sgang1_deg: Fraction, P: int, Q: i
     tau = 0
     
     return M0, beta_star, tau
+
+def from_mixed_radix(integer_part: int, fractions: tuple[int, ...], radices: tuple[int, ...]) -> Fraction:
+    """
+    Evaluates traditional mixed radix notation: a0; a1, ..., an (b1, ..., bn)
+    Matches the inductive definition: a0 + a1/b1 + a2/(b1*b2) + ...
+    """
+    if len(fractions) != len(radices):
+        raise ValueError("Fractions and radices must have the same length.")
+    
+    res = Fraction(integer_part)
+    denom = 1
+    for f, r in zip(fractions, radices):
+        denom *= r
+        res += Fraction(f, denom)
+    return res
+
+def m0_from_trad(jd: int, gza_fractions: tuple[int, ...], radices: tuple[int, ...] = (60, 60, 6, 707)) -> Fraction:
+    """
+    Calculates absolute Julian Day m0 from traditional gza' (Mean Weekday).
+    The integer part of gza is implicitly handled by the base epoch JD.
+    """
+    return Fraction(jd) + from_mixed_radix(0, gza_fractions, radices)
+
+def s0_from_trad(nyi_int: int, nyi_fractions: tuple[int, ...], radices: tuple[int, ...] = (60, 60, 6, 67)) -> Fraction:
+    """Calculates mean sun (turns) from traditional nyi (Mean Sun in 27 lunar mansions)."""
+    return from_mixed_radix(nyi_int, nyi_fractions, radices) / 27
+
+def a0_from_trad(ril_int: int, ril_fractions: tuple[int, ...], radices: tuple[int, ...] = (126,)) -> Fraction:
+    """Calculates lunar anomaly (turns) from traditional ril (Anomaly in 28 lunar mansions)."""
+    return from_mixed_radix(ril_int, ril_fractions, radices) / 28

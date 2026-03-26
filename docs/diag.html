@@ -674,7 +674,7 @@
                 await pyodide.loadPackage("micropip");
                 const micropip = pyodide.pyimport("micropip");
                 
-                await micropip.install(["./caltib-0.1.0-py3-none-any.whl"]);
+                await micropip.install(["./caltib-0.3.2-py3-none-any.whl"]);
 
                 // Gag the warnings before caltib is ever imported
                 pyodide.runPython(`
