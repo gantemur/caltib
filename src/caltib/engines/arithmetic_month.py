@@ -25,17 +25,17 @@ def amod12(x: int) -> int:
 
 @dataclass(frozen=True)
 class ArithmeticMonthParams:
-    epoch_k: int       # The absolute Meeus lunation index of the epoch
+    epoch_k: int       # The absolute Meeus lunation index corresponding to internal n=0
     sgang1_deg: Fraction   # The solar longitude anchor (denoted by d1 in [Gantumur], and by p1 in [Janson])
     Y0: int            # Human epoch year
     M0: int            # Human epoch month
-    P: int             # Intercalation cycle length (lunations)
-    Q: int             # Intercalation cycle length (solar months)
+    P: int             # Number of solar months in the cycle
+    Q: int             # Number of lunations in the cycle
     beta_star: int     # Base intercalation shift
     tau: int           # Leap month placement marker
-    m0: Fraction       # Absolute JDN of epoch mean new moon
+    m0: Fraction       # Absolute JDN of the mean new moon at internal n=0
     m1: Fraction       # Mean synodic month (days)
-    s0: Fraction       # Epoch mean sun (turns)
+    s0: Fraction       # Mean sun at internal n=0
     
     def __post_init__(self) -> None:
         if self.P <= 0 or self.Q <= 0:
@@ -104,8 +104,8 @@ class ArithmeticMonthEngine(MonthEngineProtocol):
     # ---------------------------------------------------------
     def get_lunations(self, year: int, month: int) -> List[int]:
         """
-        Returns the absolute lunation indices for a given Year and Month number.
-        Chronological order is strictly preserved.
+        Returns the internal lunation indices n for the given label (year, month).
+        Internal convention: n=0 is the epoch anchor of this engine.
         """
         nplus = self.n_plus(year, month)
         if self.is_trigger_label(year, month):

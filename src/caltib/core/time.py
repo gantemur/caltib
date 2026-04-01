@@ -94,8 +94,11 @@ def advance_sun_to_epoch(
 
 def deduce_epoch_constants(s_epoch: Fraction, sgang1_deg: Fraction, P: int, Q: int) -> tuple[int, int, int]:
     """
-    Deduces M0, beta_star, and tau from the unified discrete P/Q grid.
-    Evaluated purely in fractions to preserve absolute determinism.
+    Deduces the normalized internal epoch constants from the P/Q grid:
+    - the month label carried by lunation n=0,
+    - the internal phase beta_int for trigger set {0,...,ell-1},
+    - tau_int = 0.
+    These are not necessarily the published epoch constants (Y0, M0, beta_star, tau).
     """
     # 1. Start of Month 0
     d0_turns = (sgang1_deg - Fraction(30, 1)) / Fraction(360, 1)
@@ -152,3 +155,16 @@ def s0_from_trad(nyi_int: int, nyi_fractions: tuple[int, ...], radices: tuple[in
 def a0_from_trad(ril_int: int, ril_fractions: tuple[int, ...], radices: tuple[int, ...] = (126,)) -> Fraction:
     """Calculates lunar anomaly (turns) from traditional ril (Anomaly in 28 lunar mansions)."""
     return from_mixed_radix(ril_int, ril_fractions, radices) / 28
+
+def m1_from_trad(gza_int: int, gza_fractions: tuple[int, ...], radices: tuple[int, ...] = (60, 60, 6, 707)) -> Fraction:
+    """Converts Mean Weekday advance (modulo 7) to absolute Synodic Month (days)."""
+    return Fraction(28) + from_mixed_radix(gza_int, gza_fractions, radices)
+
+def s1_from_trad(nyi_int: int, nyi_fractions: tuple[int, ...], radices: tuple[int, ...] = (60, 60, 6, 67)) -> Fraction:
+    """Converts Mean Sun advance (in 27 mansions) to fractional turns."""
+    return from_mixed_radix(nyi_int, nyi_fractions, radices) / 27
+
+def a1_from_trad(ril_int: int, ril_fractions: tuple[int, ...], radices: tuple[int, ...] = (126,)) -> Fraction:
+    """Converts Anomaly advance (in 28 mansions) to fractional turns."""
+    return from_mixed_radix(ril_int, ril_fractions, radices) / 28
+

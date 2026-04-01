@@ -7,7 +7,7 @@ import math
 
 # 1. New Core Types
 from caltib.core.types import EngineId, CalendarSpec, LocationSpec
-from caltib.core.time import k_from_epoch_jd, y0_from_epoch_jd, deduce_epoch_constants
+from caltib.core.time import k_from_epoch_jd, y0_from_epoch_jd, deduce_epoch_constants, a0_from_trad, m0_from_trad, s0_from_trad
 
 # 2. New Pure Data Parameters
 from caltib.engines.arithmetic_month import ArithmeticMonthParams
@@ -33,16 +33,11 @@ from caltib.engines.astro.sunrise import SunriseDef, ConstantSunriseDef, Spheric
 P_TIB = 65
 Q_TIB = 67
 
-# Shared mean motions for the Tibetan traditions
-M1_TIB = Fraction(167025, 5656)
-S1_TIB = Fraction(65, 804)
-A1_TIB = Fraction(253, 3528)
+# Shared mean motions for the Tibetan (and Karana) traditions
+M1_TIB = Fraction(167025, 5656) # 1; 31, 50, 0, 480 (60, 60, 6, 707)
+S1_TIB = Fraction(65, 804)      # 2; 10, 58, 1, 17 (60, 60, 6, 67)
 
-# Karana mean motions
-M1_KAR = Fraction(10631, 360)
-S1_KAR = Fraction(1277, 15795)
-A1_KAR = Fraction(253, 3528)
-
+A1_STD = Fraction(253, 3528)    # 2; 1 (126)
 A2_STD = Fraction(1, 28)
 
 # Shared traditional tables (Appendix A style)
@@ -400,29 +395,47 @@ def arith_month(
             UserWarning, stacklevel=2
         )
 
-    # 2. Unified Grid Snap (Guarantees M0 and beta_star are physically locked)
-    expected_M0, expected_beta, expected_tau = deduce_epoch_constants(s0, sgang1_deg, P, Q)
-    
+    # 2. Normalized internal geometry at n=0
+    label_at_n0, expected_beta_int, _tau_int = deduce_epoch_constants(
+        s0, sgang1_deg, P, Q
+    )
+
     # 3. M0 Resolution
-    resolved_M0 = expected_M0 if M0 is None else M0
-    if M0 is not None and resolved_M0 != expected_M0:
-        warnings.warn(
-            f"Month Alignment Warning: Explicit M0={resolved_M0}, but unified geometry "
-            f"evaluates to {expected_M0}. Proceeding with explicit M0.",
-            UserWarning, stacklevel=2
-        )
-        
+    # If omitted, default to the label carried by lunation n=0.
+    # If explicit, trust it: published M0 need not equal label_at_n0 (e.g. Phugpa E1927).
+    resolved_M0 = label_at_n0 if M0 is None else M0
+
     # 4. Beta/Tau Resolution
-    resolved_beta = expected_beta if beta_star is None else beta_star
-    resolved_tau = expected_tau if tau is None else tau
-    if (beta_star is not None or tau is not None):
-        if resolved_beta != expected_beta or resolved_tau != expected_tau:
+    def _gamma_shift(tau_val: int) -> int:
+        return (P - tau_val) % P
+
+    def _beta_int(beta_val: int, tau_val: int) -> int:
+        return (beta_val + _gamma_shift(tau_val)) % P
+
+    if beta_star is None and tau is None:
+        # Use the normalized internal convention
+        resolved_tau = 0
+        resolved_beta = expected_beta_int
+
+    elif beta_star is not None and tau is not None:
+        # Use the explicit published / chosen convention
+        resolved_beta = beta_star
+        resolved_tau = tau % P
+
+        if _beta_int(resolved_beta, resolved_tau) != expected_beta_int:
             warnings.warn(
-                f"Phase Alignment Warning: Explicit beta_star={resolved_beta}, tau={resolved_tau}. "
-                f"Unified geometry calculates beta_star={expected_beta}, tau={expected_tau}. "
-                f"Proceeding with explicit values.",
+                f"Phase Alignment Warning: Explicit beta_star={resolved_beta}, tau={resolved_tau} "
+                f"do not match the internal geometry implied by s0 and sgang1_deg. "
+                f"Expected internal phase beta_int={expected_beta_int}, but explicit data give "
+                f"beta_int={_beta_int(resolved_beta, resolved_tau)}. Proceeding with explicit values.",
                 UserWarning, stacklevel=2
             )
+
+    else:
+        raise ValueError(
+            "Provide both beta_star and tau, or neither. "
+            "A single one of them is not enough to determine the presentation convention."
+        )
             
     return ArithmeticMonthParams(
         epoch_k=k_from_epoch_jd(m0),  
@@ -485,7 +498,7 @@ def rational_month(
 def trad_day(
     *, 
     m0: Fraction, s0: Fraction, a0: Fraction, 
-    m1: Fraction = M1_TIB, s1: Fraction = S1_TIB, a1: Fraction = A1_TIB, a2: Fraction = A2_STD, 
+    m1: Fraction = M1_TIB, s1: Fraction = S1_TIB, a1: Fraction = A1_STD, a2: Fraction = A2_STD, 
     location: LocationSpec = LOC_TIBET_APPROX
 ) -> TraditionalDayParams:
     return TraditionalDayParams(
@@ -619,7 +632,8 @@ def arith_day(
     # The civil day boundary is local, so delta_star MUST use local fractional time
     jdn_floor = m0_loc.numerator // m0_loc.denominator
     f_loc = m0_loc - Fraction(jdn_floor, 1)
-    delta_star = math.floor(f_loc * U) - 1
+    shift_frac = f_loc * U
+    delta_star = -((-shift_frac.numerator) // shift_frac.denominator) - 1
 
     return ArithmeticDayParams(
         epoch_k=k_from_epoch_jd(m0_abs),
@@ -677,10 +691,11 @@ def trad_planets(
 # ============================================================
 
 # ------------------------------------------------------------
-# PHUGPA (E1927)
+# PHUGPA (E1927) - Essence of the Kalkī
 # ------------------------------------------------------------
-PHUGPA_E1927_M0 = Fraction(13715647089, 5656)
-PHUGPA_E1927_S0 = Fraction(749,804)
+PHUGPA_E1927_M0 = Fraction(13715647089, 5656) # 2424972 + 0; 57, 53, 2, 20 (60, 60, 6, 707)
+PHUGPA_E1927_S0 = Fraction(749,804)           # 25; 9, 10, 4, 32 (60, 60, 6, 67)
+PHUGPA_E1927_A0 = Fraction(1741,3528)         # 13; 103 (126)
 
 PHUGPA_SPEC = CalendarSpec(
     id=EngineId("trad", "phugpa", "0.1"),
@@ -692,7 +707,7 @@ PHUGPA_SPEC = CalendarSpec(
     day_params=trad_day(
         m0=PHUGPA_E1927_M0,
         s0=PHUGPA_E1927_S0,
-        a0=Fraction(1741,3528),
+        a0=PHUGPA_E1927_A0,
     ),
     planets_params=trad_planets(
         m0=PHUGPA_E1927_M0,
@@ -704,37 +719,11 @@ PHUGPA_SPEC = CalendarSpec(
 )
 
 # ------------------------------------------------------------
-# PHUGPA (E1987)
+# TSURPHU (E1852) - Jamgon Kongtrul
 # ------------------------------------------------------------
-PHUGPA_E1987_M0 = Fraction(1729968333, 707)
-PHUGPA_E1987_S0 = Fraction(0, 1)
-
-PHUGPA_E1987_SPEC = CalendarSpec(
-    id=EngineId("trad", "phugpa", "0.1"),
-    month_params=arith_month(
-        Y0=1987, M0=3, beta_star=0, tau=48, 
-        m0=PHUGPA_E1987_M0, s0=PHUGPA_E1987_S0,
-        sgang1_deg=Fraction(308, 1)
-    ),
-    day_params=trad_day(
-        m0=PHUGPA_E1987_M0,
-        s0=PHUGPA_E1987_S0,
-        a0=Fraction(38, 49),
-    ),
-    planets_params=trad_planets(
-        m0=PHUGPA_E1927_M0,
-        s0=PHUGPA_E1927_S0,
-        pd0={"mars": 157, "jupiter": 3964, "saturn": 6286, "mercury": 4639, "venus": 301, "rahu": 187}
-    ),
-    leap_labeling="first_is_leap",
-    meta={"epoch": "E1987", "tradition": "phugpa"},
-)
-
-# ------------------------------------------------------------
-# TSURPHU (E1852)
-# ------------------------------------------------------------
-TSURPHU_E1852_M0 = Fraction(18307100485903, 7635600)
-TSURPHU_E1852_S0 = Fraction(23, 27135)
+TSURPHU_E1852_M0 = Fraction(18307100485903, 7635600) # 2397598 + 0; 9, 24, 2, 5, 417 (60, 60, 6, 13, 707)
+TSURPHU_E1852_S0 = Fraction(23, 27135)               # 0; 1, 22, 2, 4, 18 (60, 60, 6, 13, 67)
+TSURPHU_E1852_A0 = Fraction(1, 49)                   # 0; 72 (126)
 
 TSURPHU_SPEC = CalendarSpec(
     id=EngineId("trad", "tsurphu", "0.1"),
@@ -746,7 +735,7 @@ TSURPHU_SPEC = CalendarSpec(
     day_params=trad_day(
         m0=TSURPHU_E1852_M0,
         s0=TSURPHU_E1852_S0,
-        a0=Fraction(1, 49),
+        a0=TSURPHU_E1852_A0,
     ),
     planets_params=trad_planets(
         m0=TSURPHU_E1852_M0,
@@ -758,50 +747,23 @@ TSURPHU_SPEC = CalendarSpec(
 )
 
 # ------------------------------------------------------------
-# MONGOL (E1747)
+# BHUTAN (E1754) - Lhawang Lodro
 # ------------------------------------------------------------
-MONGOL_E1747_M0 = Fraction(6671924839, 2828)
-MONGOL_E1747_S0 = Fraction(397, 402)
-
-MONGOL_SPEC = CalendarSpec(
-    id=EngineId("trad", "mongol", "0.1"),
-    month_params=arith_month(
-        Y0=1747, M0=3, beta_star=10, tau=46, 
-        m0=MONGOL_E1747_M0, s0=MONGOL_E1747_S0,
-        sgang1_deg=Fraction(308, 1)+Fraction(2, 3)
-    ),
-    day_params=trad_day(
-        m0=MONGOL_E1747_M0,
-        s0=MONGOL_E1747_S0,
-        a0=Fraction(1523, 1764),
-        location=LOC_MONGOLIA_APPROX
-    ),
-    planets_params=trad_planets(
-        m0=MONGOL_E1747_M0,
-        s0=MONGOL_E1747_S0,
-        pd0={"mars": 375, "jupiter": 3213, "saturn": 5147, "mercury": 2518, "venus": 1329, "rahu": 32}
-    ),
-    leap_labeling="first_is_leap",
-    meta={"epoch": "E1747", "tradition": "mongol"},
-)
-
-# ------------------------------------------------------------
-# BHUTAN (E1754)
-# ------------------------------------------------------------
-BHUTAN_E1754_M0 = Fraction(1669797601, 707)
-BHUTAN_E1754_S0 = Fraction(1, 67)
+BHUTAN_E1754_M0 = Fraction(1669797601, 707) # 2361807 + 0; 4, 24, 552 (60, 60, 707)
+BHUTAN_E1754_S0 = Fraction(1, 67)           # 0; 24, 10, 50 (60, 60, 67)  
+BHUTAN_E1754_A0 = Fraction(17, 147)         # 3; 30 (126) 
 
 BHUTAN_SPEC = CalendarSpec(
     id=EngineId("trad", "bhutan", "0.1"),
     month_params=arith_month(
-        Y0=1754, M0=3, beta_star=2, tau=57, 
+        Y0=1754, M0=3, beta_star=2, tau=57, # Convenient reparameterization; see [Gantumur, Remark 2.4]
         m0=BHUTAN_E1754_M0, s0=BHUTAN_E1754_S0,
         sgang1_deg=Fraction(309, 1)
     ),
     day_params=trad_day(
         m0=BHUTAN_E1754_M0,
         s0=BHUTAN_E1754_S0,
-        a0=Fraction(17, 147),
+        a0=BHUTAN_E1754_A0,
         location=LOC_BHUTAN_APPROX
     ),
     planets_params=trad_planets(
@@ -815,10 +777,48 @@ BHUTAN_SPEC = CalendarSpec(
 )
 
 # ------------------------------------------------------------
-# KARANA (E806)
+# MONGOL (E1747) - Sumpa Khenpo Yeshe Paljor: New Genden / Tögsbuyant
 # ------------------------------------------------------------
-KARANA_E806_M0 = Fraction(4031063, 2)
-KARANA_E806_S0 = Fraction(809, 810)
+MONGOL_E1747_M0 = Fraction(6671924839, 2828) # 2359237 + 0; 55, 13, 3, 31, 394 (60, 60, 6, 67, 707)
+MONGOL_E1747_S0 = Fraction(397, 402)         # 26; 39, 51, 0, 18 (60, 60, 6, 67)
+MONGOL_E1747_A0 = Fraction(1523, 1764)       # 24; 22 (126)
+
+MONGOL_SPEC = CalendarSpec(
+    id=EngineId("trad", "mongol", "0.1"),
+    month_params=arith_month(
+        Y0=1747, M0=3, beta_star=10, tau=46, 
+        m0=MONGOL_E1747_M0, s0=MONGOL_E1747_S0,
+        sgang1_deg=Fraction(308, 1)+Fraction(2, 3)
+    ),
+    day_params=trad_day(
+        m0=MONGOL_E1747_M0,
+        s0=MONGOL_E1747_S0,
+        a0=MONGOL_E1747_A0,
+        location=LOC_MONGOLIA_APPROX
+    ),
+    planets_params=trad_planets(
+        m0=MONGOL_E1747_M0,
+        s0=MONGOL_E1747_S0,
+        pd0={"mars": 375, "jupiter": 3213, "saturn": 5147, "mercury": 2518, "venus": 1329, "rahu": 32}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1747", "tradition": "mongol"},
+)
+
+# ============================================================
+# NON-STANDARD & EARLY CALENDRICAL MODELS
+# Foundational lineages, regional systems, and individual reforms.
+# ============================================================
+
+# ------------------------------------------------------------
+# KARANA (E806) from the original Kālacakra Tantra (and the Vimalaprabhā)
+# ------------------------------------------------------------
+M1_KAR = Fraction(10631, 360)         # 1; 31, 50 (60, 60)
+S1_KAR = Fraction(1277, 15795)        # 2; 10, 58, 2, 10 (60, 60, 6, 13)
+
+KARANA_E806_M0 = Fraction(4031063, 2) # 2015531 + 0; 30, 0 (60, 60)
+KARANA_E806_S0 = Fraction(809, 810)   # 26; 58, 0, 0, 0 (60, 60, 6, 13)
+KARANA_E806_A0 = Fraction(53, 252)    # 5; 112 (126)
 
 KARANA_P_RATES = dict(P_RATES)
 KARANA_P_RATES["sun"] = S1_KAR / M1_KAR
@@ -827,15 +827,15 @@ KARANA_P_RATES["rahu"] = RAHU_LUN / M1_KAR
 KARANA_SPEC = CalendarSpec(
     id=EngineId("trad", "karana", "0.1"),
     month_params=arith_month(
-        Y0=806, M0=3, beta_star=0, tau=63, 
+        Y0=806, M0=3, beta_star=0, tau=63, # [Janson, (A.38)]
         m0=KARANA_E806_M0, s0=KARANA_E806_S0, m1=M1_KAR,
         sgang1_deg=Fraction(300, 1)
     ),
     day_params=trad_day(
         m0=KARANA_E806_M0,
         s0=KARANA_E806_S0,
-        a0=Fraction(53, 252),
-        m1=M1_KAR, s1=S1_KAR, a1=A1_KAR,
+        a0=KARANA_E806_A0,
+        m1=M1_KAR, s1=S1_KAR,
     ),
     planets_params=trad_planets(
         m0=KARANA_E806_M0,
@@ -848,6 +848,284 @@ KARANA_SPEC = CalendarSpec(
 )
 
 # ------------------------------------------------------------
+# SAKYA SRIBHADRA (E1206): Slightly diffeent from Kalacakra (Karana)
+# ------------------------------------------------------------
+SRIBHADRA_E1206_M0 = m0_from_trad(2161884, (2, 0), radices=(60, 60))           # Kalacakra - 0.9 days
+SRIBHADRA_E1206_S0 = s0_from_trad(18, (27, 47, 4, 2), radices=(60, 60, 6, 13)) # Kalacakra + small
+SRIBHADRA_E1206_A0 = a0_from_trad(17, (28,))                                   # Kalacakra
+
+SRIBHADRA_SPEC = CalendarSpec(
+    id=EngineId("trad", "sribhadra", "0.1"),
+    month_params=arith_month(
+        Y0=1206, M0=3, beta_star=0, tau=63, # the value of tau is a guess
+        m0=SRIBHADRA_E1206_M0, s0=SRIBHADRA_E1206_S0, m1=M1_KAR,
+        sgang1_deg=Fraction(300, 1)
+    ),
+    day_params=trad_day(
+        m0=SRIBHADRA_E1206_M0,
+        s0=SRIBHADRA_E1206_S0,
+        a0=SRIBHADRA_E1206_A0,
+        m1=M1_KAR, s1=S1_KAR
+    ),
+    planets_params=trad_planets(
+        m0=SRIBHADRA_E1206_M0,
+        s0=SRIBHADRA_E1206_S0,
+        pd0={"mars": 189, "jupiter": 797, "saturn": 1575, "mercury": 7563, "venus": 1174, "rahu": 18},
+        p_rates=KARANA_P_RATES
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1206", "tradition": "Sakya Sribhadra"},
+)
+
+# ------------------------------------------------------------
+# THU'U BKWAN BLO BZANG CHOS KYI NYI MA (E1796) Similar to Tögsbuyant but not identical
+# ------------------------------------------------------------
+TUKWAN_E1796_M0 = m0_from_trad(2377133, (24, 44, 1, 565))  # Unique
+TUKWAN_E1796_S0 = s0_from_trad(26, (27, 45, 4, 2))         # Tögsbuyant value
+TUKWAN_E1796_A0 = a0_from_trad(8, (52,))                   # Unique
+
+TUKWAN_SPEC = CalendarSpec(
+    id=EngineId("trad", "thukwan", "0.1"),
+    month_params=arith_month(
+        Y0=1796, M0=3, beta_star=16, tau=0,
+        m0=TUKWAN_E1796_M0, s0=TUKWAN_E1796_S0,
+        sgang1_deg=Fraction(308, 1)
+    ),
+    day_params=trad_day(
+        m0=TUKWAN_E1796_M0,
+        s0=TUKWAN_E1796_S0,
+        a0=TUKWAN_E1796_A0,
+    ),
+    planets_params=trad_planets(
+        m0=TUKWAN_E1796_M0,
+        s0=TUKWAN_E1796_S0,
+        pd0={"mars": 408, "jupiter": 3780, "saturn": 1518, "mercury": 6303, "venus": 522, "rahu": 178}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1796", "tradition": "Tukwan Lobzang Chokyi Nyima (Phugpa variant)"},
+)
+
+# ------------------------------------------------------------
+# COMBINED SIDDHANTA AND KARANA (E1852) - Jamgon Kongtrul
+# ------------------------------------------------------------
+M1_KON = Fraction(311843, 10560)         # 1; 31, 50, 0, 30 (60, 60, 6, 44)
+S1_KON = Fraction(553, 6840)             # 2; 10, 58, 2, 20 (60, 60, 6, 38)
+
+KONGTRUL_E1852_M0 = m0_from_trad(2397598, (9, 46, 1, 10), radices=(60, 60, 6, 44))
+KONGTRUL_E1852_S0 = s0_from_trad(0, (16, 51, 3, 18), radices=(60, 60, 6, 38))
+KONGTRUL_E1852_A0 = a0_from_trad(-27, (54,))        # Handles the negative anomaly
+
+KONGTRUL_P_RATES = dict(P_RATES)
+KONGTRUL_P_RATES["sun"] = S1_KON / M1_KON
+KONGTRUL_P_RATES["rahu"] = RAHU_LUN / M1_KON
+
+KONGTRUL_SPEC = CalendarSpec(
+    id=EngineId("trad", "tsurphu_combined", "0.1"),
+    month_params=arith_month(
+        Y0=1852, M0=3, beta_star=-51, tau=0, # Handles the negative offset
+        m0=KONGTRUL_E1852_M0, s0=KONGTRUL_E1852_S0, m1=M1_KON,
+        sgang1_deg=Fraction(307, 1)
+    ),
+    day_params=trad_day(
+        m0=KONGTRUL_E1852_M0,
+        s0=KONGTRUL_E1852_S0,
+        a0=KONGTRUL_E1852_A0,
+        m1=M1_KON, s1=S1_KON
+    ),
+    planets_params=trad_planets(
+        # The planetary data remains identical to the standard Tsurphu 1852 epoch
+        m0=KONGTRUL_E1852_M0,
+        s0=KONGTRUL_E1852_S0,
+        pd0={"mars": 262, "jupiter": 2583, "saturn": 437, "mercury": 3003, "venus": 686, "rahu": 180},
+        p_rates=KONGTRUL_P_RATES
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1852", "tradition": "Combined Siddhanta and Karana (Tsurphu)"},
+)
+
+# ------------------------------------------------------------
+# KOJO TSEWANG NAMGYAL (E1987) - Sherab Ling Semi-Reformed
+# ------------------------------------------------------------
+M1_NAM = M1_TIB
+S1_NAM = Fraction(3114525, 38523016)             # 2; 10, 58, 2, 564, 5546 (60, 60, 6, 707, 6811)
+
+SHERAB_E1987_M0 = m0_from_trad(2446884, (42, 47, 3, 465))
+SHERAB_E1987_S0 = s0_from_trad(25, (41, 58, 2, 25, 6655), radices=(60, 60, 6, 707, 6811))
+SHERAB_E1987_A0 = a0_from_trad(19, (111,))
+
+SHERAB_P_RATES = dict(P_RATES)
+SHERAB_P_RATES["sun"] = S1_NAM / M1_NAM
+
+SHERAB_SPEC = CalendarSpec(
+    id=EngineId("trad", "sherab_ling", "0.1"),
+    month_params=arith_month(
+        Y0=1987, M0=2, beta_star=38, tau=0,
+        m0=SHERAB_E1987_M0, s0=SHERAB_E1987_S0,
+        sgang1_deg=Fraction(307, 1)
+    ),
+    day_params=trad_day(
+        m0=SHERAB_E1987_M0,        
+        s0=SHERAB_E1987_S0,
+        a0=SHERAB_E1987_A0,
+        s1=S1_NAM
+    ),
+    planets_params=trad_planets(
+        m0=SHERAB_E1987_M0,        
+        s0=SHERAB_E1987_S0,
+        pd0={"mars": 94, "jupiter": 4105, "saturn": 6867, "mercury": 6104, "venus": 1561, "rahu": 8},
+        p_rates=SHERAB_P_RATES
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1987", "tradition": "Sherab Ling Semi-Reformed"},
+)
+
+# ============================================================
+# EQUIVALENCE CLASSES: STANDARD TRADITIONS
+# Alternative chronological anchors that mathematically reduce 
+# to the exact same mainstream Phugpa and Tsurphu engines.
+# ============================================================
+
+# ------------------------------------------------------------
+# MINLING LOCHEN DHARMA SRI (E1681) - Early Phugpa Source
+# ------------------------------------------------------------
+PHUGPA_E1681_M0 = m0_from_trad(2335140, (55, 9, 0, 522))
+PHUGPA_E1681_S0 = s0_from_trad(26, (57, 59, 0, 42))
+PHUGPA_E1681_A0 = a0_from_trad(9, (85,))
+
+PHUGPA_E1681_SPEC = CalendarSpec(
+    id=EngineId("trad", "dharma_sri", "0.1"),
+    month_params=arith_month(
+        Y0=1681, M0=3, beta_star=1, tau=48,
+        m0=PHUGPA_E1681_M0, s0=PHUGPA_E1681_S0,
+        sgang1_deg=Fraction(308, 1)
+    ),
+    day_params=trad_day(
+        m0=PHUGPA_E1681_M0,
+        s0=PHUGPA_E1681_S0,
+        a0=PHUGPA_E1681_A0,
+    ),
+    planets_params=trad_planets(
+        m0=PHUGPA_E1681_M0,
+        s0=PHUGPA_E1681_S0,
+        pd0={"mars": 322, "jupiter": 772, "saturn": 2582, "mercury": 3176, "venus": 781, "rahu": 135}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1681", "tradition": "Minling Lochen Dharma Sri (Phugpa)"},
+)
+
+# ------------------------------------------------------------
+# GARLAND OF WHITE BERYL (E1687) - Standard Phugpa
+# ------------------------------------------------------------
+PHUGPA_E1687_M0 = m0_from_trad(2337326, (10, 57, 2, 692))
+PHUGPA_E1687_S0 = s0_from_trad(26, (29, 46, 3, 27))
+PHUGPA_E1687_A0 = a0_from_trad(18, (33,))
+
+PHUGPA_E1687_SPEC = CalendarSpec(
+    id=EngineId("trad", "white_beryl", "0.1"),
+    month_params=arith_month(
+        Y0=1687, M0=3, beta_star=15, tau=48,
+        m0=PHUGPA_E1687_M0, s0=PHUGPA_E1687_S0,
+        sgang1_deg=Fraction(308, 1)
+    ),
+    day_params=trad_day(
+        m0=PHUGPA_E1687_M0,
+        s0=PHUGPA_E1687_S0,
+        a0=PHUGPA_E1687_A0,
+    ),
+    planets_params=trad_planets(
+        m0=PHUGPA_E1687_M0,
+        s0=PHUGPA_E1687_S0,
+        pd0={"mars": 447, "jupiter": 2958, "saturn": 4768, "mercury": 1851, "venus": 171, "rahu": 209}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1687", "tradition": "White Beryl (Phugpa)"},
+)
+
+# ------------------------------------------------------------
+# PHUGPA (E1987)
+# ------------------------------------------------------------
+PHUGPA_E1987_M0 = Fraction(1729968333, 707) # 2446914 + 0;11,27,2,332 (60,60,6,707)
+PHUGPA_E1987_S0 = Fraction(0, 1)            # 0
+PHUGPA_E1987_A0 = Fraction(38, 49)          # 21,90 (28,126)
+
+PHUGPA_E1987_SPEC = CalendarSpec(
+    id=EngineId("trad", "phugpa", "0.1"),
+    month_params=arith_month(
+        Y0=1987, M0=3, beta_star=0, tau=48, 
+        m0=PHUGPA_E1987_M0, s0=PHUGPA_E1987_S0,
+        sgang1_deg=Fraction(308, 1)
+    ),
+    day_params=trad_day(
+        m0=PHUGPA_E1987_M0,
+        s0=PHUGPA_E1987_S0,
+        a0=PHUGPA_E1927_A0,
+    ),
+    planets_params=trad_planets(
+        m0=PHUGPA_E1927_M0,
+        s0=PHUGPA_E1927_S0,
+        pd0={"mars": 157, "jupiter": 3964, "saturn": 6286, "mercury": 4639, "venus": 301, "rahu": 187}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1987", "tradition": "phugpa"},
+)
+
+# ------------------------------------------------------------
+# EXCELLENT FLASK OF ESSENTIALS (E1732) - Early Tsurphu
+# ------------------------------------------------------------
+TSURPHU_E1732_M0 = m0_from_trad(2353745, (14, 6, 2, 160)) # Using the equivalent /707 format
+TSURPHU_E1732_S0 = s0_from_trad(25, (30, 42, 0, 36))      # Using the equivalent /67 format
+TSURPHU_E1732_A0 = a0_from_trad(14, (99,))
+
+TSURPHU_E1732_SPEC = CalendarSpec(
+    id=EngineId("trad", "tsurphu_flask", "0.1"),
+    month_params=arith_month(
+        Y0=1732, M0=3, beta_star=59, tau=0,
+        m0=TSURPHU_E1732_M0, s0=TSURPHU_E1732_S0,      
+        sgang1_deg=Fraction(307, 1)
+    ),
+    day_params=trad_day(
+        m0=TSURPHU_E1732_M0,
+        s0=TSURPHU_E1732_S0,
+        a0=TSURPHU_E1732_A0,
+    ),
+    planets_params=trad_planets(
+        m0=TSURPHU_E1732_M0,
+        s0=TSURPHU_E1732_S0,
+        pd0={"mars": 377, "jupiter": 2050, "saturn": 10414, "mercury": 7406, "venus": 321, "rahu": 75}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1732", "tradition": "Excellent Flask of Essentials (Tsurphu)"},
+)
+
+# ------------------------------------------------------------
+# 14th KARMAPA THEGCHOG DORJE (E1824) - Tsurphu
+# ------------------------------------------------------------
+TSURPHU_E1824_M0 = m0_from_trad(2387351, (2, 35, 0, 596))
+TSURPHU_E1824_S0 = s0_from_trad(25, (34, 43, 5, 19))
+TSURPHU_E1824_A0 = a0_from_trad(3, (103,))
+
+TSURPHU_E1824_SPEC = CalendarSpec(
+    id=EngineId("trad", "karmapa_14", "0.1"),
+    month_params=arith_month(
+        Y0=1824, M0=3, beta_star=57, tau=0,
+        m0=TSURPHU_E1824_M0, s0=TSURPHU_E1824_S0,
+        sgang1_deg=Fraction(307, 1)
+    ),
+    day_params=trad_day(
+        m0=TSURPHU_E1824_M0,
+        s0=TSURPHU_E1824_S0,
+        a0=TSURPHU_E1824_A0,
+    ),
+    planets_params=trad_planets(
+        m0=TSURPHU_E1824_M0,
+        s0=TSURPHU_E1824_S0,
+        pd0={"mars": 320, "jupiter": 1000, "saturn": 956, "mercury": 7552, "venus": 1578, "rahu": 63}
+    ),
+    leap_labeling="first_is_leap",
+    meta={"epoch": "E1824", "tradition": "14th Karmapa (Tsurphu)"},
+)
+
+# ------------------------------------------------------------
 
 TRAD_SPECS = {
     "phugpa": PHUGPA_SPEC,
@@ -856,6 +1134,24 @@ TRAD_SPECS = {
     "bhutan": BHUTAN_SPEC,
     "karana": KARANA_SPEC,
 }
+
+TRAD_VAR_SPECS = {
+    "sribhadra": SRIBHADRA_SPEC, 
+    "tukwan": TUKWAN_SPEC, 
+    "kongtrul": KONGTRUL_SPEC, 
+    "sherab": SHERAB_SPEC,
+}
+
+TRAD_EPOCHS_SPECS = {
+    "phugpa-1681": PHUGPA_E1681_SPEC,
+    "phugpa-1687": PHUGPA_E1687_SPEC ,
+    "phugpa-1927": PHUGPA_SPEC, 
+    "phugpa-1987": PHUGPA_E1987_SPEC,
+    "tsurphu-1732": TSURPHU_E1732_SPEC, 
+    "tsurphu-1824": TSURPHU_E1824_SPEC,
+    "tsurphu-1852": TSURPHU_SPEC,
+}
+
 
 
 # ============================================================

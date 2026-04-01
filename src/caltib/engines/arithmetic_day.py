@@ -26,7 +26,7 @@ class ArithmeticDayParams:
     location: LocationSpec  # The new standardized anchor
     U: int              # Numerator of elong rate (e.g. 11312)
     V: int              # Denominator of elong rate (e.g. 11135)
-    delta_star: int     # Floor of the epoch phase shift (-V*Delta_0 - 1)
+    delta_star: int     # ceil(-V*Delta_0) - 1; equivalently ceil(f_loc*U) - 1
     m0_abs: Fraction    # Universal physical time (J2000.0 TT)
     m0_loc: Fraction    # Longitude-shifted time (Used for hot-loop arithmetic)
     s0: Fraction        # True sun (turns) at x=0
@@ -58,9 +58,9 @@ class ArithmeticDayParams:
         jdn_floor = new_m0_loc.numerator // new_m0_loc.denominator
         f_loc = new_m0_loc - Fraction(jdn_floor, 1)
         
-        # Calculate the exact phase shift fraction and extract the integer floor
+        # Calculate the exact phase shift fraction and extract the integer ceiling
         shift_frac = f_loc * self.U
-        new_delta_star = (shift_frac.numerator // shift_frac.denominator) - 1
+        new_delta_star = -((-shift_frac.numerator) // shift_frac.denominator) - 1
         
         return dataclasses.replace(
             self, 
