@@ -3,8 +3,8 @@
 ## 🎯 Active Development Tracks
 
 ### 1. Web Application & Documentation
+- [ ] **Refine API Docstrings:** Perform a comprehensive audit and technical edit of all library docstrings to ensure the auto-generated documentation is exhaustive, rigorous, and accurately rendered by `mkdocstrings`.
 - [ ] **Implement Open/Save Configuration:** Add functionality to export and import complete custom calendar specifications (via JSON) directly within the `app.html` web interface.
-- [ ] **Automated Documentation Pipeline:** Implement docstring-driven documentation using MkDocs (with the Material theme) and `mkdocstrings`. Set up a GitHub Action to automatically build and deploy the API reference to GitHub Pages on `main` branch pushes.
 
 ### 2. Numerical Ephemeris Integration (L6)
 - [ ] **Develop `EphDayEngine` (L6):** Create the ultimate truth layer by implementing L6, allowing users to toggle between **JPL DE422 `.bsp` files** and the **internal analytical reference library** as optional sources for mapping physical syzygies.
@@ -12,10 +12,11 @@
 
 ### 3. Phenomenological & Planetary Engines
 - [ ] **Write Rational Planet Engine:** Implement the pure-rational historical Siddhantic planetary mathematical models (fast/slow motions, dal-bar, etc.).
+- [ ] **Integrate Exotic Epochs:** Expand the internal epoch list by extracting and implementing the "exotic" historical epoch data and parameters from Edward Henning's research to serve as baseline constants for the engine.
 
 ### 4. Advanced Diagnostics Laboratory & Validation
+- [ ] **Source Validation Suite:** Systematically cross-verify engine outputs against the online Bhutanese calendar application, Henning’s published Phugpa and Tsurphu date lists, Henning’s original C source code, and Gantumur’s legacy application hosted on the McGill website.
 - [ ] **Near-Tie & Boundary Validation:** Ensure all extreme mathematical boundary cases are correct. Write dedicated, rigorous test scripts targeting near-tie scenarios (e.g., borderline leap months, micro-second skipped/repeated day boundaries).
-- [ ] **Integrate Exotic Epochs:** Extract and implement the "exotic" historical epoch data and parameters from Edward Henning's source code/pages to use as hardened validation baselines.
 - [ ] **Web-Diag Enhancements:** Add the Equinox Solar Longitude drift analysis tool directly into the `diag.html` web dashboard.
 
 ---
@@ -30,3 +31,4 @@
 * **Unified Diagnostics Lab:** Built the comprehensive suite for measuring secular drift, variance, equinox precession, and syzygy offsets against JPL DE422 truth.
 * **Diagnostic Enhancements:** Completed month-level diagnostics (intercalation triggers, drift) and spherical sunrise/latitude geographic phase shift comparisons.
 * **Design Tools:** Implemented continued fraction generators and Chebyshev minimax polynomial calculators for engine design.
+* **Documentation Infrastructure:** Successfully deployed the automated documentation pipeline using MkDocs (Material theme), `mkdocstrings`, and GitHub Actions for continuous API deployment.

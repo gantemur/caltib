@@ -2,6 +2,8 @@
 
 A rigorous Python library that unifies 15th-century historical algorithms with modern astrophysics. `caltib` spans pure-integer arithmetic, continuous rational-fraction kinematics, strictly reproducible float-day models, and JPL numerical integrations under a single, elegant API.
 
+[![arXiv](https://img.shields.io/badge/arXiv-2604.01233-b31b1b.svg?style=flat&logo=arxiv)](https://arxiv.org/abs/2604.01233)
+
 [Live Calendar &rarr;](app.html){: .md-button .md-button--primary }
 [Diagnostic Dashboard &rarr;](diag.html){: .md-button }
 [GitHub](https://github.com/gantemur/caltib){: .md-button }
@@ -57,6 +59,16 @@ A rigorous Python library that unifies 15th-century historical algorithms with m
     A complete mathematical laboratory for calendrical research. Use the CLI to derive optimal continued fractions and Chebyshev minimax polynomials.
 
 </div>
+---
+
+## The Theory
+
+The complete mathematical formalization underlying this library is available in our paper:
+
+:material-file-document-outline: **[Read the full paper on arXiv:2604.01233](https://arxiv.org/abs/2604.01233)**
+
+If you use `caltib` in your research, please consider citing this work.
+
 ---
 
 ## Installation & Modular Extras
