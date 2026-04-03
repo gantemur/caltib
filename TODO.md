@@ -1,5 +1,18 @@
 # caltib Project Roadmap
 
+
+## calendar.py
+
+- Consider extending `Calendar.to_jdn()` to handle repeated Tibetan dates explicitly via
+  an occurrence parameter (`occ=1/2`) or a policy argument (`first` / `second` / `occ`).
+  Reason: current forward map is not fully symmetric with `from_jdn()` for duplicated days.
+  Status: deferred intentionally; current behavior acceptable for now.
+
+- Consider factoring repeated month-resolution logic into a helper such as
+  `_resolve_lunation(year, month, is_leap)` to reduce duplication across
+  `to_jdn()`, `to_gregorian()`, and `month_info()`.
+  Status: optional cleanup, not necessary now.
+  
 ## 🎯 Active Development Tracks
 
 ### 1. Web Application & Documentation

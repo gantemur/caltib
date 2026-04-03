@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date
 from fractions import Fraction
 from typing import Any, Dict, Tuple
+from dataclasses import replace
 
 from caltib.core.types import EngineId, SunriseState, DayInfo, TibetanDate, MonthInfo, TibetanMonth, YearInfo, TibetanYear, LocationSpec, CalendarSpec
 from caltib.engines.interfaces import MonthEngineProtocol, DayEngineProtocol, AttributeEngineProtocol, PlanetsEngineProtocol, NumT
@@ -81,6 +82,7 @@ class CalendarEngine:
     # Forward: Civil Date to Physical JDN
     # ---------------------------------------------------------
 
+    # TODO: repeated-day occurrence handling in to_jdn() is intentionally deferred.
     def to_jdn(self, year: int, month: int, is_leap: bool, day: int) -> int:
         """
         Translates a full human calendar date into a local Julian Day Number.
@@ -115,7 +117,7 @@ class CalendarEngine:
         over exact discrete boundaries.
         """
         # 1. Get initial approximation for x (t2000 coordinate)
-        t2000 = jdn - 2451545
+        t2000 = jdn - JD_J2000
         x = self.day.get_x_from_t2000(t2000)
         
         # 2. Monotonic search for the exact x active at the dawn of `jdn`
@@ -163,7 +165,7 @@ class CalendarEngine:
             "occ": occ,
             "repeated": is_duplicate_day,  # Prevents day_info from overwriting occ=1!
             "skipped": skipped,
-            "linear_month": n_m
+            "true_month": n_m
         }
 
     def build_civil_month(self, n_d: int) -> dict:
@@ -176,7 +178,7 @@ class CalendarEngine:
         for jdn in range(j_start, j_end + 2):
             res = self.from_jdn(jdn)
             # Filter days to only those belonging to this exact lunation
-            if (res["linear_month"] + self.delta_k) == n_d:
+            if (res["true_month"] + self.delta_k) == n_d:
                 month_map[jdn] = res
         return month_map
     
@@ -191,13 +193,17 @@ class CalendarEngine:
         jdn = to_jdn(d)
         res = self.from_jdn(jdn)
         
-        n_m = res["linear_month"]
+        n_m = res["true_month"]
         n_d = n_m + self.delta_k
         j_month_start_boundary = self.day.civil_jdn(30 * n_d)
         linear_day = jdn - j_month_start_boundary
 
-        lunar_attrs = self.attr.get_lunar_day_attributes(res["year"], res["month"], res["day"])
-        civil_attrs = self.attr.get_civil_day_attributes(jdn)
+        if self.attr is not None:
+            lunar_attrs = self.attr.get_lunar_day_attributes(res["year"], res["month"], res["day"])
+            civil_attrs = self.attr.get_civil_day_attributes(jdn)
+        else:
+            lunar_attrs = None
+            civil_attrs = None
 
         # Calculate Planetary Longitudes strictly at Civil Dawn JDN
         planet_data = None
@@ -234,7 +240,7 @@ class CalendarEngine:
         """
         from caltib.core.time import from_jdn
         
-        # 1. Resolve absolute lunation index
+        # 1. Resolve month-engine lunation index
         lunations = self.month.get_lunations(t.year, t.month)
         if len(lunations) == 1:
             n_m = lunations[0]
@@ -272,7 +278,7 @@ class CalendarEngine:
     # ---------------------------------------------------------
 
     def _build_month_info_from_n(self, n: int) -> MonthInfo:
-        """Internal helper to build a full MonthInfo object from an absolute lunation index."""
+        """Internal helper to build a full MonthInfo object from a month-engine lunation index."""
         # 1. Ask the protocol for the exact human labels for this n
         m_data = self.month.get_month_info(n)
         year = m_data["year"]
@@ -305,8 +311,12 @@ class CalendarEngine:
             # Analytical O(1) calculation. First day is exactly 1.
             linear_day = jdn - j_month_start_boundary
 
-            lunar_attrs = self.attr.get_lunar_day_attributes(year, month, res["day"])
-            civil_attrs = self.attr.get_civil_day_attributes(jdn)
+            if self.attr is not None:
+                lunar_attrs = self.attr.get_lunar_day_attributes(year, month, res["day"])
+                civil_attrs = self.attr.get_civil_day_attributes(jdn)
+            else:
+                lunar_attrs = None
+                civil_attrs = None
             
             t_date = TibetanDate(
                 engine=self.id,
@@ -336,7 +346,7 @@ class CalendarEngine:
             linear_month=linear_month
         )
 
-        m_attrs = self.attr.get_month_attributes(year, month)
+        m_attrs = self.attr.get_month_attributes(year, month) if self.attr is not None else None
                 
         return MonthInfo(
             tibetan=tib_m,
@@ -347,9 +357,7 @@ class CalendarEngine:
         )
     
     def month_info(self, year: int, month: int, is_leap: bool = False) -> MonthInfo:
-        """
-        Generates a fully populated MonthInfo object using absolute lunation lookup.
-        """
+        """Generates a fully populated MonthInfo object using month-engine lunation lookup."""
         lunations = self.month.get_lunations(year, month)
         
         # 1. Skipped Month Check
@@ -402,15 +410,14 @@ class CalendarEngine:
                     prev_skipped = True
                     
             if prev_skipped:
-                import dataclasses
-                new_tib_m = dataclasses.replace(m_info.tibetan, previous_month_skipped=True)
-                m_info = dataclasses.replace(m_info, tibetan=new_tib_m)
+                new_tib_m = replace(m_info.tibetan, previous_month_skipped=True)
+                m_info = replace(m_info, tibetan=new_tib_m)
                 
             months_list.append(m_info)
             prev_month_no = curr_month_no
                 
         tib_y = TibetanYear(self.id, year)
-        y_attrs = self.attr.get_year_attributes(year)
+        y_attrs = self.attr.get_year_attributes(year) if self.attr is not None else None
         
         return YearInfo(
             tibetan=tib_y,

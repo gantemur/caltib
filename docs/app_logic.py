@@ -351,12 +351,27 @@ def nav_day_prev(e): set_date(APP_STATE["date"] - timedelta(days=1))
 def nav_day_next(e): set_date(APP_STATE["date"] + timedelta(days=1))
 def go_today(e): set_date(date.today())
 
-def nav_month_prev(e): 
-    d = APP_STATE["date"].replace(day=1) - timedelta(days=1)
-    set_date(d.replace(day=1))
+def nav_month_prev(e):
+    if APP_STATE.get("month_mode") == "tibetan":
+        engine = get_engine()
+        anchor = get_cached_day(engine, APP_STATE["date"]).tibetan
+        m_info = get_cached_month(engine, anchor.year, anchor.month, anchor.is_leap_month)
+        if m_info.gregorian_start is not None:
+            set_date(m_info.gregorian_start - timedelta(days=1))
+    else:
+        d = APP_STATE["date"].replace(day=1) - timedelta(days=1)
+        set_date(d.replace(day=1))
+
 def nav_month_next(e):
-    d = APP_STATE["date"].replace(day=28) + timedelta(days=5)
-    set_date(d.replace(day=1))
+    if APP_STATE.get("month_mode") == "tibetan":
+        engine = get_engine()
+        anchor = get_cached_day(engine, APP_STATE["date"]).tibetan
+        m_info = get_cached_month(engine, anchor.year, anchor.month, anchor.is_leap_month)
+        if m_info.gregorian_end is not None:
+            set_date(m_info.gregorian_end + timedelta(days=1))
+    else:
+        d = APP_STATE["date"].replace(day=28) + timedelta(days=5)
+        set_date(d.replace(day=1))
 
 def nav_year_prev(e): set_date(APP_STATE["date"].replace(year=APP_STATE["date"].year - 1))
 def nav_year_next(e): set_date(APP_STATE["date"].replace(year=APP_STATE["date"].year + 1))
