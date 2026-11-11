@@ -136,7 +136,10 @@ class TraditionalDayEngine(DayEngineProtocol):
         so it can be ingested by the legacy 2D AffineTabSeriesDN solver.
         """
         x_frac = Fraction(x)
-        n = int(x_frac // 30)
+        # Traditional convention: day d runs over (0, 30] within true month n,
+        # so day 30 of month n is evaluated as (n, 30), not as (n + 1, 0).
+        # The two differ in the lunar anomaly because a1 != 30*a2 (mod 1).
+        n = -((-x_frac) // 30) - 1
         d = x_frac - 30 * n
         return Fraction(n), d
 

@@ -235,6 +235,11 @@ class RationalDayEngine(DayEngineProtocol):
         )
         
         dawn_utc_exact = Fraction(j_civil, 1) - Fraction(1, 2) + dawn_frac_exact
+        # sunrise_utc_fraction is reduced mod 1, so when sunrise falls near 0h UTC
+        # (e.g. Lhasa or Ulaanbaatar) it can land on the wrong UTC day. Take the
+        # sunrise nearest the approximate dawn.
+        shift = dawn_utc_exact - dawn_utc_approx + Fraction(1, 2)
+        dawn_utc_exact -= shift.numerator // shift.denominator
         # Calculate the absolute JDN coordinate seamlessly using fallback if triggered
         abs_jdn = Fraction(j_civil, 1) + (abs_t_utc - dawn_utc_exact)
         
