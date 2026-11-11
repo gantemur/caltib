@@ -165,6 +165,10 @@ class FloatDayEngine(DayEngineProtocol):
         )
         
         dawn_utc_exact = float(j_civil) - 0.5 + dawn_frac_exact
+        # sunrise_utc_fraction is reduced mod 1, so when sunrise falls near 0h UTC
+        # (e.g. Lhasa or Ulaanbaatar) it can land on the wrong UTC day. Take the
+        # sunrise nearest the approximate dawn.
+        dawn_utc_exact -= math.floor(dawn_utc_exact - dawn_utc_approx + 0.5)
         abs_jdn = float(j_civil) + (abs_t_utc - dawn_utc_exact)
         
         return abs_jdn - JD_J2000_FLOAT

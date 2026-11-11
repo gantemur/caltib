@@ -1058,7 +1058,7 @@ PHUGPA_E1987_SPEC = CalendarSpec(
     day_params=trad_day(
         m0=PHUGPA_E1987_M0,
         s0=PHUGPA_E1987_S0,
-        a0=PHUGPA_E1927_A0,
+        a0=PHUGPA_E1987_A0,
     ),
     planets_params=trad_planets(
         m0=PHUGPA_E1927_M0,
