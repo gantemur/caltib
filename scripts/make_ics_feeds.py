@@ -24,6 +24,11 @@ Conventions (one event per civil day unless stated):
   the lunar day is repeated, the preceding lunar day if it is omitted.
   Festivals on the first day of a month go on the first civil day of that
   month.  Festivals are placed in the regular (non-leap) month.
+* The Mongol "auspicious days" feed (mongol-auspicious-*.ics) marks
+  Baljinnyam, Dashnyam, Modon khokhimoi and Tersüüd by the table in
+  caltib-private development/auspicious-days.md, handled as gogo.mn does
+  (see almanac_events), plus Tsagaan Sar, Ikh Düichen and Chinggis Khaan's
+  birthday.
 * All events are all-day, "free" (they do not block busy time) and have
   stable UIDs, so a regenerated file updates events in place.
 """
@@ -61,6 +66,7 @@ PHRASES: Dict[str, Dict[str, str]] = {
         "month_mongol": "{season}{leap}, {elem} {anim} month",
         "month_tib": "Lunar Month {m}{leap}, {elem} {anim}",
         "year": "Rabjung {R}, Year {Y}, {elem} {anim}",
+        "year_mongol": "Cycle {R}, Year {Y}, {elem} {anim}",
         "note": "Computed with caltib ({engine} tradition).",
     },
     "mn": {
@@ -170,6 +176,8 @@ def _elem_anim(attrs: dict, lang: str, engine: str, kind: str) -> Tuple[str, str
 def month_name(engine: str, lang: str, m: int, leap: bool, attrs: dict) -> str:
     P = PHRASES[lang]
     leap_s = _tr(lang, "leap_suffix") if leap else ""
+    if lang == "mn":
+        leap_s = leap_s.lower()
     elem, anim = _elem_anim(attrs, lang, engine, "month")
     if engine == "mongol":
         season = _tr(lang, "mn_seasons")[m] if lang == "mn" else EN_SEASONS[m]
@@ -179,7 +187,8 @@ def month_name(engine: str, lang: str, m: int, leap: bool, attrs: dict) -> str:
 
 def year_name(engine: str, lang: str, y_tib, attrs: dict) -> str:
     elem, anim = _elem_anim(attrs, lang, engine, "year")
-    s = PHRASES[lang]["year"].format(
+    fmt = PHRASES[lang].get("year_mongol" if engine == "mongol" else "year", PHRASES[lang]["year"])
+    s = fmt.format(
         R=_num(y_tib.rabjung_cycle, lang), Y=_num(y_tib.rabjung_year, lang), elem=elem, anim=anim
     )
     return s[0].upper() + s[1:]
@@ -321,6 +330,71 @@ def festival_events(engine: str, lang: str, feed: str, months: List[Month],
 
 
 # ---------------------------------------------------------------------------
+# Mongol almanac special days (caltib-private development/auspicious-days.md)
+# ---------------------------------------------------------------------------
+# lunar day of each special day by lunar month 1..12 (None: not in that month)
+ALMANAC_TABLE = {
+    "baljinnyam": [2, 8, 10, 3, 3, 29, 3, 17, 3, 16, 1, 9],
+    "dashnyam": [6, 3, 1, 9, 4, 5, 18, 17, 3, 1, 27, 10],
+    "modon_khokhimoi": [None, 2, 3, 4, 5, 6, 7, 8, 9, 19, 16, 29],
+    "tersuud": [13, 11, 9, 7, 5, 3, 1, 19, 17, 25, 23, 21],
+}
+ALMANAC_NAMES = {
+    "baljinnyam": {"en": "Baljinnyam (auspicious)", "mn": "Балжинням"},
+    "dashnyam": {"en": "Dashnyam (auspicious)", "mn": "Дашням"},
+    "modon_khokhimoi": {"en": "Modon khokhimoi (inauspicious)", "mn": "Модон хохимой"},
+    "tersuud": {"en": "Tersüüd (inauspicious)", "mn": "Тэрсүүд"},
+}
+ALMANAC_FESTIVALS = ("tsagaan_sar", "ikh_duichen", "chinggis")
+
+
+def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
+    """Special days of the Mongolian almanac, following gogo.mn's handling:
+    a skipped lunar day is marked on the civil day before it (for lunar day 1,
+    the last day of the previous month); of a repeated lunar day only the
+    second civil day is marked; in a leap pair only the intercalary (first)
+    month carries the special days."""
+    leap_keys = {(mo.year, mo.month) for mo in months if mo.leap}
+    by_day: Dict[date, Tuple[List[str], Month]] = {}
+    for i, mo in enumerate(months):
+        if not mo.leap and (mo.year, mo.month) in leap_keys:
+            continue
+        for key, row in ALMANAC_TABLE.items():
+            d = row[mo.month - 1]
+            if d is None:
+                continue
+            hits = [x for x in mo.days if x.tibetan.tithi == d]
+            if hits:
+                day = hits[-1].civil_date
+            elif d == 1:
+                day = mo.days[0].civil_date - timedelta(days=1)
+            else:
+                prev = [x for x in mo.days if x.tibetan.tithi == d - 1]
+                if not prev:
+                    continue
+                day = prev[-1].civil_date
+            by_day.setdefault(day, ([], mo))[0].append(key)
+    ev = []
+    for day, (keys, mo) in by_day.items():
+        names = " · ".join(ALMANAC_NAMES[k][lang] for k in keys)
+        mname = month_name("mongol", lang, mo.month, mo.leap, mo.attrs)
+        leap = "L" if mo.leap else ""
+        uid = f"{feed}-{mo.year}-{mo.month:02d}{leap}-{'-'.join(keys)}@{UID_DOMAIN}"
+        ev.append(Event(day, uid, names, mname))
+    fest = festival_events("mongol", lang, feed, months, MONGOL_FESTIVALS, "tsagaan_sar", None)
+    return ev + fest
+
+
+def build_almanac_feed(lang: str, start: date, end: date, months: List[Month]) -> Tuple[str, str, int]:
+    feed = f"mongol-auspicious-{lang}"
+    events = [e for e in almanac_events(lang, feed, months) if start <= e.day <= end]
+    title = {"en": "Mongol auspicious days", "mn": "Зурхайн онцлох өдрүүд"}[lang]
+    desc = (f"Baljinnyam, Dashnyam, Modon khokhimoi, Tersüüd, Tsagaan Sar, Ikh Düichen and "
+            f"Chinggis Khaan's birthday, {start.year}–{end.year}. {SITE_URL}")
+    return feed, render_ics(title, desc, lang, events), len(events)
+
+
+# ---------------------------------------------------------------------------
 # iCalendar serialization (RFC 5545)
 # ---------------------------------------------------------------------------
 def _esc(s: str) -> str:
@@ -409,6 +483,11 @@ def main(argv=None) -> int:
         for lang in TRADITIONS[engine][0]:
             for with15 in (True, False):
                 feed, text, n = build_feed(engine, lang, with15, start, end, months)
+                (args.outdir / f"{feed}.ics").write_bytes(text.encode("utf-8"))
+                print(f"{feed}.ics: {n} events, {len(text.encode('utf-8')) // 1024} KiB")
+        if engine == "mongol":
+            for lang in ("en", "mn"):
+                feed, text, n = build_almanac_feed(lang, start, end, months)
                 (args.outdir / f"{feed}.ics").write_bytes(text.encode("utf-8"))
                 print(f"{feed}.ics: {n} events, {len(text.encode('utf-8')) // 1024} KiB")
     return 0
