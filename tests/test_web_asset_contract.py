@@ -9,7 +9,7 @@ from zipfile import ZipFile, is_zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-WHEEL = "caltib-0.3.2-py3-none-any.whl"
+WHEEL = "caltib-0.3.3-py3-none-any.whl"
 
 
 class BrowserMarkup(HTMLParser):
