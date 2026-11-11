@@ -340,11 +340,19 @@ ALMANAC_TABLE = {
     "tersuud": [13, 11, 9, 7, 5, 3, 1, 19, 17, 25, 23, 21],
 }
 ALMANAC_NAMES = {
-    "baljinnyam": {"en": "Baljinnyam (auspicious)", "mn": "Балжинням"},
-    "dashnyam": {"en": "Dashnyam (auspicious)", "mn": "Дашням"},
-    "modon_khokhimoi": {"en": "Modon khokhimoi (inauspicious)", "mn": "Модон хохимой"},
-    "tersuud": {"en": "Tersüüd (inauspicious)", "mn": "Тэрсүүд"},
+    "baljinnyam": {"en": "Baljinnyam", "mn": "Балжинням"},
+    "dashnyam": {"en": "Dashnyam", "mn": "Дашням"},
+    "modon_khokhimoi": {"en": "Modon khokhimoi", "mn": "Модон хохимой"},
+    "tersuud": {"en": "Tersüüd", "mn": "Тэрсүүд"},
 }
+# Event descriptions: attribute the meaning to the almanac tradition.
+ALMANAC_NOTES = {
+    "good": {"en": "Regarded as an auspicious day in the traditional Mongolian almanac.",
+             "mn": "Уламжлалт зурхайд сайн өдөрт тооцдог."},
+    "careful": {"en": "Regarded as a day to be careful in the traditional Mongolian almanac.",
+                "mn": "Уламжлалт зурхайд цээртэй өдөрт тооцдог."},
+}
+ALMANAC_KIND = {"baljinnyam": "good", "dashnyam": "good", "modon_khokhimoi": "careful", "tersuud": "careful"}
 
 
 def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
@@ -379,7 +387,12 @@ def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
         mname = month_name("mongol", lang, mo.month, mo.leap, mo.attrs)
         leap = "L" if mo.leap else ""
         uid = f"{feed}-{mo.year}-{mo.month:02d}{leap}-{'-'.join(keys)}@{UID_DOMAIN}"
-        ev.append(Event(day, uid, names, mname))
+        notes = []
+        for k in keys:
+            n = ALMANAC_NOTES[ALMANAC_KIND[k]][lang]
+            if n not in notes:
+                notes.append(n)
+        ev.append(Event(day, uid, names, "\n".join(notes + [mname])))
     return ev
 
 
