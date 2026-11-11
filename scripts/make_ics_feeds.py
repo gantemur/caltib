@@ -30,6 +30,8 @@ Conventions (one event per civil day unless stated):
   caltib-private development/auspicious-days.md, handled as gogo.mn does
   (see almanac_events).  It is meant as an add-on to the Mongol calendar
   feed, so it holds no festivals: subscribing to both shows nothing twice.
+* A festival day has a single event: a lunar-day event on the same day is
+  folded into the festival's description.
 * All events are all-day, "free" (they do not block busy time) and have
   stable UIDs, so a regenerated file updates events in place.
 """
@@ -306,20 +308,35 @@ def festival_events(engine: str, lang: str, feed: str, months: List[Month],
                     festivals, ny_key: Optional[str], eve_key: Optional[str]) -> List[Event]:
     P = PHRASES[lang]
     ev: List[Event] = []
+    day_month = {d.civil_date: (d, m) for m in months for d in m.days}
+
+    def full_desc(day: date) -> str:
+        if day not in day_month:
+            return ""
+        d, m = day_month[day]
+        rep_s = f" ({P['repeated']})" if d.tibetan.occ == 2 else ""
+        return (f"{day_label(lang, d.tibetan.tithi)}{rep_s} · {month_short(engine, lang, m.month, m.leap)}\n"
+                f"{month_name(engine, lang, m.month, m.leap, m.attrs)}\n"
+                f"{year_name(engine, lang, m.year_tib, m.year_attrs)}")
+
     for mo in months:
         if mo.leap:
             continue
         mname = month_name(engine, lang, mo.month, mo.leap, mo.attrs)
         yname = year_name(engine, lang, mo.year_tib, mo.year_attrs)
-        desc = f"{mname}\n{yname}"
+        short = month_short(engine, lang, mo.month, mo.leap)
+
+        def desc_for(d) -> str:
+            rep_s = f" ({P['repeated']})" if d.tibetan.occ == 2 else ""
+            return f"{day_label(lang, d.tibetan.tithi)}{rep_s} · {short}\n{mname}\n{yname}"
+
         for (m, tithi, key) in festivals:
             if m != mo.month:
                 continue
             name = FESTIVAL_NAMES[key][lang]
             if tithi == 1:
                 d = mo.days[0]
-                ev.append(Event(d.civil_date, _uid(feed, mo, key), name,
-                                f"{day_label(lang, d.tibetan.tithi)}\n{desc}", ("festival",)))
+                ev.append(Event(d.civil_date, _uid(feed, mo, key), name, desc_for(d), ("festival",)))
                 continue
             for d, kind in days_for_tithi(mo, tithi):
                 if kind == "normal":
@@ -329,15 +346,16 @@ def festival_events(engine: str, lang: str, feed: str, months: List[Month],
                 else:
                     s = f"{name} ({P['omitted'].format(d=_num(tithi, lang))})"
                 ev.append(Event(d.civil_date, _uid(feed, mo, key + ("-r" if kind == "repeated" else "")), s,
-                                f"{day_label(lang, d.tibetan.tithi)}\n{desc}", ("festival",)))
+                                desc_for(d), ("festival",)))
         # New year (first civil day of the regular first month; matches caltib.new_year_day)
         if mo.month == 1 and ny_key:
             d = mo.days[0]
             ev.append(Event(d.civil_date, _uid(feed, mo, ny_key), FESTIVAL_NAMES[ny_key][lang],
-                            f"{yname}", ("festival",)))
+                            desc_for(d), ("festival",)))
             if eve_key:
-                ev.append(Event(d.civil_date - timedelta(days=1), _uid(feed, mo, eve_key),
-                                FESTIVAL_NAMES[eve_key][lang], "", ("festival",)))
+                eve = d.civil_date - timedelta(days=1)
+                ev.append(Event(eve, _uid(feed, mo, eve_key),
+                                FESTIVAL_NAMES[eve_key][lang], full_desc(eve), ("festival",)))
     return ev
 
 
@@ -473,6 +491,28 @@ def render_ics(name: str, desc: str, lang: str, events: Sequence[Event]) -> str:
 
 
 # ---------------------------------------------------------------------------
+def merge_festival_days(events: List[Event]) -> List[Event]:
+    """One event per festival day: a lunar-day event (month start, day 15) on
+    the same day as a festival is dropped, and its title becomes the first line
+    of the festival's description."""
+    by_day: Dict[date, List[Event]] = {}
+    for e in events:
+        by_day.setdefault(e.day, []).append(e)
+    out: List[Event] = []
+    for day, evs in by_day.items():
+        fest = [e for e in evs if "festival" in e.categories]
+        lunar = [e for e in evs if "festival" not in e.categories]
+        if fest and lunar:
+            first = " / ".join(e.summary for e in lunar)
+            for f in fest:
+                rest = f.description.split("\n")[1:] if f.description else []
+                f.description = "\n".join([first] + rest)
+            out += fest
+        else:
+            out += evs
+    return out
+
+
 def build_feed(engine: str, lang: str, with15: bool, start: date, end: date,
                months: Optional[List[Month]] = None) -> Tuple[str, str, int]:
     langs, festivals, ny, eve = TRADITIONS[engine]
@@ -482,7 +522,7 @@ def build_feed(engine: str, lang: str, with15: bool, start: date, end: date,
     for mo in months:
         events += month_events(engine, lang, feed, mo, with15)
     events += festival_events(engine, lang, feed, months, festivals, ny, eve)
-    events = [e for e in events if start <= e.day <= end]
+    events = merge_festival_days([e for e in events if start <= e.day <= end])
     title = CAL_TITLES[engine][lang]
     if lang == "en":
         desc = ("Lunar day 1" + (" and 15" if with15 else "") +
