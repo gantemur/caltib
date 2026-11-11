@@ -27,8 +27,8 @@ Conventions (one event per civil day unless stated):
 * The Mongol "auspicious days" feed (mongol-auspicious-*.ics) marks
   Baljinnyam, Dashnyam, Modon khokhimoi and Tersüüd by the table in
   caltib-private development/auspicious-days.md, handled as gogo.mn does
-  (see almanac_events), plus Tsagaan Sar, Ikh Düichen and Chinggis Khaan's
-  birthday.
+  (see almanac_events).  It is meant as an add-on to the Mongol calendar
+  feed, so it holds no festivals: subscribing to both shows nothing twice.
 * All events are all-day, "free" (they do not block busy time) and have
   stable UIDs, so a regenerated file updates events in place.
 """
@@ -345,7 +345,6 @@ ALMANAC_NAMES = {
     "modon_khokhimoi": {"en": "Modon khokhimoi (inauspicious)", "mn": "Модон хохимой"},
     "tersuud": {"en": "Tersüüd (inauspicious)", "mn": "Тэрсүүд"},
 }
-ALMANAC_FESTIVALS = ("tsagaan_sar", "ikh_duichen", "chinggis")
 
 
 def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
@@ -381,16 +380,15 @@ def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
         leap = "L" if mo.leap else ""
         uid = f"{feed}-{mo.year}-{mo.month:02d}{leap}-{'-'.join(keys)}@{UID_DOMAIN}"
         ev.append(Event(day, uid, names, mname))
-    fest = festival_events("mongol", lang, feed, months, MONGOL_FESTIVALS, "tsagaan_sar", None)
-    return ev + fest
+    return ev
 
 
 def build_almanac_feed(lang: str, start: date, end: date, months: List[Month]) -> Tuple[str, str, int]:
     feed = f"mongol-auspicious-{lang}"
     events = [e for e in almanac_events(lang, feed, months) if start <= e.day <= end]
     title = {"en": "Mongol auspicious days", "mn": "Зурхайн онцлох өдрүүд"}[lang]
-    desc = (f"Baljinnyam, Dashnyam, Modon khokhimoi, Tersüüd, Tsagaan Sar, Ikh Düichen and "
-            f"Chinggis Khaan's birthday, {start.year}–{end.year}. {SITE_URL}")
+    desc = (f"Baljinnyam, Dashnyam, Modon khokhimoi and Tersüüd, {start.year}–{end.year}. "
+            f"Add-on to the Mongol lunar calendar feed. {SITE_URL}")
     return feed, render_ics(title, desc, lang, events), len(events)
 
 
