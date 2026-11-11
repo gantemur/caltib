@@ -13,9 +13,10 @@ Usage
 
 Conventions (one event per civil day unless stated):
 
-* Month start: the first civil day of every lunar month carries the full
-  month and year.  If lunar day 1 is omitted, the event goes on lunar day 2
-  and says that it is the first day of the month.  If lunar day 1 is
+* Month start: the first civil day of every lunar month gets an event titled
+  with the lunar day and the short month name (e.g. "Шинийн 1 · Өвлийн
+  тэргүүн сар"); the full month and year are in its description.  If lunar
+  day 1 is omitted, the event goes on lunar day 2 and says so.  If lunar day 1 is
   repeated, the second occurrence gets a small "repeated" event.
 * Lunar day 15 (feeds without the ``-no15`` suffix): every civil day labelled
   15 gets an event, the second of a repeated pair being marked "repeated".
@@ -59,7 +60,6 @@ DTSTAMP = "20261111T000000Z"  # fixed, so that regenerated files are determinist
 PHRASES: Dict[str, Dict[str, str]] = {
     "en": {
         "day": "Lunar day {d}",
-        "first_day_of": "first day of {month}",
         "repeated": "repeated",
         "omitted": "lunar day {d} omitted",
         "month_plain": "Lunar Month {m}{leap}",
@@ -71,7 +71,6 @@ PHRASES: Dict[str, Dict[str, str]] = {
     },
     "mn": {
         "day": "Шинийн {d}",
-        "first_day_of": "{month}",
         "repeated": "давхар",
         "omitted": "шинийн {d} тасарсан",
         "month_mongol": "{season}{leap} {elem} {anim} сар",
@@ -80,7 +79,6 @@ PHRASES: Dict[str, Dict[str, str]] = {
     },
     "bo": {
         "day": "ཚེས་{d}",
-        "first_day_of": "{month}",
         "repeated": "ཞག་ལྷག",
         "omitted": "ཚེས་{d} ཆད།",
         "month_tib": "ཟླ་བ་{m}{leap}, {elem}{anim}",
@@ -173,6 +171,18 @@ def _elem_anim(attrs: dict, lang: str, engine: str, kind: str) -> Tuple[str, str
     return elem, anim
 
 
+def month_short(engine: str, lang: str, m: int, leap: bool) -> str:
+    """Short month name for event titles, e.g. 'Өвлийн тэргүүн сар', 'Lunar Month 10'."""
+    leap_s = _tr(lang, "leap_suffix") if leap else ""
+    if lang == "mn":
+        return f"{_tr(lang, 'mn_seasons')[m]}{leap_s.lower()} сар"
+    if engine == "mongol" and lang == "en":
+        return f"{EN_SEASONS[m]}{leap_s}"
+    if lang in ("bo", "dz"):
+        return f"ཟླ་བ་{_num(m, lang)}{leap_s}"
+    return f"Lunar Month {m}{leap_s}"
+
+
 def month_name(engine: str, lang: str, m: int, leap: bool, attrs: dict) -> str:
     P = PHRASES[lang]
     leap_s = _tr(lang, "leap_suffix") if leap else ""
@@ -262,20 +272,22 @@ def month_events(engine: str, lang: str, feed: str, mo: Month, with15: bool) -> 
     ev: List[Event] = []
     mname = month_name(engine, lang, mo.month, mo.leap, mo.attrs)
     yname = year_name(engine, lang, mo.year_tib, mo.year_attrs)
+    short = month_short(engine, lang, mo.month, mo.leap)
+    desc = f"{mname}\n{yname}"
 
-    # --- month start ---
+    # --- month start: title leads with the lunar day, then the short month name;
+    # the full month (element, animal) and year are in the description ---
     first = mo.days[0]
     t0 = first.tibetan.tithi
     if t0 == 1:
-        head = f"{day_label(lang, 1)} · {mname}"
+        head = f"{day_label(lang, 1)} · {short}"
     else:
-        head = f"{day_label(lang, t0)} · {P['first_day_of'].format(month=mname)} ({P['omitted'].format(d=_num(1, lang))})"
-    ev.append(Event(first.civil_date, _uid(feed, mo, "d01"), f"{head} · {yname}",
-                    f"{mname}\n{yname}"))
+        head = f"{day_label(lang, t0)} · {short} ({P['omitted'].format(d=_num(1, lang))})"
+    ev.append(Event(first.civil_date, _uid(feed, mo, "d01"), head, desc))
     rep1 = [d for d in mo.days if d.tibetan.tithi == 1 and d.tibetan.occ == 2]
     for d in rep1:
         ev.append(Event(d.civil_date, _uid(feed, mo, "d01r"),
-                        f"{day_label(lang, 1)} ({P['repeated']})", f"{mname}\n{yname}"))
+                        f"{day_label(lang, 1)} ({P['repeated']}) · {short}", desc))
 
     # --- lunar day 15 ---
     if with15:
@@ -286,7 +298,7 @@ def month_events(engine: str, lang: str, feed: str, mo: Month, with15: bool) -> 
                 s, tag = f"{day_label(lang, 15)} ({P['repeated']})", "d15r"
             else:
                 s, tag = f"{day_label(lang, 14)} ({P['omitted'].format(d=_num(15, lang))})", "d15o"
-            ev.append(Event(d.civil_date, _uid(feed, mo, tag), s, f"{mname}\n{yname}"))
+            ev.append(Event(d.civil_date, _uid(feed, mo, tag), f"{s} · {short}", desc))
     return ev
 
 
