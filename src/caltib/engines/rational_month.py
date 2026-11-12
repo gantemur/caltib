@@ -75,20 +75,20 @@ class RationalMonthEngine(MonthEngineProtocol):
         
         # 2. Build Solar Series (Outputs True Sun)
         active_solar = tuple(
-            TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
+            TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn, amp1=t.amp1)
             for t in p.solar_terms
         )
         self.solar_series = AffineTabSeriesT(A=p.A_sun, B=p.B_sun, C=p.C_sun, terms=active_solar)
 
         # 3. Build Lunar Series (Outputs True Moon)
         active_lunar = tuple(
-            TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=moon_tab.eval_normalized_turn)
+            TabTermT(amp=t.amp, phase=t.phase, table_eval_turn=moon_tab.eval_normalized_turn, amp1=t.amp1)
             for t in p.lunar_terms
         )
 
         # 4. Build Elongation Series: E(t) = D_mean(t) + C_moon(t) - C_sun(t)
         active_elong_solar = tuple(
-            TabTermT(amp=-t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn)
+            TabTermT(amp=-t.amp, phase=t.phase, table_eval_turn=sun_tab.eval_normalized_turn, amp1=-t.amp1)
             for t in p.solar_terms
         )
         self.elong_series = AffineTabSeriesT(
