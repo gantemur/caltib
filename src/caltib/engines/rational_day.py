@@ -216,8 +216,8 @@ class RationalDayEngine(DayEngineProtocol):
         # Compute exact UTC approximation using the dynamic baseline
         dawn_utc_approx = Fraction(j_civil, 1) - lmt_baseline - self.p.location.lon_turn
         
-        y_dawn = Fraction(2000, 1) + (dawn_utc_approx - JD_J2000) / Fraction(1461, 4)
-        dt_sec = self.delta_t.delta_t_seconds(y_dawn)
+        # delta_t_seconds takes days since J2000.0 (it converts to a year itself).
+        dt_sec = self.delta_t.delta_t_seconds(dawn_utc_approx - JD_J2000)
         dawn_tt_approx = dawn_utc_approx + (dt_sec / Fraction(86400, 1))
         
         # Convert Dawn TT back to J2000 days for the solar series evaluation
