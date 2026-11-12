@@ -27,8 +27,8 @@ Conventions (one event per civil day unless stated):
   month.  Festivals are placed in the regular (non-leap) month.
 * The Mongol "auspicious days" feed (mongol-auspicious-*.ics) marks
   Baljinnyam, Dashnyam, Modon khokhimoi and Tersüüd by the table in
-  caltib-private development/auspicious-days.md, handled as gogo.mn does
-  (see almanac_events).  It is meant as an add-on to the Mongol calendar
+  caltib-private development/auspicious-days.md (see almanac_events; leap
+  months carry none, as in L. Terbish's almanac).  It is meant as an add-on to the Mongol calendar
   feed, so it holds no festivals: subscribing to both shows nothing twice.
 * A festival day has a single event: a lunar-day event on the same day is
   folded into the festival's description.
@@ -386,15 +386,15 @@ ALMANAC_KIND = {"baljinnyam": "good", "dashnyam": "good", "modon_khokhimoi": "ca
 
 
 def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
-    """Special days of the Mongolian almanac, following gogo.mn's handling:
-    a skipped lunar day is marked on the civil day before it (for lunar day 1,
-    the last day of the previous month); of a repeated lunar day only the
-    second civil day is marked; in a leap pair only the intercalary (first)
-    month carries the special days."""
-    leap_keys = {(mo.year, mo.month) for mo in months if mo.leap}
+    """Special days of the Mongolian almanac: a skipped lunar day is marked on
+    the civil day before it (for lunar day 1, the last day of the previous
+    month); of a repeated lunar day only the second civil day is marked (as on
+    gogo.mn); leap (intercalary) months carry no special days, as in
+    L. Terbish's almanac (owner, 2026-11-12), so the regular month of a leap
+    pair carries them."""
     by_day: Dict[date, Tuple[List[str], Month]] = {}
-    for i, mo in enumerate(months):
-        if not mo.leap and (mo.year, mo.month) in leap_keys:
+    for mo in months:
+        if mo.leap:
             continue
         for key, row in ALMANAC_TABLE.items():
             d = row[mo.month - 1]
