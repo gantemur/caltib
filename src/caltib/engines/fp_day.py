@@ -148,8 +148,8 @@ class FloatDayEngine(DayEngineProtocol):
         
         dawn_utc_approx = float(j_civil) - lmt_baseline - lon_turn
         
-        y_dawn = 2000.0 + (dawn_utc_approx - JD_J2000_FLOAT) / 365.25
-        dt_sec = self.delta_t.delta_t_seconds(y_dawn)
+        # delta_t_seconds takes days since J2000.0 (it converts to a year itself).
+        dt_sec = self.delta_t.delta_t_seconds(dawn_utc_approx - JD_J2000_FLOAT)
         dawn_tt_approx = dawn_utc_approx + (dt_sec / 86400.0)
         
         t_dawn_tt = dawn_tt_approx - JD_J2000_FLOAT
@@ -179,8 +179,7 @@ class FloatDayEngine(DayEngineProtocol):
 
     def boundary_utc(self, x: NumT) -> float:
         t_tt = self.true_date(x)
-        y_approx = 2000.0 + t_tt / 365.25
-        dt_sec = self.delta_t.delta_t_seconds(y_approx)
+        dt_sec = self.delta_t.delta_t_seconds(t_tt)   # days since J2000.0 TT
         return t_tt - (dt_sec / 86400.0)
 
     # ---------------------------------------------------------
