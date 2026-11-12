@@ -429,7 +429,7 @@ def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
 def build_almanac_feed(lang: str, start: date, end: date, months: List[Month]) -> Tuple[str, str, int]:
     feed = f"mongol-auspicious-{lang}"
     events = [e for e in almanac_events(lang, feed, months) if start <= e.day <= end]
-    title = {"en": "Mongol auspicious days", "mn": "Зурхайн онцлох өдрүүд"}[lang]
+    title = {"en": "Mongol auspicious days", "mn": "Балжка Дашка"}[lang]
     desc = (f"Baljinnyam, Dashnyam, Modon khokhimoi and Tersüüd, {start.year}–{end.year}. "
             f"Add-on to the Mongol lunar calendar feed. {SITE_URL}")
     return feed, render_ics(title, desc, lang, events), len(events)
