@@ -113,7 +113,8 @@ class AffineTabSeriesT:
     def eval(self, t: Fraction) -> Fraction:
         s = self.base(t)
         for term in self.terms:
-            s += term.amp * term.table_eval_turn(term.phase.eval(t))
+            # Amplitude with secular drift, as in picard_solve.
+            s += (term.amp + term.amp1 * t) * term.table_eval_turn(term.phase.eval(t))
         return s
 
     def picard_solve(
