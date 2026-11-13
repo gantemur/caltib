@@ -21,6 +21,15 @@ TRANSLATIONS = {
         "greg_month_long_fmt": "{month} {year}",
         "rabjung_fmt": "Rabjung {R}, Year {Y}, {element} {animal}",
         "rabjung_year_fmt": "Rabjung {R}, Year {Y}",
+        # Mongol calendar: sixty-year cycle and season names of the lunar months
+        # (used in English by the subscription feeds; "{season} month").
+        "mongol_cycle_year_fmt": "Cycle {R}, Year {Y}",
+        "mn_seasons": {
+            1: "First spring", 2: "Middle spring", 3: "Last spring",
+            4: "First summer", 5: "Middle summer", 6: "Last summer",
+            7: "First autumn", 8: "Middle autumn", 9: "Last autumn",
+            10: "First winter", 11: "Middle winter", 12: "Last winter"
+        },
         "greg_date_lbl": "Gregorian",
         "weekdays_long": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         "day_card_greg_fmt": "{month} {day}, {year}",
@@ -187,6 +196,7 @@ TRANSLATIONS = {
         "tib_month_long_fmt": "{month} {element} {animal} сар",
         "rabjung_fmt": "{R}-р жарны {Y} он {element} {animal} жил",
         "rabjung_year_fmt": "{R}-р жарны {Y} он",
+        "mongol_cycle_year_fmt": "{R}-р жарны {Y} он",
         "greg_date_lbl": "Аргын өдөр",
         "weekdays_long": ["Даваа", "Мягмар", "Лхагва", "Пүрэв", "Баасан", "Бямба", "Ням"],
         "rabjung_title": "Жаран",
