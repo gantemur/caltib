@@ -30,6 +30,10 @@ Conventions (one event per civil day unless stated):
   caltib-private development/auspicious-days.md (see almanac_events; leap
   months carry none, as in L. Terbish's almanac).  It is meant as an add-on to the Mongol calendar
   feed, so it holds no festivals: subscribing to both shows nothing twice.
+* The Mongol feeds also mark the winter Nine Nines (Есийн ес): the first
+  day of each nine and the day after day 81, counted from 22 December
+  (caltib-private development/nine-nines.md).  Nines 1-8 are yearly
+  repeating events (RRULE), since their Gregorian dates never change.
 * A festival day has a single event: a lunar-day event on the same day is
   folded into the festival's description.
 * All events are all-day, "free" (they do not block busy time) and have
@@ -216,6 +220,7 @@ class Event:
     summary: str
     description: str = ""
     categories: Tuple[str, ...] = field(default_factory=tuple)
+    rrule: str = ""  # RFC 5545 RRULE value for a repeating event, e.g. "FREQ=YEARLY;UNTIL=20501231"
 
 
 @dataclass
@@ -475,6 +480,10 @@ def render_ics(name: str, desc: str, lang: str, events: Sequence[Event]) -> str:
             f"DTSTAMP:{DTSTAMP}",
             f"DTSTART;VALUE=DATE:{e.day:%Y%m%d}",
             f"DTEND;VALUE=DATE:{e.day + timedelta(days=1):%Y%m%d}",
+        ]
+        if e.rrule:
+            lines.append(f"RRULE:{e.rrule}")
+        lines += [
             f"SUMMARY:{_esc(e.summary)}",
         ]
         if e.description:
@@ -487,6 +496,57 @@ def render_ics(name: str, desc: str, lang: str, events: Sequence[Event]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Winter Nine Nines (caltib-private development/nine-nines.md): the 81 days
+# from 22 December (fixed Gregorian date), counted in nine nines of nine days.
+# ---------------------------------------------------------------------------
+NINE_NINES_TEXT = {
+    "start": {"mn": "{n} ес эхэлнэ", "en": "{ord} nine begins"},
+    "end": {"mn": "Есөн ес дууслаа", "en": "End of the Nine Nines"},
+    "desc": {
+        "mn": "Өвлийн есөн ес: 12-р сарын 22-оос хойш 81 хоногийг есөн хоногоор тоолно.",
+        "en": "The winter Nine Nines: the 81 days from 22 December, counted in nines of nine days.",
+    },
+}
+
+
+def _ordinal_en(n: int) -> str:
+    return f"{n}" + {1: "st", 2: "nd", 3: "rd"}.get(n, "th")
+
+
+def nine_nines_events(lang: str, feed: str, start: date, end: date) -> List[Event]:
+    """First day of each nine, plus the day after day 81 (end of the count).
+
+    Nines 1-8 start on the same Gregorian month and day every winter
+    (12-22, 12-31, 01-09, 01-18, 01-27, 02-05, 02-14, 02-23), so each is one
+    yearly repeating event.  The 9th nine (03-04, or 03-03 after a 29
+    February) and the end day (03-13, or 03-12) move in leap years, so they
+    are separate dated events, one per winter."""
+    T = NINE_NINES_TEXT
+    desc = T["desc"][lang]
+    ev: List[Event] = []
+    winters = range(start.year - 1, end.year + 1)
+    for n in range(1, 10):
+        title = T["start"][lang].format(n=n, ord=_ordinal_en(n))
+        days = [date(Y, 12, 22) + timedelta(days=9 * (n - 1)) for Y in winters]
+        days = [d for d in days if start <= d <= end]
+        if not days:
+            continue
+        if n <= 8:
+            assert len({(d.month, d.day) for d in days}) == 1  # fixed Gregorian date
+            ev.append(Event(days[0], f"{feed}-nine{n}@{UID_DOMAIN}", title, desc, ("nine_nines",),
+                            rrule=f"FREQ=YEARLY;UNTIL={end:%Y%m%d}"))
+        else:
+            for d in days:
+                Y = d.year - 1  # the winter starts on 22 December of the previous year
+                ev.append(Event(d, f"{feed}-{Y}-nine{n}@{UID_DOMAIN}", title, desc, ("nine_nines",)))
+    for Y in winters:
+        d = date(Y, 12, 22) + timedelta(days=81)
+        if start <= d <= end:
+            ev.append(Event(d, f"{feed}-{Y}-nines-end@{UID_DOMAIN}", T["end"][lang], desc, ("nine_nines",)))
+    return ev
+
+
 def merge_festival_days(events: List[Event]) -> List[Event]:
     """One event per festival day: a lunar-day event (month start, day 15) on
     the same day as a festival is dropped, and its title becomes the first line
@@ -497,13 +557,14 @@ def merge_festival_days(events: List[Event]) -> List[Event]:
     out: List[Event] = []
     for day, evs in by_day.items():
         fest = [e for e in evs if "festival" in e.categories]
-        lunar = [e for e in evs if "festival" not in e.categories]
+        lunar = [e for e in evs if not e.categories]  # month start, day 15
+        other = [e for e in evs if e.categories and "festival" not in e.categories]
         if fest and lunar:
             first = " / ".join(e.summary for e in lunar)
             for f in fest:
                 rest = f.description.split("\n")[1:] if f.description else []
                 f.description = "\n".join([first] + rest)
-            out += fest
+            out += fest + other
         else:
             out += evs
     return out
@@ -519,6 +580,8 @@ def build_feed(engine: str, lang: str, with15: bool, start: date, end: date,
         events += month_events(engine, lang, feed, mo, with15)
     events += festival_events(engine, lang, feed, months, festivals, ny, eve)
     events = merge_festival_days([e for e in events if start <= e.day <= end])
+    if engine == "mongol":
+        events += nine_nines_events(lang, feed, start, end)
     title = CAL_TITLES[engine][lang]
     if lang == "en":
         desc = ("Lunar day 1" + (" and 15" if with15 else "") +
