@@ -68,7 +68,7 @@ PHRASES: Dict[str, Dict[str, str]] = {
         "month_mongol": "{season}{leap}, {elem} {anim} month",
         "month_tib": "Lunar Month {m}{leap}, {elem} {anim}",
         "year": "Rabjung {R}, Year {Y}, {elem} {anim}",
-        "year_mongol": "Cycle {R}, Year {Y}, {elem} {anim}",
+        "year_mongol": TRANSLATIONS["en"]["mongol_cycle_year_fmt"] + ", {elem} {anim}",
         "note": "Computed with caltib ({engine} tradition).",
     },
     "mn": {
@@ -90,12 +90,8 @@ PHRASES: Dict[str, Dict[str, str]] = {
 }
 PHRASES["dz"] = dict(PHRASES["bo"])
 
-EN_SEASONS = {
-    1: "First spring month", 2: "Middle spring month", 3: "Last spring month",
-    4: "First summer month", 5: "Middle summer month", 6: "Last summer month",
-    7: "First autumn month", 8: "Middle autumn month", 9: "Last autumn month",
-    10: "First winter month", 11: "Middle winter month", 12: "Last winter month",
-}
+# English season months of the Mongol calendar, from caltib.i18n ("mn_seasons").
+EN_SEASONS = {m: f"{name} month" for m, name in TRANSLATIONS["en"]["mn_seasons"].items()}
 
 # Festival names.  key -> lang -> name
 FESTIVAL_NAMES: Dict[str, Dict[str, str]] = {
