@@ -26,7 +26,7 @@ def run_basic_validation(hip_id: int, star_name: str):
     star = stars.STAR_CATALOG[hip_id]
     
     print(f"=== Validation: {star.hip_id} ({star_name.capitalize()}) ===")
-    print(f"Base Catalog (J2000.0):")
+    print(f"Base Catalog (Hipparcos, ICRS, epoch J1991.25):")
     print(f"  RA:  {star.ra_j2000_deg:.4f}°")
     print(f"  Dec: {star.dec_j2000_deg:.4f}°")
     print(f"  Proper Motion: {star.pm_ra_mas_yr} mas/yr (RA), {star.pm_dec_mas_yr} mas/yr (Dec)\n")
@@ -66,7 +66,9 @@ def run_astropy_validation(args, hip_id: int):
     warnings.simplefilter('ignore', category=AstropyWarning)
     warnings.simplefilter('ignore', category=erfa.core.ErfaWarning)
 
-    # 1. Initialize the Star in Astropy (ICRS frame at J2000.0)
+    # 1. Initialize the Star in Astropy (ICRS frame, catalogue epoch J1991.25)
+    # Until 0.3.4 this used obstime J2000.0, the same wrong epoch as stars.py,
+    # so the comparison could not see the error.
     # We supply a default distance and 0 radial velocity to force Astropy 
     # to treat proper motion purely as linear angular drift.
     astropy_star = SkyCoord(
@@ -77,7 +79,7 @@ def run_astropy_validation(args, hip_id: int):
         pm_ra_cosdec=star.pm_ra_mas_yr * u.mas/u.yr,
         pm_dec=star.pm_dec_mas_yr * u.mas/u.yr,
         frame='icrs',
-        obstime=Time('J2000.0')
+        obstime=Time(stars.CATALOG_EPOCH_JD, format='jd', scale='tt')
     )
 
     # 2. Generate Time Grid
