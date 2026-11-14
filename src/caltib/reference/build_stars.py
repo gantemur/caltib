@@ -4,32 +4,14 @@ import argparse
 import sys
 import os
 
-TEMPLATE = """\
-from __future__ import annotations
-from dataclasses import dataclass
-import math
-from . import astro_args as aa
-
-@dataclass(frozen=True)
-class Star:
-    hip_id: int
-    mag: float
-    ra_j2000_deg: float
-    dec_j2000_deg: float
-    pm_ra_mas_yr: float
-    pm_dec_mas_yr: float
-
-# Automatically generated catalog from Hipparcos (I/239)
-# Filter: Magnitude <= {max_mag}
-# Total Stars: {star_count}
-
-STAR_CATALOG = {
-{stars_dict_str}
-}
-"""
+# The generated module is stars_tmpl.py with the catalogue rows filled in.
+# Hipparcos RAICRS and DEICRS are at epoch J1991.25 (not J2000.0); the template
+# applies proper motion from that epoch (CATALOG_EPOCH_JD). The field names
+# ra_j2000_deg and dec_j2000_deg are kept for compatibility.
 
 def fetch_hipparcos_stars(max_mag: float) -> list[tuple]:
-    """Queries VizieR for Hipparcos stars brighter than max_mag."""
+    """Queries VizieR for Hipparcos stars brighter than max_mag. RAICRS and
+    DEICRS are ICRS positions at the catalogue epoch J1991.25."""
     url = (f"https://vizier.cds.unistra.fr/viz-bin/asu-tsv?"
            f"-source=I/239/hip_main&"
            f"-out=HIP,Vmag,RAICRS,DEICRS,pmRA,pmDE&"
