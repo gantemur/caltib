@@ -23,7 +23,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'  # Matching your pyproject.toml requirement
+          # Only the docs build; caltib itself supports Python >=3.9 (pyproject).
+          # 3.9 is no longer offered on the GitHub runners (2026-11).
+          python-version: '3.12'
 
       - name: Install documentation dependencies
         run: |

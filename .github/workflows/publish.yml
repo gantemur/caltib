@@ -23,7 +23,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
+          # Builds the pure-Python wheel; the package still supports >=3.9.
+          # 3.9 is no longer offered on the GitHub runners (2026-11).
+          python-version: '3.12'
 
       - name: Install build tools
         run: python -m pip install --upgrade pip build
