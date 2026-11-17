@@ -150,14 +150,16 @@ PUBLIC_HOLIDAYS = [
 ]
 HOLIDAY_NAMES: Dict[str, Dict[str, str]] = {
     "new_year": {"mn": "Шинэ жил", "en": "New Year's Day"},
-    "womens_day": {"mn": "Олон улсын эмэгтэйчүүдийн өдөр", "en": "International Women's Day"},
+    "womens_day": {"mn": "Эмэгтэйчүүдийн баяр", "en": "International Women's Day"},
     "childrens_day": {"mn": "Хүүхдийн баяр", "en": "Children's Day"},
     "naadam": {"mn": "Үндэсний их баяр наадам", "en": "Naadam (National Festival)"},
-    "republic_day": {"mn": "Бүгд Найрамдах Улс тунхагласан өдөр", "en": "Republic Day"},
+    "republic_day": {"mn": "Улс тунхагласан өдөр", "en": "Republic Day"},
     "independence_day": {"mn": "Тусгаар тогтнолын өдөр", "en": "Independence Day"},
 }
 # Official name in the description where the title is a shortened form.
 HOLIDAY_OFFICIAL: Dict[str, Dict[str, str]] = {
+    "womens_day": {"mn": "Олон улсын эмэгтэйчүүдийн өдөр.", "en": ""},
+    "republic_day": {"mn": "Бүгд Найрамдах Улс тунхагласан өдөр.", "en": ""},
     "independence_day": {"mn": "Үндэсний эрх чөлөө, тусгаар тогтнолоо сэргээсний баярын өдөр.",
                          "en": "National Freedom and Independence Day."},
 }
@@ -655,7 +657,7 @@ def holiday_events(lang: str, feed: str, start: date, end: date) -> List[Event]:
             day = date(Y, m, d)
             if start <= day <= end:
                 note = HOLIDAY_NOTE[lang]
-                if key in HOLIDAY_OFFICIAL:
+                if HOLIDAY_OFFICIAL.get(key, {}).get(lang):
                     note = f"{HOLIDAY_OFFICIAL[key][lang]}\n{note}"
                 ev.append(Event(day, f"{feed}-hol-{m:02d}{d:02d}@{UID_DOMAIN}", HOLIDAY_NAMES[key][lang],
                                 note, ("holiday",)))
