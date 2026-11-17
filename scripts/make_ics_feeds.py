@@ -38,6 +38,13 @@ Conventions (one event per civil day unless stated):
   (and the repeating event skips that year via EXDATE).
 * A festival day has a single event: a lunar-day event on the same day is
   folded into the festival's description.
+* The Mongol feeds also mark Mongolia's public holidays on fixed Gregorian
+  dates (days off by law: New Year, 8 March, 1 June, Naadam 10-15 July, 26
+  November, 29 December; see PUBLIC_HOLIDAYS) as yearly repeating events.
+  On a festival day the holiday joins the festival's title ("festival ·
+  holiday"); on a lunar-day event's day it keeps its title and takes the
+  lunar line, month and year as its description (a dated event for that
+  year, skipped by the repeating one).
 * All events are all-day, "free" (they do not block busy time) and have
   stable UIDs, so a regenerated file updates events in place.
 """
@@ -126,6 +133,35 @@ for _k in ("chotrul", "saga_dawa", "chokhor", "lhabab"):
 # (month, lunar day, key); lunar day 1 means "first civil day of the month".
 TIBETAN_FESTIVALS = [(1, 15, "chotrul"), (4, 15, "saga_dawa"), (6, 4, "chokhor"), (9, 22, "lhabab")]
 MONGOL_FESTIVALS = [(4, 15, "ikh_duichen"), (10, 1, "chinggis")]
+
+# Mongolian public holidays on fixed Gregorian dates (days off; Law on public
+# holidays and observances, art. 4.1).  Mongol feeds only.  The lunar-dated
+# days off (Tsagaan Sar, Ikh Düichen, Chinggis Khaan's Day) are festivals above.
+# (key, month, day, first year it applies)
+PUBLIC_HOLIDAYS = [
+    ("new_year", 1, 1, 0),
+    ("womens_day", 3, 8, 0),
+    ("childrens_day", 6, 1, 0),
+    ("naadam", 7, 10, 2022),  # 10 July added by the 2022 amendment
+    ("naadam", 7, 11, 0), ("naadam", 7, 12, 0), ("naadam", 7, 13, 0),
+    ("naadam", 7, 14, 0), ("naadam", 7, 15, 0),
+    ("republic_day", 11, 26, 2016),
+    ("independence_day", 12, 29, 2011),
+]
+HOLIDAY_NAMES: Dict[str, Dict[str, str]] = {
+    "new_year": {"mn": "Шинэ жил", "en": "New Year's Day"},
+    "womens_day": {"mn": "Олон улсын эмэгтэйчүүдийн өдөр", "en": "International Women's Day"},
+    "childrens_day": {"mn": "Хүүхдийн баяр", "en": "Children's Day"},
+    "naadam": {"mn": "Үндэсний их баяр наадам", "en": "Naadam (National Festival)"},
+    "republic_day": {"mn": "Бүгд Найрамдах Улс тунхагласан өдөр", "en": "Republic Day"},
+    "independence_day": {"mn": "Тусгаар тогтнолын өдөр", "en": "Independence Day"},
+}
+# Official name in the description where the title is a shortened form.
+HOLIDAY_OFFICIAL: Dict[str, Dict[str, str]] = {
+    "independence_day": {"mn": "Үндэсний эрх чөлөө, тусгаар тогтнолоо сэргээсний баярын өдөр.",
+                         "en": "National Freedom and Independence Day."},
+}
+HOLIDAY_NOTE = {"mn": "Бүх нийтээр амрах баярын өдөр.", "en": "Public holiday in Mongolia."}
 
 TRADITIONS = {
     # engine: (languages, fixed-lunar-day festivals, new-year key, eve key)
@@ -611,6 +647,80 @@ def add_nine_nines(lang: str, feed: str, events: List[Event], start: date, end: 
     return events + new
 
 
+def holiday_events(lang: str, feed: str, start: date, end: date) -> List[Event]:
+    """Dated public-holiday events (compressed later by compress_holidays)."""
+    ev: List[Event] = []
+    for (key, m, d, since) in PUBLIC_HOLIDAYS:
+        for Y in range(max(start.year, since), end.year + 1):
+            day = date(Y, m, d)
+            if start <= day <= end:
+                note = HOLIDAY_NOTE[lang]
+                if key in HOLIDAY_OFFICIAL:
+                    note = f"{HOLIDAY_OFFICIAL[key][lang]}\n{note}"
+                ev.append(Event(day, f"{feed}-hol-{m:02d}{d:02d}@{UID_DOMAIN}", HOLIDAY_NAMES[key][lang],
+                                note, ("holiday",)))
+    return ev
+
+
+def merge_holidays(lang: str, events: List[Event]) -> List[Event]:
+    """One event per day: a public holiday on the same day as a festival is
+    joined to it ('festival · holiday'); on a lunar-day event's day (month
+    start, day 15) the holiday keeps its title and takes the lunar line,
+    month and year as its description.  Such holidays become dated events."""
+    by_day: Dict[date, List[Event]] = {}
+    for e in events:
+        by_day.setdefault(e.day, []).append(e)
+    out: List[Event] = []
+    for day, evs in sorted(by_day.items()):
+        hol = [e for e in evs if "holiday" in e.categories]
+        rest = [e for e in evs if "holiday" not in e.categories]
+        if not hol or not rest:
+            out += evs
+            continue
+        assert len(hol) == 1
+        h = hol[0]
+        fest = [e for e in rest if "festival" in e.categories]
+        lunar = [e for e in rest if not e.categories]
+        other = [e for e in rest if e.categories and "festival" not in e.categories]
+        if not fest and not lunar:
+            out += evs
+            continue
+        uid = h.uid.replace("@", f"-{day.year}@")
+        if fest:
+            f = fest[0]
+            out.append(Event(day, f.uid, f"{f.summary} · {h.summary}",
+                             f"{f.description}\n{h.description}", ("festival", "holiday")))
+            out += fest[1:] + lunar + other
+        else:
+            first = " / ".join(e.summary for e in lunar)
+            desc = lunar[0].description
+            out.append(Event(day, uid, h.summary, f"{first}\n{desc}\n{h.description}",
+                             ("festival", "holiday")))
+            out += other
+    return out
+
+
+def compress_holidays(events: List[Event], end: date) -> List[Event]:
+    """Turn the remaining (unmerged) dated holiday events into one yearly
+    repeating event per date, skipping (EXDATE) the years where the holiday
+    was merged into another event."""
+    groups: Dict[str, List[Event]] = {}
+    out: List[Event] = []
+    for e in events:
+        if e.categories == ("holiday",):
+            groups.setdefault(e.uid, []).append(e)
+        else:
+            out.append(e)
+    for uid, evs in groups.items():
+        evs.sort(key=lambda e: e.day)
+        first, years = evs[0], {e.day.year for e in evs}
+        skip = tuple(date(Y, first.day.month, first.day.day)
+                     for Y in range(first.day.year, end.year + 1) if Y not in years)
+        out.append(Event(first.day, uid, first.summary, first.description, ("holiday",),
+                         rrule=f"FREQ=YEARLY;UNTIL={end:%Y%m%d}", exdates=skip))
+    return out
+
+
 def merge_festival_days(events: List[Event]) -> List[Event]:
     """One event per festival day: a lunar-day event (month start, day 15) on
     the same day as a festival is dropped, and its title becomes the first line
@@ -645,11 +755,14 @@ def build_feed(engine: str, lang: str, with15: bool, start: date, end: date,
     events += festival_events(engine, lang, feed, months, festivals, ny, eve)
     events = merge_festival_days([e for e in events if start <= e.day <= end])
     if engine == "mongol":
+        events = merge_holidays(lang, events + holiday_events(lang, feed, start, end))
+        events = compress_holidays(events, end)
         events = add_nine_nines(lang, feed, events, start, end)
     title = CAL_TITLES[engine][lang]
     if lang == "en":
-        desc = ("Lunar day 1" + (" and 15" if with15 else "") +
-                f" of each month and main festivals, {start.year}–{end.year}. {SITE_URL}")
+        desc = ("Lunar day 1" + (" and 15" if with15 else "") + " of each month and main festivals"
+                + (", Mongolian public holidays and the winter Nine Nines" if engine == "mongol" else "")
+                + f", {start.year}–{end.year}. {SITE_URL}")
     else:
         desc = f"{start.year}–{end.year}. {SITE_URL}"
     return feed, render_ics(title, desc, lang, events), len(events)
