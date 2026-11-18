@@ -49,11 +49,13 @@ Conventions (one event per civil day unless stated):
   the next day is "Шинийн 3").  Bituun is not a public holiday.
 * The Mongol feeds also mark Mongolia's public holidays on fixed Gregorian
   dates (days off by law: New Year, 8 March, 1 June, Naadam 10-15 July, 26
-  November, 29 December; see PUBLIC_HOLIDAYS) as yearly repeating events.
+  November, 29 December; see PUBLIC_HOLIDAYS), one dated event per day whose
+  description starts with the day's lunar date (lunar day, month, year).
   On a festival day the holiday joins the festival's title ("festival ·
-  holiday"); on a lunar-day event's day it keeps its title and takes the
-  lunar day, month and year as its description (a dated event for that
-  year, skipped by the repeating one).
+  holiday"); on a lunar-day event's day (month start, day 15) the holiday
+  keeps its title and the lunar event is dropped.
+* Almanac (Балжка Дашка) descriptions also start with the civil day's lunar
+  date, then the note.
 * All events are all-day, "free" (they do not block busy time) and have
   stable UIDs, so a regenerated file updates events in place.
 """
@@ -447,12 +449,21 @@ ALMANAC_NAMES = {
 }
 # Event descriptions: attribute the meaning to the almanac tradition.
 ALMANAC_NOTES = {
-    "good": {"en": "Regarded as an auspicious day in the traditional Mongolian almanac.",
-             "mn": "Уламжлалт зурхайд сайн өдөрт тооцдог."},
-    "careful": {"en": "Regarded as a day to be careful in the traditional Mongolian almanac.",
-                "mn": "Уламжлалт зурхайд цээртэй өдөрт тооцдог."},
+    "good": {"en": "Regarded as an auspicious day in the traditional Mongolian almanac",
+             "mn": "Уламжлалт зурхайд сайн өдөрт тооцдог"},
+    "careful": {"en": "Regarded as a day to be careful in the traditional Mongolian almanac",
+                "mn": "Уламжлалт зурхайд цээртэй өдөрт тооцдог"},
 }
 ALMANAC_KIND = {"baljinnyam": "good", "dashnyam": "good", "modon_khokhimoi": "careful", "tersuud": "careful"}
+
+
+def lunar_lines(engine: str, lang: str, d, m: Month) -> List[str]:
+    """Description lines naming a civil day's lunar date: lunar day (marked if
+    repeated), full month name, year."""
+    rep_s = f" ({PHRASES[lang]['repeated']})" if d.tibetan.occ == 2 else ""
+    return [f"{day_label(lang, d.tibetan.tithi)}{rep_s}",
+            month_name(engine, lang, m.month, m.leap, m.attrs),
+            year_name(engine, lang, m.year_tib, m.year_attrs)]
 
 
 def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
@@ -481,10 +492,11 @@ def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
                     continue
                 day = prev[-1].civil_date
             by_day.setdefault(day, ([], mo))[0].append(key)
+    day_month = {x.civil_date: (x, m) for m in months for x in m.days}
     ev = []
     for day, (keys, mo) in by_day.items():
         names = " · ".join(ALMANAC_NAMES[k][lang] for k in keys)
-        mname = month_name("mongol", lang, mo.month, mo.leap, mo.attrs)
+        x, xm = day_month[day]  # the civil day's own lunar date
         leap = "L" if mo.leap else ""
         uid = f"{feed}-{mo.year}-{mo.month:02d}{leap}-{'-'.join(keys)}@{UID_DOMAIN}"
         notes = []
@@ -492,7 +504,7 @@ def almanac_events(lang: str, feed: str, months: List[Month]) -> List[Event]:
             n = ALMANAC_NOTES[ALMANAC_KIND[k]][lang]
             if n not in notes:
                 notes.append(n)
-        ev.append(Event(day, uid, names, "\n".join(notes + [mname])))
+        ev.append(Event(day, uid, names, "\n".join(lunar_lines("mongol", lang, x, xm) + notes)))
     return ev
 
 
@@ -672,26 +684,29 @@ def add_nine_nines(lang: str, feed: str, events: List[Event], start: date, end: 
     return events + new
 
 
-def holiday_events(lang: str, feed: str, start: date, end: date) -> List[Event]:
-    """Dated public-holiday events (compressed later by compress_holidays)."""
+def holiday_events(lang: str, feed: str, start: date, end: date, months: List[Month]) -> List[Event]:
+    """Dated public-holiday events; the description starts with the day's
+    lunar date (lunar day, month, year), like the festivals."""
+    day_month = {x.civil_date: (x, mo) for mo in months for x in mo.days}
     ev: List[Event] = []
     for (key, m, d, since) in PUBLIC_HOLIDAYS:
         for Y in range(max(start.year, since), end.year + 1):
             day = date(Y, m, d)
             if start <= day <= end:
-                note = HOLIDAY_NOTE[lang]
+                lines = lunar_lines("mongol", lang, *day_month[day])
                 if HOLIDAY_OFFICIAL.get(key, {}).get(lang):
-                    note = f"{HOLIDAY_OFFICIAL[key][lang]}\n{note}"
-                ev.append(Event(day, f"{feed}-hol-{m:02d}{d:02d}@{UID_DOMAIN}", HOLIDAY_NAMES[key][lang],
-                                note, ("holiday",)))
+                    lines.append(HOLIDAY_OFFICIAL[key][lang])
+                lines.append(HOLIDAY_NOTE[lang])
+                ev.append(Event(day, f"{feed}-{Y}-hol-{m:02d}{d:02d}@{UID_DOMAIN}", HOLIDAY_NAMES[key][lang],
+                                "\n".join(lines), ("holiday",)))
     return ev
 
 
 def merge_holidays(lang: str, events: List[Event]) -> List[Event]:
     """One event per day: a public holiday on the same day as a festival is
     joined to it ('festival · holiday'); on a lunar-day event's day (month
-    start, day 15) the holiday keeps its title and takes the lunar line,
-    month and year as its description.  Such holidays become dated events."""
+    start, day 15) the holiday keeps its title and the lunar event is dropped
+    (its note that day 1 or 15 is omitted, if any, moves into the holiday)."""
     by_day: Dict[date, List[Event]] = {}
     for e in events:
         by_day.setdefault(e.day, []).append(e)
@@ -710,7 +725,6 @@ def merge_holidays(lang: str, events: List[Event]) -> List[Event]:
         if not fest and not lunar:
             out += evs
             continue
-        uid = h.uid.replace("@", f"-{day.year}@")
         if fest:
             f = fest[0]
             lines = f.description.split("\n")
@@ -718,32 +732,13 @@ def merge_holidays(lang: str, events: List[Event]) -> List[Event]:
             out.append(Event(day, f.uid, f"{f.summary} · {h.summary}", "\n".join(lines), ("festival", "holiday")))
             out += fest[1:] + lunar + other
         else:
-            first = " / ".join(e.summary.split(" · ")[0] for e in lunar)
-            desc = lunar[0].description
-            out.append(Event(day, uid, h.summary, f"{first}\n{desc}\n{h.description}",
-                             ("festival", "holiday")))
+            # the holiday already names the lunar date; keep a lunar event's
+            # note that day 1 or 15 is omitted (the lines before the month)
+            hl = h.description.split("\n")
+            ll = lunar[0].description.split("\n")
+            extra = ll[:ll.index(hl[1])] if hl[1] in ll else []
+            out.append(Event(day, h.uid, h.summary, "\n".join(hl[:1] + extra + hl[1:]), ("holiday",)))
             out += other
-    return out
-
-
-def compress_holidays(events: List[Event], end: date) -> List[Event]:
-    """Turn the remaining (unmerged) dated holiday events into one yearly
-    repeating event per date, skipping (EXDATE) the years where the holiday
-    was merged into another event."""
-    groups: Dict[str, List[Event]] = {}
-    out: List[Event] = []
-    for e in events:
-        if e.categories == ("holiday",):
-            groups.setdefault(e.uid, []).append(e)
-        else:
-            out.append(e)
-    for uid, evs in groups.items():
-        evs.sort(key=lambda e: e.day)
-        first, years = evs[0], {e.day.year for e in evs}
-        skip = tuple(date(Y, first.day.month, first.day.day)
-                     for Y in range(first.day.year, end.year + 1) if Y not in years)
-        out.append(Event(first.day, uid, first.summary, first.description, ("holiday",),
-                         rrule=f"FREQ=YEARLY;UNTIL={end:%Y%m%d}", exdates=skip))
     return out
 
 
@@ -777,8 +772,7 @@ def build_feed(engine: str, lang: str, with15: bool, start: date, end: date,
     events += festival_events(engine, lang, feed, months, festivals, ny, eve)
     events = merge_festival_days([e for e in events if start <= e.day <= end])
     if engine == "mongol":
-        events = merge_holidays(lang, events + holiday_events(lang, feed, start, end))
-        events = compress_holidays(events, end)
+        events = merge_holidays(lang, events + holiday_events(lang, feed, start, end, months))
         events = add_nine_nines(lang, feed, events, start, end)
     title = CAL_TITLES[engine][lang]
     if lang == "en":
