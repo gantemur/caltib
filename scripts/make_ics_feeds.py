@@ -20,7 +20,8 @@ Conventions (one event per civil day unless stated):
   repeated, the second occurrence gets a small "repeated" event.
 * Lunar day 15 (feeds without the ``-no15`` suffix): every civil day labelled
   15 gets an event, the second of a repeated pair being marked "repeated".
-  If day 15 is omitted, the event goes on lunar day 14 and says so.
+  If day 15 is omitted, the event goes on lunar day 14 and its description
+  says so ("шинийн 15 тасарсан"); the title is just lunar day 14.
 * Festivals on a fixed lunar day follow the same rule as day 15: both days if
   the lunar day is repeated, the preceding lunar day if it is omitted.
   Festivals on the first day of a month go on the first civil day of that
@@ -38,6 +39,12 @@ Conventions (one event per civil day unless stated):
   (and the repeating event skips that year via EXDATE).
 * A festival day has a single event: a lunar-day event on the same day is
   folded into the festival's description.
+* Mongol feeds: Tsagaan Sar, Ikh Düichen and Mongolian Pride Day (Chinggis
+  Khaan's birthday) end their description with "Бүх нийтээр амрах баярын
+  өдөр" (public holiday); so do the other days off of Tsagaan Sar by law,
+  every later day of the first month labelled lunar day 1 (repeated), 2 or 3,
+  titled by its lunar day (so if day 1 is omitted, day 2 is Tsagaan Sar and
+  the next day is "Шинийн 3").  Bituun is not a public holiday.
 * The Mongol feeds also mark Mongolia's public holidays on fixed Gregorian
   dates (days off by law: New Year, 8 March, 1 June, Naadam 10-15 July, 26
   November, 29 December; see PUBLIC_HOLIDAYS) as yearly repeating events.
@@ -110,14 +117,8 @@ EN_SEASONS = {m: f"{name} month" for m, name in TRANSLATIONS["en"]["mn_seasons"]
 FESTIVAL_NAMES: Dict[str, Dict[str, str]] = {
     "tsagaan_sar": {"en": "Tsagaan Sar (Lunar New Year)", "mn": "Цагаан сар"},
     "bituun": {"en": "Bituun (Lunar New Year's Eve)", "mn": "Битүүн"},
-    "ikh_duichen": {
-        "en": "Ikh Düichen: Buddha's birth, enlightenment and parinirvana",
-        "mn": "Бурхан багшийн Их дүйчин өдөр",
-    },
-    "chinggis": {
-        "en": "Chinggis Khaan's birthday (Mongolian Pride Day)",
-        "mn": "Их Эзэн Чингис хааны төрсөн өдөр (Монгол бахархлын өдөр)",
-    },
+    "ikh_duichen": {"en": "Ikh Düichen", "mn": "Их дүйчин өдөр"},
+    "chinggis": {"en": "Mongolian Pride Day", "mn": "Монгол бахархлын өдөр"},
     "losar": {"en": "Losar (Tibetan New Year)", "bo": "ལོ་གསར།", "dz": "ལོ་གསར།"},
     "chotrul": {"en": "Chotrul Düchen (Day of Miracles)", "bo": "ཆོ་འཕྲུལ་དུས་ཆེན།"},
     "saga_dawa": {
@@ -158,12 +159,21 @@ HOLIDAY_NAMES: Dict[str, Dict[str, str]] = {
 }
 # Official name in the description where the title is a shortened form.
 HOLIDAY_OFFICIAL: Dict[str, Dict[str, str]] = {
-    "womens_day": {"mn": "Олон улсын эмэгтэйчүүдийн өдөр.", "en": ""},
-    "republic_day": {"mn": "Бүгд Найрамдах Улс тунхагласан өдөр.", "en": ""},
-    "independence_day": {"mn": "Үндэсний эрх чөлөө, тусгаар тогтнолоо сэргээсний баярын өдөр.",
-                         "en": "National Freedom and Independence Day."},
+    "womens_day": {"mn": "Олон улсын эмэгтэйчүүдийн өдөр", "en": ""},
+    "republic_day": {"mn": "Бүгд Найрамдах Улс тунхагласан өдөр", "en": ""},
+    "independence_day": {"mn": "Үндэсний эрх чөлөө, тусгаар тогтнолоо сэргээсний баярын өдөр",
+                         "en": "National Freedom and Independence Day"},
 }
-HOLIDAY_NOTE = {"mn": "Бүх нийтээр амрах баярын өдөр.", "en": "Public holiday in Mongolia."}
+HOLIDAY_NOTE = {"mn": "Бүх нийтээр амрах баярын өдөр", "en": "Public holiday in Mongolia"}
+# Extra description line of a festival (before the public-holiday line).
+FESTIVAL_NOTES: Dict[str, Dict[str, str]] = {
+    "ikh_duichen": {"en": "Buddha's birth, enlightenment and parinirvana"},
+    "chinggis": {"mn": "Их Эзэн Чингис хааны төрсөн өдөр", "en": "Birthday of Chinggis Khaan"},
+}
+# Lunar festivals that are public holidays in Mongolia (Mongol feeds): their
+# description ends with HOLIDAY_NOTE.  Tsagaan Sar also makes lunar days 2
+# and 3 (each occurrence) of the first month public holidays.
+LUNAR_PUBLIC_HOLIDAYS = {"tsagaan_sar", "ikh_duichen", "chinggis"}
 
 TRADITIONS = {
     # engine: (languages, fixed-lunar-day festivals, new-year key, eve key)
@@ -341,8 +351,9 @@ def month_events(engine: str, lang: str, feed: str, mo: Month, with15: bool) -> 
             elif kind == "repeated":
                 s, tag = f"{day_label(lang, 15)} ({P['repeated']})", "d15r"
             else:
-                s, tag = f"{day_label(lang, 14)} ({P['omitted'].format(d=_num(15, lang))})", "d15o"
-            ev.append(Event(d.civil_date, _uid(feed, mo, tag), f"{s} · {short}", desc))
+                s, tag = day_label(lang, 14), "d15o"
+            dsc = f"{P['omitted'].format(d=_num(15, lang))}\n{desc}" if kind == "omitted" else desc
+            ev.append(Event(d.civil_date, _uid(feed, mo, tag), f"{s} · {short}", dsc))
     return ev
 
 
@@ -368,9 +379,17 @@ def festival_events(engine: str, lang: str, feed: str, months: List[Month],
         yname = year_name(engine, lang, mo.year_tib, mo.year_attrs)
         short = month_short(engine, lang, mo.month, mo.leap)
 
-        def desc_for(d) -> str:
+        def desc_for(d, key: str = "", omitted: str = "") -> str:
             rep_s = f" ({P['repeated']})" if d.tibetan.occ == 2 else ""
-            return f"{day_label(lang, d.tibetan.tithi)}{rep_s} · {short}\n{mname}\n{yname}"
+            lines = [f"{day_label(lang, d.tibetan.tithi)}{rep_s} · {short}"]
+            if omitted:
+                lines.append(omitted)
+            lines += [mname, yname]
+            if FESTIVAL_NOTES.get(key, {}).get(lang):
+                lines.append(FESTIVAL_NOTES[key][lang])
+            if engine == "mongol" and key in LUNAR_PUBLIC_HOLIDAYS:
+                lines.append(HOLIDAY_NOTE[lang])
+            return "\n".join(lines)
 
         for (m, tithi, key) in festivals:
             if m != mo.month:
@@ -378,22 +397,29 @@ def festival_events(engine: str, lang: str, feed: str, months: List[Month],
             name = FESTIVAL_NAMES[key][lang]
             if tithi == 1:
                 d = mo.days[0]
-                ev.append(Event(d.civil_date, _uid(feed, mo, key), name, desc_for(d), ("festival",)))
+                ev.append(Event(d.civil_date, _uid(feed, mo, key), name, desc_for(d, key), ("festival",)))
                 continue
             for d, kind in days_for_tithi(mo, tithi):
-                if kind == "normal":
-                    s = name
-                elif kind == "repeated":
-                    s = f"{name} ({P['repeated']})"
-                else:
-                    s = f"{name} ({P['omitted'].format(d=_num(tithi, lang))})"
+                s = f"{name} ({P['repeated']})" if kind == "repeated" else name
+                om = P['omitted'].format(d=_num(tithi, lang)) if kind == "omitted" else ""
                 ev.append(Event(d.civil_date, _uid(feed, mo, key + ("-r" if kind == "repeated" else "")), s,
-                                desc_for(d), ("festival",)))
+                                desc_for(d, key, om), ("festival",)))
         # New year (first civil day of the regular first month; matches caltib.new_year_day)
         if mo.month == 1 and ny_key:
             d = mo.days[0]
             ev.append(Event(d.civil_date, _uid(feed, mo, ny_key), FESTIVAL_NAMES[ny_key][lang],
-                            desc_for(d), ("festival",)))
+                            desc_for(d, ny_key), ("festival",)))
+            if engine == "mongol":
+                # Days off by law: lunar days 1, 2, 3 of the first month.  The
+                # first civil day is Tsagaan Sar; every later day labelled 1
+                # (repeated), 2 or 3 is titled by its lunar day.
+                for x in mo.days[1:]:
+                    t, occ = x.tibetan.tithi, x.tibetan.occ
+                    if t > 3:
+                        break
+                    rep_s = f" ({P['repeated']})" if occ == 2 else ""
+                    ev.append(Event(x.civil_date, _uid(feed, mo, f"ts{t}" + ("r" if occ == 2 else "")),
+                                    f"{day_label(lang, t)}{rep_s}", desc_for(x, ny_key), ("festival",)))
             if eve_key:
                 eve = d.civil_date - timedelta(days=1)
                 ev.append(Event(eve, _uid(feed, mo, eve_key),
@@ -545,10 +571,6 @@ def render_ics(name: str, desc: str, lang: str, events: Sequence[Event]) -> str:
 # ---------------------------------------------------------------------------
 NINE_NINES_TEXT = {
     "start": {"mn": "{n} ес эхэлнэ", "en": "{ord} nine begins"},
-    "desc": {
-        "mn": "Өвлийн есөн ес: 12-р сарын 22-оос хойш 81 хоногийг есөн хоногоор тоолно.",
-        "en": "The winter Nine Nines: the 81 days from 22 December, counted in nines of nine days.",
-    },
 }
 # Folk saying for each nine (owner's readings, 2026-11-13; sources in
 # caltib-private development/nine-nines.md).  English: Claude's rendering.
@@ -628,11 +650,10 @@ def add_nine_nines(lang: str, feed: str, events: List[Event], start: date, end: 
             lines.insert(0, f"{e.summary} · {line}")
         e.description = "\n".join(lines)
         folded.add(d)
-    desc = NINE_NINES_TEXT["desc"][lang]
     new: List[Event] = []
     for n in range(1, 10):
         title = NINE_NINES_TEXT["start"][lang].format(n=n, ord=_ordinal_en(n))
-        ndesc = f"{NINE_NINES_SAYINGS[lang][n - 1]}\n{desc}"
+        ndesc = NINE_NINES_SAYINGS[lang][n - 1]
         days = sorted(d for d, k in starts.items() if k == n)
         if not days:
             continue
@@ -690,8 +711,9 @@ def merge_holidays(lang: str, events: List[Event]) -> List[Event]:
         uid = h.uid.replace("@", f"-{day.year}@")
         if fest:
             f = fest[0]
-            out.append(Event(day, f.uid, f"{f.summary} · {h.summary}",
-                             f"{f.description}\n{h.description}", ("festival", "holiday")))
+            lines = f.description.split("\n")
+            lines += [x for x in h.description.split("\n") if x not in lines]
+            out.append(Event(day, f.uid, f"{f.summary} · {h.summary}", "\n".join(lines), ("festival", "holiday")))
             out += fest[1:] + lunar + other
         else:
             first = " / ".join(e.summary for e in lunar)
