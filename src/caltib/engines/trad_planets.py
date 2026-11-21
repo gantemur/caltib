@@ -94,8 +94,9 @@ class TraditionalPlanetsEngine(PlanetsEngineProtocol):
         anomaly = frac_turn(slow_long - self.p.birth_signs[planet])
         equ = self.manda[planet].eval_turn(anomaly)
         
-        # Convert Kālacakra units (60 * 27 = 1620) to turns
-        true_slow_long = frac_turn(slow_long + equ / Fraction(1620))
+        # The signed manda table is subtracted in Janson (D.12).
+        # Its units are 1/(27 * 60) turn. The sighra table below is added (D.15).
+        true_slow_long = frac_turn(slow_long - equ / Fraction(1620))
         
         # 3. Equation of Conjunction (Sighra)
         diff = frac_turn(step_index - true_slow_long)
@@ -130,7 +131,7 @@ class TraditionalPlanetsEngine(PlanetsEngineProtocol):
                     
                 anomaly = frac_turn(slow - self.p.birth_signs[p])
                 equ = self.manda[p].eval_turn(anomaly)
-                true_slow = frac_turn(slow + equ / Fraction(1620))
+                true_slow = frac_turn(slow - equ / Fraction(1620))  # D.12, as above
                 
                 diff = frac_turn(step - true_slow)
                 corr = self.sighra[p].eval_turn(diff)
