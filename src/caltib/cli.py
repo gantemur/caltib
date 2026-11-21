@@ -105,6 +105,8 @@ def cmd_astro_args(argv: list[str]) -> int:
 
 def cmd_solar(argv: list[str]) -> int:
     import argparse
+    import math
+    from caltib.core.types import SunriseState
     from caltib.reference import solar
     from caltib.reference import astro_args as aa
     from caltib.reference import time_scales as ts
@@ -139,25 +141,27 @@ def cmd_solar(argv: list[str]) -> int:
     
     print("Sunrise & Sunset (-0.833 deg altitude):")
     app_times = solar.sunrise_apparent_time(jd_tt, args.lat, eps_model=args.eps_model)
-    if app_times:
+    if app_times.state == SunriseState.NORMAL:
         print(f"  Local Apparent Rise: {app_times.rise_app_hours:.4f} h")
         print(f"  Local Apparent Set : {app_times.set_app_hours:.4f} h")
     else:
         print("  Local Apparent: Sun does not rise or set.")
 
     civil_times = solar.sunrise_sunset_utc(jd_utc, args.lat, args.lon, eps_model=args.eps_model)
-    if civil_times:
-        def fmt_time(h: float) -> str:
-            h_int = int(h)
-            m = (h - h_int) * 60
-            m_int = int(m)
-            s = (m - m_int) * 60
-            return f"{h_int:02d}:{m_int:02d}:{s:05.2f}"
-            
-        print(f"  UTC Clock Rise     : {fmt_time(civil_times.rise_utc_hours)}")
-        print(f"  UTC Clock Set      : {fmt_time(civil_times.set_utc_hours)}")
-    else:
-        print("  UTC Clock: Sun does not rise or set.")
+
+    def fmt_time(h: float) -> str:
+        if not math.isfinite(h):
+            return "unavailable"
+        h_int = int(h)
+        m = (h - h_int) * 60
+        m_int = int(m)
+        s = (m - m_int) * 60
+        return f"{h_int:02d}:{m_int:02d}:{s:05.2f}"
+
+    if civil_times.state != SunriseState.NORMAL:
+        print(f"  UTC Clock State    : {civil_times.state.value}")
+    print(f"  UTC Clock Rise     : {fmt_time(civil_times.rise_utc_hours)}")
+    print(f"  UTC Clock Set      : {fmt_time(civil_times.set_utc_hours)}")
 
     return 0
 

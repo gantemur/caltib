@@ -650,19 +650,18 @@ def _eval_vsop(tau: float, series_data: dict[int, tuple[tuple[float, float, floa
 def fast_lunar_position(jd_tt: float, fa: Optional[aa.FundamentalArgs] = None) -> tuple[float, float, float]:
     """
     Calculates a low-precision lunar position (Mean + Principal Anomaly).
-    Accurate to about ~1.5 degrees in longitude.
-    Perfect for the EMB offset or as a fast/rough lunar tracker.
+    Suitable for the small EMB offset or a rough lunar position estimate.
     Returns: (L_true_deg, B_true_deg, R_au)
     """
     if fa is None:
         T = aa.T_centuries(jd_tt)
         fa = aa.fundamental_args(T)
 
-    M_rad = math.radians(fa.M_deg)
+    Mp_rad = math.radians(fa.Mp_deg)
     F_rad = math.radians(fa.F_deg)
 
-    # 1 major term for longitude (Equation of Center: ~6.289 degrees)
-    L_true = aa.wrap_deg(fa.Lp_deg + 6.289 * math.sin(M_rad))
+    # Meeus Table 47.A: the principal term uses the Moon's mean anomaly M′.
+    L_true = aa.wrap_deg(fa.Lp_deg + 6.289 * math.sin(Mp_rad))
 
     # 1 major term for latitude (~5.128 degrees)
     B_true = 5.128 * math.sin(F_rad)
