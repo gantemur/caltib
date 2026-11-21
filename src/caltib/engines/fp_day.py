@@ -96,15 +96,39 @@ class FloatDayEngine(DayEngineProtocol):
         return self.p.location
 
     def mean_date(self, x: NumT) -> float:
-        """Solves E(t) = (x + offset) / 30 for the base quadratic."""
+        """Invert the base series on the branch through t=0 with slope B.
+
+        Raise ValueError outside the finite, strictly monotone branch.
+        """
         target_turns = (float(x) + self.epoch_offset_x) / 30.0
         A, B, C = self.elong_series.A, self.elong_series.B, self.elong_series.C
-        
-        if abs(C) < 1e-12:
-            return (target_turns - A) / B
-            
-        discriminant = B*B - 4.0 * C * (A - target_turns)
-        return (-B + float_sqrt(discriminant)) / (2.0 * C)
+        q = target_turns - A
+        if B == 0.0 or not all(map(math.isfinite, (B, C, q))):
+            raise ValueError("Mean elongation inverse needs finite inputs and a nonzero linear rate")
+        if q == 0.0:
+            return 0.0
+        if C == 0.0:
+            t = q / B
+        else:
+            discriminant = B * B + 4.0 * (C * q)
+            if discriminant <= 0.0 or not math.isfinite(discriminant):
+                raise ValueError("Mean elongation target is outside the supported monotone branch")
+
+            # Binary scaling and one fixed Newton step give a full-precision
+            # root here without changing the shared FMA-free square root.
+            mantissa, exponent = math.frexp(discriminant)
+            if exponent % 2:
+                mantissa *= 2.0
+                exponent -= 1
+            root = float_sqrt(mantissa)
+            root = math.ldexp(0.5 * (root + mantissa / root), exponent // 2)
+
+            # Rationalize the branch continuous at C=0. Halve each term
+            # instead of doubling q or subtracting nearly equal numbers.
+            t = q / (0.5 * B + 0.5 * math.copysign(root, B))
+        if not math.isfinite(t):
+            raise ValueError("Mean elongation inverse is outside the finite time range")
+        return t
 
     def true_date(self, x: NumT) -> float:
         """Solves E_true(t) = (x + offset) / 30 via Picard Iteration."""
