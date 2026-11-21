@@ -40,6 +40,17 @@ def test_missing_model_values_keep_alignment(monkeypatch):
     assert math.isfinite(trace["y"][2])
 
 
+@pytest.mark.parametrize("lat, color", [(78, "#fef08a"), (-78, "#1e3a8a")])
+def test_all_polar_samples_keep_the_range_and_shading(lat, color):
+    raw = api.handle_request("sunrise", "l5", "2000-06-20", "2000-06-22", lat, 25)
+    result = json.loads(raw, parse_constant=reject_constant)
+    trace, = result["traces"]
+    assert trace["x"] == ["2000-06-20", "2000-06-22"]
+    assert trace["y"] == [None, None]
+    polar = result["layout_extras"]["shapes"][-1]
+    assert (polar["x0"], polar["x1"], polar["fillcolor"]) == (*trace["x"], color)
+
+
 def test_sunrise_route_rejects_unsanitized_payload(monkeypatch):
     monkeypatch.setattr(api, "get_sunrise_payload", lambda *args: {"unexpected": math.nan})
     with pytest.raises(ValueError):
