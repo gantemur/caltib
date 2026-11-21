@@ -9,7 +9,7 @@ from zipfile import ZipFile, is_zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-WHEEL = "caltib-0.3.5-py3-none-any.whl"
+WHEEL = "caltib-0.3.6-py3-none-any.whl"
 
 
 class BrowserMarkup(HTMLParser):
@@ -70,6 +70,13 @@ def test_browser_wheel_contains_required_modules():
     with ZipFile(path) as wheel:
         assert wheel.testzip() is None
         assert required <= set(wheel.namelist())
+
+
+def test_browser_wheel_matches_traditional_solar_engine_and_version():
+    # A source fix must also reach the wheel actually loaded by both pages.
+    with ZipFile(DOCS / WHEEL) as wheel:
+        for path in ("caltib/engines/trad_day.py", "caltib/__init__.py"):
+            assert wheel.read(path) == (ROOT / "src" / path).read_bytes()
 
 
 def test_browser_python_entry_points_remain_available():
