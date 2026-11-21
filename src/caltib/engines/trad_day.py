@@ -120,7 +120,9 @@ class TraditionalDayEngine(DayEngineProtocol):
             base_cd=p.s2,
             terms=(
                 TabTermDN(
-                    amp=Fraction(-1, 720),  # Flipped sign for inverse kinematics
+                    # Raw solar equation is in 1/60 of a lunar mansion;
+                    # 27 mansions make one turn (Janson, eq. 7.23).
+                    amp=Fraction(-1, 27 * 60),
                     phase=self.phase_sun_anomaly,
                     table_eval_turn=self.sun_table.eval_turn,
                 ),
