@@ -1,15 +1,18 @@
 """Offline checks for the locally shipped browser dependencies."""
 
 import ast
+from email.parser import BytesParser
 from html.parser import HTMLParser
 from pathlib import Path
 import re
 from zipfile import ZipFile, is_zipfile
 
+from caltib import __version__
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-WHEEL = "caltib-0.3.6-py3-none-any.whl"
+WHEEL = f"caltib-{__version__}-py3-none-any.whl"
 
 
 class BrowserMarkup(HTMLParser):
@@ -50,7 +53,8 @@ def test_browser_pages_install_the_checked_in_wheel():
     assert install is not None, "Diagnostics must install its local package"
     for package_list in (packages.group(1), install.group(1)):
         paths = ast.literal_eval(package_list)
-        assert any(path in (WHEEL, "./" + WHEEL) for path in paths)
+        wheels = [path.removeprefix("./") for path in paths if path.endswith(".whl")]
+        assert wheels == [WHEEL]
     assert (DOCS / WHEEL).is_file()
 
 
@@ -72,11 +76,23 @@ def test_browser_wheel_contains_required_modules():
         assert required <= set(wheel.namelist())
 
 
-def test_browser_wheel_matches_traditional_solar_engine_and_version():
-    # A source fix must also reach the wheel actually loaded by both pages.
+def test_browser_wheel_matches_source_and_version():
+    config = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    version = re.search(r'^version\s*=\s*"([^"]+)"', config, re.MULTILINE)
+    assert version is not None and version.group(1) == __version__
+    src = ROOT / "src"
+    sources = {
+        path.relative_to(src).as_posix(): path
+        for path in (src / "caltib").rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc"
+    }
     with ZipFile(DOCS / WHEEL) as wheel:
-        for path in ("caltib/engines/trad_day.py", "caltib/__init__.py"):
-            assert wheel.read(path) == (ROOT / "src" / path).read_bytes()
+        metadata = wheel.read(f"caltib-{__version__}.dist-info/METADATA")
+        assert BytesParser().parsebytes(metadata)["Version"] == __version__
+        packaged = {name for name in wheel.namelist() if name.startswith("caltib/") and not name.endswith("/")}
+        assert packaged == set(sources)
+        for name, path in sources.items():
+            assert wheel.read(name) == path.read_bytes(), name
 
 
 def test_browser_python_entry_points_remain_available():
