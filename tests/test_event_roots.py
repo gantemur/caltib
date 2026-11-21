@@ -38,10 +38,23 @@ def test_zero_plateaus_and_tangency_do_not_report_crossings():
     assert solve(lambda t: t + 1, 0, 1, 2) is None
 
 
+@pytest.mark.parametrize("direction", [-1, 0, 1])
+@pytest.mark.parametrize("sign", [-1, 1])
+def test_exact_start_tangency_is_not_a_crossing(direction, sign):
+    assert solve(lambda t: sign * t * t, 0, 1, 2, direction) is None
+
+
+@pytest.mark.parametrize("direction", [-1, 0, 1])
+def test_local_start_direction_with_two_crossings_in_one_step(direction):
+    expected = 0 if direction <= 0 else pytest.approx(0.3, abs=1e-5)
+    assert solve(lambda t: t * (t - 0.3), 0, 1, 2, direction) == expected
+
+
 def test_wrap_guards_keep_a_real_zero_crossing():
     wrap = lambda x: (x + 180) % 360 - 180
     assert solve(lambda t: wrap(179 + 3*t), 0, 1, 2) is None
-    assert solve(lambda t: wrap(180*t), 0, 1, 2) is None
+    assert solve(lambda t: 0 if t == 0 else wrap(180 + 3*t), 0, 1, 2) is None
+    assert solve(lambda t: wrap(180*t), 0, 1, 2) == 0
     assert solve(lambda t: wrap(359 + 3*t), 0, 1, 2, 1) == pytest.approx(1/3, abs=1e-5)
 
 

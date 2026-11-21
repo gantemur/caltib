@@ -50,8 +50,8 @@ def _solve_bisection(
     Scan from an inclusive start, then bisect a bracket to ~1 second.
 
     Direction is +1 for rising, -1 for falling, or 0 for either. At an
-    exact start use a nearby forward sample. At later exact zeros require
-    opposite signs nearby on both sides, skipping sampled zero plateaus.
+    exact zero, including the start, require opposite signs nearby on
+    both sides to distinguish a crossing from a tangency or plateau.
     This is a crossing search rather than a detector for tangencies.
     """
     resolution = 1e-5  # days
@@ -71,6 +71,8 @@ def _solve_bisection(
 
     jd = jd_start
     f1 = func(jd)
+    if f1 == 0.0 and probe > 0.0 and max_days > 0.0 and isolated_crossing(jd_start):
+        return jd_start
 
     while jd < jd_start + max_days:
         jd_next = jd + step_days
@@ -78,19 +80,22 @@ def _solve_bisection(
             return None
         f2 = func(jd_next)
 
-        bracket_ok = accepted(f1, f2)
-        if jd == jd_start and f1 == 0.0 and (bracket_ok or f2 == 0.0):
-            forward = func(jd + probe)
-            if accepted(0.0, forward) and (f2 == 0.0 or (forward > 0) == (f2 > 0)):
-                return jd
+        # A crossing later in the first step can qualify even if the
+        # start is a zero with the wrong direction. Skip that exact start
+        # for bracketing without moving the coarse scan grid.
+        left, fa = jd, f1
+        if jd == jd_start and f1 == 0.0 and jd < jd + probe < jd_next:
+            left = jd + probe
+            fa = func(left)
+        bracket_ok = accepted(fa, f2)
 
         # Two sampled zeros can be distinct crossings. Local opposite
         # signs, rather than a zero-to-zero coarse bracket, establish this.
-        if f2 == 0.0 and (bracket_ok or f1 == 0.0) and isolated_crossing(jd_next):
+        if f2 == 0.0 and (bracket_ok or fa == 0.0) and isolated_crossing(jd_next):
             return jd_next
 
-        if bracket_ok and (f1 < 0 < f2 or f2 < 0 < f1):
-            a, b, fa = jd, jd_next, f1
+        if bracket_ok and (fa < 0 < f2 or f2 < 0 < fa):
+            a, b = left, jd_next
             for _ in range(30):
                 mid = (a + b) / 2.0
                 fm = func(mid)
