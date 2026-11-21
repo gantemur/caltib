@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Literal, Tuple
 
 from caltib.core.types import LocationSpec
 from caltib.engines.interfaces import DayEngineProtocol, NumT
@@ -18,6 +18,7 @@ from caltib.engines.astro.float_series import FloatFourierSeries, FloatTermDef
 from caltib.engines.astro.fp_math import float_sqrt
 
 JD_J2000_FLOAT = 2451545.0
+PicardSeed = Literal["linear", "quadratic_mean"]
 
 @dataclass(frozen=True)
 class FloatDayParams:
@@ -36,6 +37,11 @@ class FloatDayParams:
     delta_t: FloatDeltaTDef       
     sunrise: FloatSunriseDef      
     sine_poly_coeffs: Tuple[float, ...]
+    picard_seed: PicardSeed = "linear"
+
+    def __post_init__(self) -> None:
+        if self.picard_seed not in ("linear", "quadratic_mean"):
+            raise ValueError(f"Unknown Picard seed: {self.picard_seed!r}")
 
     def with_location(self, new_loc: LocationSpec) -> FloatDayParams:
         """Creates a new params instance calibrated for a different location."""
@@ -131,10 +137,10 @@ class FloatDayEngine(DayEngineProtocol):
         return t
 
     def true_date(self, x: NumT) -> float:
-        """Solves E_true(t) = (x + offset) / 30 via Picard Iteration."""
+        """Apply the profile's fixed Picard steps from its selected seed."""
         target_turns = (float(x) + self.epoch_offset_x) / 30.0
-        t_guess = self.mean_date(x)
-        return self.elong_series.picard_solve(target_turns, iterations=self.p.iterations, t_init=t_guess)
+        t_init = self.mean_date(x) if self.p.picard_seed == "quadratic_mean" else None
+        return self.elong_series.picard_solve(target_turns, iterations=self.p.iterations, t_init=t_init)
 
     def get_x_from_t2000(self, t2000: float) -> int:
         """Inverse lookup mapping physical time back to the active tithi index."""

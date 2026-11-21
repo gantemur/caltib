@@ -28,6 +28,34 @@ A major failing of many astronomical libraries is "floating-point drift"—where
 
 *Note: Secant root-finders are explicitly excluded from the core engines to maintain deterministic performance; they are reserved exclusively for the diagnostic suite to evaluate heavy numerical reference models.*
 
+### L5 Picard seed
+
+The built-in L5 calendar uses three Picard steps starting from the linear mean
+estimate, as in 0.3.8. The standalone `mean_date(x)` method inverts the full
+quadratic mean elongation and is used by mean-date diagnostics. The
+`quadratic_mean` seed is available for a separately named calendar profile.
+Both profiles take three steps, and their results can fall on different sides
+of dawn near a civil boundary. Record the seed when publishing a profile's dates.
+
+```python
+from dataclasses import replace
+
+import caltib
+from caltib.engines.specs import L5_SPEC, LOC_MONTREAL
+
+spec = replace(
+    L5_SPEC,
+    id=replace(L5_SPEC.id, name="l5-quadratic-mean"),
+    day_params=replace(L5_SPEC.day_params, picard_seed="quadratic_mean"),
+)
+calendar = caltib.make_engine(spec)
+montreal = calendar.with_location(LOC_MONTREAL)
+```
+
+This makes an independent instance. Changing its location retains the seed
+and profile name. The registry entry returned by `caltib.get_calendar("l5")`
+continues to use the linear seed.
+
 ## 4. The Civil Calendar Generator
 
 The highest layer of the architecture bridges continuous math into discrete human reality. The Civil Calendar Generator evaluates the true physical time of a syzygy (the moon phase) against the local physical time of sunrise.
