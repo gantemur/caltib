@@ -47,46 +47,72 @@ def _solve_bisection(
     direction: int = 0
 ) -> float | None:
     """
-    Steps forward to bracket a root, then bisects to ~1 second precision.
-    direction: 1 (requires positive slope), -1 (requires negative slope), 0 (any).
+    Scan from an inclusive start, then bisect a bracket to ~1 second.
+
+    Direction is +1 for rising, -1 for falling, or 0 for either. At an
+    exact start use a nearby forward sample. At later exact zeros require
+    opposite signs nearby on both sides, skipping sampled zero plateaus.
+    This is a crossing search rather than a detector for tangencies.
     """
+    resolution = 1e-5  # days
+    probe = min(step_days, resolution)
+
+    def accepted(before: float, after: float) -> bool:
+        # A signed longitude or hour-angle wrap can jump across zero
+        # without crossing it. This also rejects nonfinite differences.
+        change = after - before
+        return 0 < abs(change) < 180.0 and (direction == 0 or direction * change > 0)
+
+    def isolated_crossing(t: float) -> bool:
+        before, after = func(t - probe), func(t + probe)
+        return ((before < 0 < after or after < 0 < before)
+                and accepted(before, 0.0) and accepted(0.0, after)
+                and accepted(before, after))
+
     jd = jd_start
     f1 = func(jd)
-    
+
     while jd < jd_start + max_days:
         jd_next = jd + step_days
+        if jd_next <= jd:
+            return None
         f2 = func(jd_next)
-        
-        # Check if function crossed 0 (ignoring artificial 360-degree wrapping jumps)
-        if (f1 * f2 <= 0.0) and abs(f1 - f2) < 180.0:
-            
-            # Filter by slope direction if requested
-            is_increasing = f2 > f1
-            if (direction == 1 and not is_increasing) or (direction == -1 and is_increasing):
-                jd = jd_next
-                f1 = f2
-                continue
-                
-            a, b = jd, jd_next
-            
-            # Bisect down to ~1 second (1e-5 days)
+
+        bracket_ok = accepted(f1, f2)
+        if jd == jd_start and f1 == 0.0 and (bracket_ok or f2 == 0.0):
+            forward = func(jd + probe)
+            if accepted(0.0, forward) and (f2 == 0.0 or (forward > 0) == (f2 > 0)):
+                return jd
+
+        # Two sampled zeros can be distinct crossings. Local opposite
+        # signs, rather than a zero-to-zero coarse bracket, establish this.
+        if f2 == 0.0 and (bracket_ok or f1 == 0.0) and isolated_crossing(jd_next):
+            return jd_next
+
+        if bracket_ok and (f1 < 0 < f2 or f2 < 0 < f1):
+            a, b, fa = jd, jd_next, f1
             for _ in range(30):
                 mid = (a + b) / 2.0
-                f_mid = func(mid)
-                
-                if f_mid == 0.0 or (b - a) < 1e-5:
+                fm = func(mid)
+                if fm == 0.0:
+                    if isolated_crossing(mid):
+                        return mid
+                    break
+                if not math.isfinite(fm):
+                    break
+                if b - a < resolution:
                     return mid
-                    
-                if f1 * f_mid < 0:
+                if (fa < 0) != (fm < 0):
                     b = mid
                 else:
-                    a = mid
-                    f1 = f_mid
-            return (a + b) / 2.0
-            
-        jd = jd_next
-        f1 = f2
-        
+                    a, fa = mid, fm
+            else:
+                return (a + b) / 2.0
+
+        # A shared boundary is considered by the bracket ending there.
+        # Do not reaccept an already rejected zero from its other side.
+        jd, f1 = jd_next, f2
+
     return None
 
 # ============================================================
@@ -94,7 +120,7 @@ def _solve_bisection(
 # ============================================================
 
 def find_transit(body: Union[str, int], jd_utc_start: float, lon_east_deg: float, target_ha_deg: float = 0.0) -> float | None:
-    """Finds the next time the body crosses the specified Hour Angle (default 0 is meridian transit)."""
+    """Find the next specified hour-angle crossing, including jd_utc_start."""
     def transit_func(jd_utc: float) -> float:
         jd_tt = ts.jd_utc_to_jd_tt(jd_utc)
         ra_deg, _ = _get_equatorial(body, jd_tt)
@@ -113,7 +139,7 @@ def find_altitude_event(
     apply_refraction: bool = True, 
     rising: bool = True
 ) -> float | None:
-    """Finds the next time the body crosses a specific altitude (Rise/Set)."""
+    """Find the next rising or setting altitude crossing, including jd_utc_start."""
     def alt_func(jd_utc: float) -> float:
         jd_tt = ts.jd_utc_to_jd_tt(jd_utc)
         ra_deg, dec_deg = _get_equatorial(body, jd_tt)
@@ -134,7 +160,7 @@ def find_altitude_event(
 # ============================================================
 
 def find_conjunction(body1: Union[str, int], body2: Union[str, int], jd_utc_start: float) -> float | None:
-    """Finds the next exact conjunction in Ecliptic Longitude."""
+    """Find the next crossing of equal ecliptic longitude, including jd_utc_start."""
     def conjunction_func(jd_utc: float) -> float:
         jd_tt = ts.jd_utc_to_jd_tt(jd_utc)
         L1, _, _ = _get_ecliptic(body1, jd_tt)
@@ -144,7 +170,7 @@ def find_conjunction(body1: Union[str, int], body2: Union[str, int], jd_utc_star
     return _solve_bisection(conjunction_func, jd_utc_start, step_days=1.0, max_days=40.0)
 
 def find_solar_longitude(jd_utc_start: float, target_lon_deg: float) -> float | None:
-    """Finds equinoxes (0, 180) and solstices (90, 270)."""
+    """Find a solar-longitude crossing, including jd_utc_start."""
     def sun_lon_func(jd_utc: float) -> float:
         jd_tt = ts.jd_utc_to_jd_tt(jd_utc)
         L_sun, _, _ = _get_ecliptic("sun", jd_tt)
@@ -153,7 +179,7 @@ def find_solar_longitude(jd_utc_start: float, target_lon_deg: float) -> float | 
     return _solve_bisection(sun_lon_func, jd_utc_start, step_days=5.0, max_days=380.0)
 
 def find_lunar_phase(jd_utc_start: float, target_elongation_deg: float) -> float | None:
-    """Finds exact lunar phases. 0=New, 90=First Qtr, 180=Full, 270=Last Qtr."""
+    """Find a lunar phase crossing, including jd_utc_start (0° is New Moon)."""
     def phase_func(jd_utc: float) -> float:
         jd_tt = ts.jd_utc_to_jd_tt(jd_utc)
         L_sun, _, _ = _get_ecliptic("sun", jd_tt)
