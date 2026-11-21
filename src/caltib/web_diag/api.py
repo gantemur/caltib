@@ -905,61 +905,55 @@ def get_sunrise_payload(engines, jd_start, jd_end, lat, lon):
     for jd in ts:
         ref_sunrise = sunrise_sunset_utc(jd, lat_deg=lat, lon_deg_east=lon)
         polar_states.append(ref_sunrise.state)
-        ref_utc_list.append(ref_sunrise.rise_utc_hours if ref_sunrise.state == SunriseState.NORMAL else math.nan)
+        ref_utc_list.append(ref_sunrise.rise_utc_hours)
 
     traces = []
     color_map = {"phugpa": "#ff7f0e", "mongol": "#1f77b4", "tsurphu": "#9467bd", "bhutan": "#2ca02c", "karana": "#d62728", "l0": "#8c564b", "l1": "#e377c2", "l2": "#17becf", "l3": "#bcbd22", "l4": "#f1c40f"}
     
     for eng_name in engines:
         base_eng = eng_name[:-2] if eng_name.endswith("-m") else eng_name
-        try: eng = get_calendar(base_eng, location=loc)
-        except: continue
-        
-        y_vals, valid_dates = [], []
-        for i, jd in enumerate(ts):
-            if polar_states[i] != SunriseState.NORMAL:
+        try:
+            eng = get_calendar(base_eng, location=loc)
+        except (KeyError, ValueError):
+            continue
+
+        # Null samples break the line across unresolved or polar dates.
+        y_vals = []
+        for jd, ref_hours in zip(ts, ref_utc_list):
+            if not math.isfinite(ref_hours):
+                y_vals.append(None)
                 continue
-                
+
             t2000_tt = jd_utc_to_jd_tt(jd) - 2451545.0
-            try:
-                lmt_frac, state = eng.eval_sunrise_lmt(t2000_tt)
-                if state != SunriseState.NORMAL: continue
-                    
-                engine_utc_frac = (float(lmt_frac) - (lon / 360.0)) % 1.0
-                engine_utc_hours = engine_utc_frac * 24.0
-                
-                diff_hours = engine_utc_hours - ref_utc_list[i]
-                diff_hours = (diff_hours + 12.0) % 24.0 - 12.0
-                
-                y_vals.append(diff_hours * 60.0)
-                valid_dates.append(dates_str[i])
-            except: pass
-        
-        if y_vals:
-            c = color_map.get(base_eng, "#1f77b4")
-            traces.append({
-                "x": valid_dates, "y": y_vals, "type": "scatter", "mode": "lines",
-                "name": get_abbr(eng_name), "line": {"color": c, "width": 1.5}
-            })
+            lmt_frac, state = eng.eval_sunrise_lmt(t2000_tt)
+            if state != SunriseState.NORMAL or not math.isfinite(lmt_frac):
+                y_vals.append(None)
+                continue
+
+            engine_utc_hours = ((float(lmt_frac) - lon / 360.0) % 1.0) * 24.0
+            diff_hours = (engine_utc_hours - ref_hours + 12.0) % 24.0 - 12.0
+            y_vals.append(diff_hours * 60.0)
+
+        c = color_map.get(base_eng, "#1f77b4")
+        traces.append({
+            "x": dates_str, "y": y_vals, "type": "scatter", "mode": "lines",
+            "name": get_abbr(eng_name), "line": {"color": c, "width": 1.5}
+        })
     
     # Generate Polar Shading Shapes
     shapes = [{"type": "rect", "xref": "paper", "x0": 0, "x1": 1, "y0": -16, "y1": 16, "fillcolor": "gray", "opacity": 0.1, "line": {"width": 0}, "layer": "below"}]
     
-    current_state = SunriseState.NORMAL
+    polar_styles = {SunriseState.POLAR_DAY: ("#fef08a", 0.4),
+                    SunriseState.POLAR_NIGHT: ("#1e3a8a", 0.2)}
+    current_state = None
     start_idx = 0
-    for i, state in enumerate(polar_states):
+    for i, state in enumerate(polar_states + [None]):
         if state != current_state:
-            if current_state != SunriseState.NORMAL and i > start_idx:
-                color = "#fef08a" if current_state == SunriseState.POLAR_DAY else "#1e3a8a"
-                opacity = 0.4 if current_state == SunriseState.POLAR_DAY else 0.2
+            if current_state in polar_styles:
+                color, opacity = polar_styles[current_state]
                 shapes.append({"type": "rect", "x0": dates_str[start_idx], "x1": dates_str[i-1], "yref": "paper", "y0": 0, "y1": 1, "fillcolor": color, "opacity": opacity, "line": {"width": 0}, "layer": "below"})
             current_state = state
             start_idx = i
-            
-    if current_state != SunriseState.NORMAL and len(polar_states) > start_idx:
-        color = "#fef08a" if current_state == SunriseState.POLAR_DAY else "#1e3a8a"
-        opacity = 0.4 if current_state == SunriseState.POLAR_DAY else 0.2
-        shapes.append({"type": "rect", "x0": dates_str[start_idx], "x1": dates_str[-1], "yref": "paper", "y0": 0, "y1": 1, "fillcolor": color, "opacity": opacity, "line": {"width": 0}, "layer": "below"})
 
     return {"traces": traces, "layout_extras": {"shapes": shapes}}
 
@@ -993,7 +987,7 @@ def handle_request(tool, engine_str, start_str, end_str, lat, lon, opt1="since-s
     jd_start, jd_end = dt_start.toordinal() + 1721424.5, dt_end.toordinal() + 1721424.5
 
     if tool == "sunrise":
-        return json.dumps(get_sunrise_payload(engines, jd_start, jd_end, lat, lon))
+        return json.dumps(get_sunrise_payload(engines, jd_start, jd_end, lat, lon), allow_nan=False)
 
     if tool == "anomaly":
         traces = [get_anomaly_reference_trace(jd_start, jd_end, 1.0)]

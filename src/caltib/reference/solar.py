@@ -95,7 +95,7 @@ def sunrise_apparent_time(
 ) -> SunriseApparent:
     """
     (C.11 & C.12) Computes sunrise and sunset in Local Apparent Solar Time (hours).
-    Returns None if the sun does not rise or set (polar day/night).
+    Polar day/night is reported by state, with NaN for both event hours.
     """
     coords = solar_longitude(jd_tt)
     eps_deg = aa.mean_obliquity_deg(aa.T_centuries(jd_tt), model=eps_model)
@@ -124,7 +124,13 @@ def sunrise_apparent_time(
 
 @dataclass(frozen=True)
 class SunriseCivil:
-    """Output for the uniform civil clock time (UTC) of sunrise/sunset."""
+    """UTC clock estimates in [0, 24), with NaN for unresolved events.
+
+    NORMAL has two finite estimates. POLAR_DAY and POLAR_NIGHT describe
+    the noon model. TRANSITION means the noon model predicted both events,
+    but refinement could not resolve one or both. A missing estimate on
+    a transition does not establish that no crossing occurred that day.
+    """
     rise_utc_hours: float
     set_utc_hours: float
     state: SunriseState = SunriseState.NORMAL
@@ -152,7 +158,9 @@ def sunrise_sunset_utc(
     dt_zone = ts.lmt_offset_hours(lon_deg_east)
     
     # Helper to refine a specific event (rise or set)
-    def refine_event(app_time_hours: float) -> float:
+    def refine_event(app_time_hours: float, *, rising: bool) -> float:
+        if not math.isfinite(app_time_hours):
+            return math.nan
         # Initial guess of the event's UTC time
         eot_base = equation_of_time_minutes(jd_tt_base, eps_model)
         utc_hours_guess = app_time_hours - (eot_base / 60.0) - dt_zone
@@ -163,20 +171,17 @@ def sunrise_sunset_utc(
         
         # Recalculate parameters exactly at the event time
         refined_app = sunrise_apparent_time(jd_tt_event, lat_deg, h0_deg, eps_model)
-        if not refined_app:
-            return utc_hours_guess # Fallback if boundary shifts over pole
+        if refined_app.state != SunriseState.NORMAL:
+            return math.nan  # Noon estimate alone cannot resolve this crossing.
             
         eot_event = equation_of_time_minutes(jd_tt_event, eps_model)
         
-        # If refining rise, use the refined rise H0; if setting, use the refined set H0
-        if app_time_hours < 12.0:
-            final_app = refined_app.rise_app_hours
-        else:
-            final_app = refined_app.set_app_hours
-            
-        return final_app - (eot_event / 60.0) - dt_zone
-        
-    rise_utc = refine_event(app_times.rise_app_hours) % 24.0
-    set_utc = refine_event(app_times.set_app_hours) % 24.0
+        final_app = refined_app.rise_app_hours if rising else refined_app.set_app_hours
+        event_hours = final_app - eot_event / 60.0 - dt_zone
+        return event_hours % 24.0 if math.isfinite(event_hours) else math.nan
 
-    return SunriseCivil(rise_utc_hours=rise_utc, set_utc_hours=set_utc, state=SunriseState.NORMAL)
+    rise_utc = refine_event(app_times.rise_app_hours, rising=True)
+    set_utc = refine_event(app_times.set_app_hours, rising=False)
+    state = (SunriseState.NORMAL if math.isfinite(rise_utc) and math.isfinite(set_utc)
+             else SunriseState.TRANSITION)
+    return SunriseCivil(rise_utc_hours=rise_utc, set_utc_hours=set_utc, state=state)

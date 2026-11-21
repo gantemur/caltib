@@ -92,13 +92,13 @@ def main(argv: list[str] | None = None) -> int:
         is_polar_day.append(state == SunriseState.POLAR_DAY)
         is_polar_night.append(state == SunriseState.POLAR_NIGHT)
 
-        # If reference model hits Polar Day/Night, skip calculating math errors today
-        if state != SunriseState.NORMAL:
+        # Keep a plot gap if the reference sunrise could not be resolved.
+        ref_utc_hours = ref_sunrise.rise_utc_hours
+        if not math.isfinite(ref_utc_hours):
             for name in engine_names:
                 engine_errors[name].append(float('nan'))
             continue
             
-        ref_utc_hours = ref_sunrise.rise_utc_hours
         jd_tt = ref_ts.jd_utc_to_jd_tt(jd_utc_noon)
         t2000_tt = jd_tt - 2451545.0
 
@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
                 return
                 
             # If the engine itself hit a polar fallback, skip plotting its error
-            if eng_state != SunriseState.NORMAL:
+            if eng_state != SunriseState.NORMAL or not math.isfinite(lmt_frac):
                 engine_errors[name].append(float('nan'))
                 continue
 

@@ -28,6 +28,7 @@ class SunriseState(Enum):
     NORMAL = "normal"
     POLAR_DAY = "polar_day"      # Midnight sun (never sets)
     POLAR_NIGHT = "polar_night"  # Sun never rises
+    TRANSITION = "transition"  # Reference refinement could not resolve one or both events
 
 @dataclass(frozen=True)
 class TibetanDate:
