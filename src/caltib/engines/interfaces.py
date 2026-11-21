@@ -135,10 +135,9 @@ class DayEngineProtocol(Protocol):
         ...
         
     def get_x_from_t2000(self, t2000: NumT) -> int:
-        """Return the active index x for true_date(x-1) <= t2000 < true_date(x).
-
-        At an exact physical boundary, the next tithi starts. Civil JDN
-        membership separately uses J(x-1) < jdn <= J(x).
+        """
+        Inverse kinematic lookup. Returns the active absolute tithi index (x) 
+        that covers the given physical time (Days since J2000.0).
         """
         ...
 

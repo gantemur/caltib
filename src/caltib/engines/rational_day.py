@@ -184,8 +184,8 @@ class RationalDayEngine(DayEngineProtocol):
         x_est = x_est_frac.numerator // x_est_frac.denominator
         
         # 2. Walk the physical boundaries to find the exact tithi enclosure.
-        # Tithi x is active on the half-open physical interval
-        # [true_date(x-1), true_date(x)).
+        # Tithi x is active if the target time falls strictly after tithi x-1 ends, 
+        # and on or before tithi x ends.
         while self.true_date(x_est - 1) > target:
             x_est -= 1
         while self.true_date(x_est) <= target:

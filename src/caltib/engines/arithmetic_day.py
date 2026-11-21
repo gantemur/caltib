@@ -106,12 +106,11 @@ class ArithmeticDayEngine(DayEngineProtocol):
         return self.mean_date(x)
 
     def get_x_from_t2000(self, t2000: NumT) -> int:
-        """Return the active index x for true_date(x-1) <= t < true_date(x)."""
-        return self._completed_tithi_index(t2000) + 1
-
-    def _completed_tithi_index(self, t2000: NumT) -> int:
-        """Last completed boundary, including an exact boundary at t2000."""
+        """Inverse lookup of active tithi using pure rational arithmetic."""
+        # Calculate the exact fractional tithi index
         x_frac = (Fraction(t2000) - self._m0_loc_t2000) / self.p.m2
+        
+        # Pure rational floor via unbounded integer division
         return x_frac.numerator // x_frac.denominator
 
     def mean_sun(self, x: NumT) -> Fraction:
@@ -163,16 +162,19 @@ class ArithmeticDayEngine(DayEngineProtocol):
     # Astronomy / Debug (TT Time-based continuous evaluation)
     # ---------------------------------------------------------
     def mean_elong_tt(self, t2000: NumT) -> Fraction:
-        """Unwrapped elongation stepped at the last completed tithi boundary."""
-        return Fraction(self._completed_tithi_index(t2000), 30)
+        """Mean elongation in unwrapped turns at time t2000."""
+        # 1 absolute tithi (x) = exactly 1/30th of a turn of elongation
+        x_t = self.get_x_from_t2000(t2000)
+        return Fraction(x_t, 30)
 
     def true_elong_tt(self, t2000: NumT) -> Fraction:
         """True elongation. (True = Mean for pure arithmetic engines)."""
         return self.mean_elong_tt(t2000)
 
     def mean_sun_tt(self, t2000: NumT) -> Fraction:
-        """Mean Sun in turns, stepped at the last completed tithi boundary."""
-        return self.mean_sun(self._completed_tithi_index(t2000))
+        """Mean sun in turns at time t2000."""
+        x_t = self.get_x_from_t2000(t2000)
+        return self.mean_sun(x_t)
 
     def true_sun_tt(self, t2000: NumT) -> Fraction:
         """True sun. (True = Mean for pure arithmetic engines)."""
