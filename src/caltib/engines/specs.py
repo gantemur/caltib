@@ -15,7 +15,7 @@ from caltib.engines.rational_month import RationalMonthParams
 from caltib.engines.arithmetic_day import ArithmeticDayParams
 from caltib.engines.trad_day import TraditionalDayParams
 from caltib.engines.rational_day import RationalDayParams
-from caltib.engines.fp_day import FloatDayParams
+from caltib.engines.fp_day import FloatDayParams, PicardSeed
 from caltib.engines.trad_planets import TraditionalPlanetsParams
 
 # 3. Physics / Astro dependencies
@@ -557,7 +557,8 @@ def fp_day(
     sunrise: FloatSunriseDef = DAWN_FLOAT_DEF, 
     sine_poly_coeffs: Tuple[float, ...] = SINE_POLY_5_COEFFS,
     C_sun: float = 0.0, C_elong: float = 0.0,
-    include_drift: bool = False
+    include_drift: bool = False,
+    picard_seed: PicardSeed = "linear",
 ) -> FloatDayParams:
     """Builds pure-data FloatDayParams using exact J2000.0 astronomical constants."""
     
@@ -597,7 +598,8 @@ def fp_day(
         iterations=iterations,
         delta_t=delta_t,
         sunrise=sunrise,
-        sine_poly_coeffs=sine_poly_coeffs
+        sine_poly_coeffs=sine_poly_coeffs,
+        picard_seed=picard_seed,
     )
 
 def arith_day(
@@ -1509,6 +1511,7 @@ L5_SPEC = CalendarSpec(
         lunar_table=FLOAT_LUNAR_TABLE_64,
         iterations=3,
         C_elong=FLOAT_ACC_ELONG,
+        picard_seed="linear",
         include_drift=True
     ),
     leap_labeling=L5_LEAP_LABELING,
