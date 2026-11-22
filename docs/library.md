@@ -56,6 +56,51 @@ This makes an independent instance. Changing its location retains the seed
 and profile name. The registry entry returned by `caltib.get_calendar("l5")`
 continues to use the linear seed.
 
+
+### L5 solar quadratic acceleration (disabled by default)
+
+The L5 builders retain the **solar mean-longitude quadratic coefficient**
+`C_sun` as an optional model parameter. In the **bundled L5 calendar** it
+is **zero in both the rational month and floating day engines**, as in
+0.3.8; merely defining the available nonzero constants does not enable them.
+This is a deliberate profile choice, not an astronomical error correction.
+
+It is distinct from the already-enabled **linear drift of solar anomaly
+amplitudes** (`include_drift=True`) and from the already-enabled **quadratic
+mean elongation** (`C_elong`). The mean solar base takes the form
+`A_sun + B_sun*t + C_sun*t*t`, with `C_sun` multiplying `t²` directly.
+
+To experiment with the quadratic solar acceleration, opt in **explicitly
+in both the month and day modules** of a *separately named* L5 profile:
+
+```python
+from dataclasses import replace
+
+import caltib
+from caltib.engines.specs import L5_SPEC, FUND_ACC_SUN, FLOAT_ACC_SUN
+
+assert L5_SPEC.month_params.C_sun == 0
+assert L5_SPEC.day_params.C_sun == 0.0
+
+accelerated_spec = replace(
+    L5_SPEC,
+    id=replace(L5_SPEC.id, name="l5-solar-quadratic"),
+    month_params=replace(L5_SPEC.month_params, C_sun=FUND_ACC_SUN),
+    day_params=replace(L5_SPEC.day_params, C_sun=FLOAT_ACC_SUN),
+)
+accelerated_calendar = caltib.make_engine(accelerated_spec)
+```
+
+This example changes only `C_sun`; it intentionally keeps the selected
+mean-elongation coefficient, solar-amplitude drift, Picard seed, fixed
+iteration counts, epoch and locale unchanged. A community adopting a
+different dynamical model must assess the **solar and elongation coefficients
+together** and publish its complete parameter profile. Enabling `C_sun`
+can change month assignments and civil dates, especially far from the epoch;
+the example is not a revised default or a historically adopted standard.
+`caltib.get_calendar("l5")` remains unchanged.
+
+
 ## 4. The Civil Calendar Generator
 
 The highest layer of the architecture bridges continuous math into discrete human reality. The Civil Calendar Generator evaluates the true physical time of a syzygy (the moon phase) against the local physical time of sunrise.
